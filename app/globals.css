@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-dark-950 text-gray-100;
+  }
+
+  /* Focus visible pour l'accessibilité */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary-500;
+  }
+}
+
+@layer components {
+  .section-container {
+    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-title {
+    @apply text-3xl sm:text-4xl font-bold text-white mb-4;
+  }
+
+  .section-subtitle {
+    @apply text-gray-400 text-lg mb-12;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-6 py-3 bg-primary-600 text-white font-medium rounded-lg
+           hover:bg-primary-700 focus:ring-4 focus:ring-primary-500/50 transition-all duration-200;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-6 py-3 border border-primary-500 text-primary-400 font-medium rounded-lg
+           hover:bg-primary-500/10 focus:ring-4 focus:ring-primary-500/50 transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-dark-900 border border-dark-800 rounded-xl p-6 hover:border-primary-500/50 transition-all duration-300;
+  }
+
+  .skill-tag {
+    @apply px-3 py-1.5 bg-dark-800 text-gray-300 rounded-lg text-sm font-medium
+           hover:bg-primary-500/20 hover:text-primary-400 transition-colors;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent;
+  }
+}
