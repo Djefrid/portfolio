@@ -56,9 +56,10 @@ export const personalInfo: PersonalInfo = {
 
 export const aboutInfo: AboutInfo = {
   paragraphs: [
-    "Diplômé d'un DEC en informatique, je suis passionné par le développement web et les technologies modernes. Mon parcours m'a permis d'acquérir une solide base en programmation et une méthodologie de travail rigoureuse.",
-    "Durant mon stage en développement web, j'ai eu l'opportunité de travailler sur des projets concrets utilisant Django et Vue.js, renforçant ainsi mes compétences en développement full-stack.",
-    "Je m'intéresse particulièrement à la qualité du code, aux bonnes pratiques de développement et à l'architecture logicielle. Je cherche continuellement à améliorer mes compétences et à apprendre de nouvelles technologies."
+    "Diplômé d’un DEC en technique de l’informatique, je possède un profil polyvalent combinant le développement web et les compétences techniques en informatique et systèmes. Mon parcours m’a permis d’acquérir une base solide en programmation, en gestion des environnements informatiques et une méthodologie de travail rigoureuse.",
+    "Lors de mon stage en développement web, j’ai travaillé sur des projets concrets en PHP avec phpMyAdmin, incluant la manipulation de bases de données et la mise à jour de fonctionnalités existantes. J’ai également conçu et configuré un environnement de développement local complet (serveur web, base de données, outils de développement) afin de tester, valider et visualiser mes travaux efficacement.",
+    "En tant que technicien en informatique, je maîtrise l’installation, la configuration et la maintenance d’environnements Windows et Linux, l’utilisation de machines virtuelles, ainsi que les bases des services réseau et des outils collaboratifs.",
+    "Je m’intéresse particulièrement à la qualité du code, aux bonnes pratiques de développement, à l’architecture logicielle et à la stabilité des environnements. Curieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu’en infrastructure informatique."
   ],
   highlights: [
     "Formation DEC en informatique",
