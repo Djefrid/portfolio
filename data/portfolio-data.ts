@@ -2,7 +2,7 @@ import type { PersonalInfo, AboutInfo, Project, SkillCategory } from '@/types';
 
 export const personalInfo: PersonalInfo = {
   name: "Djefrid Byli Fotue Kuate",
-  title: "Développeur Web / Full-Stack Junior",
+  title: "Développeur Web / Full-Stack Junior et Technicien en Informatique",
   stack: ["Django", "Vue.js", "React", "Next.js"],
   email: "djeffkuate@gmail.com",
   github: "https://github.com/votre-username",
