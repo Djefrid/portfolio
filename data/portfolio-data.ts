@@ -62,10 +62,10 @@ export const aboutInfo: AboutInfo = {
     "Je m’intéresse particulièrement à la qualité du code, aux bonnes pratiques de développement, à l’architecture logicielle et à la stabilité des environnements. Curieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu’en infrastructure informatique."
   ],
   highlights: [
-    "Formation DEC en informatique",
-    "Stage en développement web",
-    "Passion pour le full-stack",
-    "Focus sur la qualité et les bonnes pratiques"
+    "DEC en informatique – programmation & systèmes.",
+    "Stage en développement web avec bases de données et environnement local.",
+    "Orientation full-stack, vision globale du projet.",
+    "Qualité du code, bonnes pratiques et rigueur technique."
   ]
 };
 
