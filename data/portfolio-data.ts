@@ -3,12 +3,56 @@ import type { PersonalInfo, AboutInfo, Project, SkillCategory } from '@/types';
 export const personalInfo: PersonalInfo = {
   name: "Djefrid Byli Fotue Kuate",
   title: "Développeur Web / Full-Stack Junior et Technicien en Informatique",
-  stack: ["Django", "Vue.js", "React", "Next.js"],
+  stack: [
+    // Frontend
+    "HTML",
+    "CSS",
+    "JavaScript",
+    "Vue.js",
+    "React",
+    "Next.js",
+    "Tailwind CSS",
+    "Bootstrap",
+
+    // Backend
+    "Django",
+    "Django REST Framework",
+    ".NET",
+    "ASP.NET Core",
+
+    // Bases de données
+    "PostgreSQL",
+    "MySQL",
+    "SQL",
+    "Firestore",
+
+    // Authentification
+    "Firebase Authentication",
+
+    // DevOps / Systèmes
+    "Docker",
+    "Git",
+    "GitHub",
+    "GitHub Actions",
+    "Linux (Ubuntu, Debian)",
+    "Proxmox",
+    "VMware",
+
+    // Outils & Méthodologies
+    "Postman",
+    "VS Code",
+    "Azure DevOps",
+    "Jira",
+    "Agile",
+    "Scrum",
+    "UML"
+  ],
   email: "djeffkuate@gmail.com",
-  github: "https://github.com/votre-username",
+  github: "https://github.com/Djefrid",
   linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
   cvUrl: "/cv.pdf"
 };
+
 
 export const aboutInfo: AboutInfo = {
   paragraphs: [
