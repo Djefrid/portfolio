@@ -50,7 +50,7 @@ export const personalInfo: PersonalInfo = {
   email: "djeffkuate@gmail.com",
   github: "https://github.com/Djefrid",
   linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
-  cvUrl: "C:\Users\djeff\portfolio\documents\Copie de CVDJEFRID 2.pdf"
+  cvUrl: "/Copie de CVDJEFRID 2.pdf"
 };
 
 
