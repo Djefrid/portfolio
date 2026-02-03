@@ -21,7 +21,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
       </div>
 
       {/* Description */}
-      <p className="text-gray-400 mb-4">{project.description}</p>
+      <p className="text-gray-400 mb-4 text-justify">{project.description}</p>
       <p className="text-gray-300 text-sm mb-6 text-justify">{project.longDescription}</p>
 
       {/* Stack */}
