@@ -70,73 +70,41 @@ export const aboutInfo: AboutInfo = {
 };
 
 export const projects: Project[] = [
-  {
-    id: "projet-fullstack",
-    title: "Application Full-Stack Django + Vue.js",
-    description: "Application web complète avec authentification, CRUD et API REST.",
-    longDescription: "Une application full-stack moderne démontrant mes compétences en développement backend et frontend. L'architecture suit les meilleures pratiques avec une séparation claire des responsabilités.",
-    stack: ["Django", "Django REST Framework", "Vue.js", "PostgreSQL", "Docker"],
+   {
+    id: "facttrack-saas",
+    title: "Facttrack — SaaS de gestion de factures (Django DRF + Vue 3)",
+    description:
+      "SaaS de facturation avec gestion clients, création/gestion de factures, génération PDF et envoi email.",
+    longDescription:
+      "Facttrack est une application full-stack orientée SaaS pour créer, gérer et envoyer des factures. Le backend est construit avec Django REST Framework (API sécurisée JWT), et le frontend avec Vue 3 + Vite + TypeScript. L’interface inclut un tableau de bord, une gestion des clients et des factures, ainsi qu’un flux de création de facture complet (lignes, totaux, statut, aperçu).",
+    stack: [
+      "Django",
+      "Django REST Framework",
+      "Vue 3",
+      "Vite",
+      "TypeScript",
+      "JWT",
+      "SQLite (dev) / PostgreSQL (prod)",
+      "Docker"
+    ],
     features: [
-      "Authentification JWT sécurisée",
-      "API RESTful complète",
-      "Interface utilisateur réactive",
-      "Gestion CRUD des données",
-      "Base de données PostgreSQL",
-      "Conteneurisation Docker"
+      "Authentification JWT (accès API sécurisé)",
+      "Gestion des clients (CRUD)",
+      "Création de factures (lignes, totaux, statuts)",
+      "Génération de facture en PDF",
+      "Envoi de facture par email (mode console en dev + SMTP/SendGrid possible)",
+      "Interface responsive (desktop/mobile)",
+      "Multi-langue FR/EN (i18n) et formats adaptés"
     ],
     challenges: [
-      "Implémentation de l'authentification JWT avec refresh tokens",
-      "Optimisation des requêtes N+1 avec Django ORM",
-      "Gestion du state côté frontend avec Pinia"
+      "Mise en place d’une architecture API propre (DRF + serializers + services)",
+      "Gestion fiable des montants (Decimal côté backend, formatage côté frontend)",
+      "Synchronisation état UI / API (stores, chargement user connecté, erreurs 401)",
+      "Structuration du projet pour un déploiement simple (Docker + environnement)"
     ],
-    githubUrl: "https://github.com/votre-username/projet-fullstack",
-    demoUrl: "https://projet-fullstack-demo.vercel.app",
-    image: "/projects/fullstack.png",
-    featured: true
-  },
-  {
-    id: "app-react-moderne",
-    title: "Application React Moderne",
-    description: "Application web React avec consommation d'API et state management.",
-    longDescription: "Application frontend moderne construite avec React et Next.js, démontrant une maîtrise des concepts avancés de React et des bonnes pratiques de développement.",
-    stack: ["React", "Next.js", "TypeScript", "Tailwind CSS", "React Query"],
-    features: [
-      "Consommation d'API externes",
-      "State management avec React Query",
-      "Design responsive mobile-first",
-      "Typage strict TypeScript",
-      "Optimisation des performances"
-    ],
-    challenges: [
-      "Gestion du cache et de l'invalidation avec React Query",
-      "Implémentation du SSR avec Next.js",
-      "Optimisation du bundle size"
-    ],
-    githubUrl: "https://github.com/votre-username/app-react",
-    demoUrl: "https://app-react-demo.vercel.app",
-    image: "/projects/react-app.png",
-    featured: true
-  },
-  {
-    id: "api-django-docker",
-    title: "API Django Dockerisée avec CI/CD",
-    description: "API REST Django avec pipeline CI/CD et documentation complète.",
-    longDescription: "Projet démontrant mes compétences en DevOps et qualité logicielle. API Django conteneurisée avec tests automatisés et déploiement continu.",
-    stack: ["Django", "Django REST Framework", "Docker", "GitHub Actions", "PostgreSQL"],
-    features: [
-      "API RESTful documentée avec Swagger",
-      "Conteneurisation Docker complète",
-      "Pipeline CI/CD avec GitHub Actions",
-      "Tests unitaires et d'intégration",
-      "Linting et formatage automatique"
-    ],
-    challenges: [
-      "Configuration du multi-stage Docker build",
-      "Mise en place des tests automatisés dans la CI",
-      "Gestion des variables d'environnement sécurisées"
-    ],
-    githubUrl: "https://github.com/votre-username/api-django-docker",
-    image: "/projects/api-docker.png",
+    githubUrl: "https://github.com/Djefrid/facttrack",
+    demoUrl: "https://facttrack.ca",
+    image: "/projects/facttrack.png",
     featured: true
   }
 ];
