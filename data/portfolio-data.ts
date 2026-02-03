@@ -50,7 +50,7 @@ export const personalInfo: PersonalInfo = {
   email: "djeffkuate@gmail.com",
   github: "https://github.com/Djefrid",
   linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
-  cvUrl: "C:\Users\djeff\OneDrive\Documents\Copie de CVDJEFRID 2.pdf"
+  cvUrl: "C:\Users\djeff\portfolio\documents\Copie de CVDJEFRID 2.pdf"
 };
 
 
@@ -113,14 +113,17 @@ export const skills: SkillCategory[] = [
   {
     category: "Frontend",
     skills: [
+      { name: "HTML5" },
+      { name: "CSS3" },
+      { name: "JavaScript" },
+      { name: "TypeScript" },
       { name: "React" },
       { name: "Next.js" },
       { name: "Vue.js" },
-      { name: "TypeScript" },
-      { name: "JavaScript" },
-      { name: "HTML5" },
-      { name: "CSS3" },
-      { name: "Tailwind CSS" }
+      { name: "Bootstrap" },
+      { name: "Tailwind CSS" },
+      { name: "Sass" },
+      { name: "AJAX" }
     ]
   },
   {
@@ -130,6 +133,11 @@ export const skills: SkillCategory[] = [
       { name: "Django REST Framework" },
       { name: "Python" },
       { name: "Node.js" },
+      { name: "PHP" },
+      { name: "C#" },
+      { name: ".NET" },
+      { name: "ASP.NET" },
+      { name: "ASP.NET Core" },
       { name: "API REST" }
     ]
   },
@@ -139,18 +147,66 @@ export const skills: SkillCategory[] = [
       { name: "PostgreSQL" },
       { name: "MySQL" },
       { name: "SQLite" },
-      { name: "Redis" }
+      { name: "SQL" },
+      { name: "phpMyAdmin" },
+      { name: "MySQL Workbench" },
+      { name: "Microsoft SQL Server Management Studio" }
     ]
   },
   {
-    category: "DevOps / Environnement",
+    category: "DevOps / Systèmes",
     skills: [
       { name: "Docker" },
       { name: "Git" },
+      { name: "GitHub" },
       { name: "GitHub Actions" },
-      { name: "Linux" },
       { name: "CI/CD" },
-      { name: "VS Code" }
+      { name: "Linux (Ubuntu, Debian, Alpine)" },
+      { name: "Windows" },
+      { name: "Windows Server" },
+      { name: "Proxmox" },
+      { name: "VMware" }
+    ]
+  },
+  {
+    category: "Réseaux / Serveurs",
+    skills: [
+      { name: "DHCP" },
+      { name: "DNS" },
+      { name: "Active Directory" },
+      { name: "SMB (fichiers & impression)" }
+    ]
+  },
+  {
+    category: "Scripts & Automatisation",
+    skills: [
+      { name: "PowerShell" },
+      { name: "Bash" }
+    ]
+  },
+  {
+    category: "Outils & Méthodologies",
+    skills: [
+      { name: "Postman" },
+      { name: "Visual Studio" },
+      { name: "VS Code" },
+      { name: "Azure DevOps" },
+      { name: "Jira" },
+      { name: "UML" },
+      { name: "Agile" },
+      { name: "Scrum" }
+    ]
+  },
+  {
+    category: "Outils collaboratifs & CMS",
+    skills: [
+      { name: "WordPress" },
+      { name: "GLPI" },
+      { name: "Office 365" },
+      { name: "Microsoft Teams" },
+      { name: "Zoom" },
+      { name: "OneDrive" },
+      { name: "Discord" }
     ]
   }
 ];
