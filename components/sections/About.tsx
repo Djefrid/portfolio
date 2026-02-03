@@ -15,7 +15,7 @@ export default function About() {
 
         <div className="grid md:grid-cols-2 gap-12 items-start">
           {/* Text content */}
-          <div className="space-y-6">
+          <div className="space-y-6 text-justify">
             {about.paragraphs.map((paragraph, index) => (
               <p key={index} className="text-gray-300 leading-relaxed">
                 {paragraph}
