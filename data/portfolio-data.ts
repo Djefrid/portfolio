@@ -1,7 +1,7 @@
 import type { PersonalInfo, AboutInfo, Project, SkillCategory } from '@/types';
 
 export const personalInfo: PersonalInfo = {
-  name: "Djefrid Byli Fotue Kuate",
+  name: "Djefrid Byli",
   title: "Développeur Web / Full-Stack Junior et Technicien en Informatique",
   stack: [
     // Frontend
