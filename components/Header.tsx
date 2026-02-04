@@ -47,7 +47,7 @@ export default function Header() {
             href="#hero"
             className="text-xl font-bold text-white hover:text-primary-400 transition-colors"
           >
-            Portfolio Djefrid
+            Portfolio
           </Link>
 
           {/* Desktop Navigation */}
