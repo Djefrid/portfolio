@@ -95,7 +95,7 @@ export const aboutInfoBilingual = {
       "Diplômé d'un DEC en technique de l'informatique, je possède un profil polyvalent combinant le développement web et les compétences techniques en informatique et systèmes. Mon parcours m'a permis d'acquérir une base solide en programmation, en gestion des environnements informatiques et une méthodologie de travail rigoureuse.\n\nLors de mon stage en développement web, j'ai travaillé sur des projets concrets en PHP avec phpMyAdmin, incluant la manipulation de bases de données et la mise à jour de fonctionnalités existantes. J'ai également conçu et configuré un environnement de développement local complet.\n\nEn tant que technicien en informatique, je maîtrise l'installation, la configuration et la maintenance d'environnements Windows et Linux, l'utilisation de machines virtuelles, ainsi que les bases des services réseau.\n\nCurieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu'en infrastructure informatique."
     ],
     highlights: [
-      "DEC en informatique – programmation & systèmes\nStage en développement web avec bases de données\nOrientation full-stack, vision globale du projet\nQualité du code et bonnes pratiques"
+      "DEC en informatique – programmation & systèmes.\nStage en développement web avec bases de données.\nOrientation full-stack, vision globale du projet.\nQualité du code et bonnes pratiques."
     ]
   },
   en: {
@@ -103,7 +103,7 @@ export const aboutInfoBilingual = {
       "Graduated with a Dec in computer technology, I have a versatile profile combining web development and technical skills in computer science and systems. My background has allowed me to acquire a solid foundation in programming, management of IT environments and a rigorous working methodology. During my internship in web development, I worked on concrete PHP projects with phpMyAdmin, including database manipulation and updating existing features. I also designed and configured a complete local development environment. As an IT technician, I master the installation, configuration and maintenance of Windows and Linux environments, the use of virtual machines, as well as the basics of network services. Curious and motivated, I continually seek to deepen my skills in both development and IT infrastructure."
     ],
     highlights: [
-      "Dec in Computer Science – Programming & Systems\nInternship in web development with databases\nFull-stack orientation, overall vision of the project\nCode quality and best practices"
+      "Dec in Computer Science – Programming & Systems.\nInternship in web development with databases.\nFull-stack orientation, overall vision of the project.\nCode quality and best practices."
     ]
   }
 };
