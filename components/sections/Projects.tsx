@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePortfolio } from "@/context/PortfolioContext";
+import { useLanguage } from "@/context/LanguageContext";
 import type { Project } from "@/types";
 
-function ProjectCard({ project, index }: { project: Project; index: number }) {
+function ProjectCard({ project, index, t }: { project: Project; index: number; t: (key: string) => string }) {
   const badges = ["🥇", "🥈", "🥉"];
   const badge = badges[index] || "";
 
@@ -27,7 +28,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
       {/* Stack */}
       <div className="mb-6">
         <h4 className="text-sm font-medium text-gray-400 mb-2">
-          Stack technique
+          {t('projects.stack')}
         </h4>
         <div className="flex flex-wrap gap-2">
           {project.stack.map((tech) => (
@@ -41,7 +42,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
       {/* Features */}
       <div className="mb-6">
         <h4 className="text-sm font-medium text-gray-400 mb-2">
-          Fonctionnalités
+          {t('projects.features')}
         </h4>
         <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {project.features.map((feature, idx) => (
@@ -68,7 +69,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
       {/* Challenges */}
       <div className="mb-6">
         <h4 className="text-sm font-medium text-gray-400 mb-2">
-          Défis techniques
+          {t('projects.challenges')}
         </h4>
         <ul className="space-y-2">
           {project.challenges.map((challenge, idx) => (
@@ -107,7 +108,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
               clipRule="evenodd"
             />
           </svg>
-          Code source
+          {t('projects.sourceCode')}
         </Link>
         {project.demoUrl && (
           <Link
@@ -129,7 +130,7 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
                 d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
               />
             </svg>
-            Démo live
+            {t('projects.liveDemo')}
           </Link>
         )}
       </div>
@@ -139,18 +140,19 @@ function ProjectCard({ project, index }: { project: Project; index: number }) {
 
 export default function Projects() {
   const { projects } = usePortfolio();
+  const { t } = useLanguage();
 
   return (
     <section id="projects" className="py-20">
       <div className="section-container">
-        <h2 className="section-title text-center">Projets</h2>
+        <h2 className="section-title text-center">{t('projects.title')}</h2>
         <p className="section-subtitle text-center">
-          Découvrez mes réalisations techniques
+          {t('projects.subtitle')}
         </p>
 
         <div className="grid gap-8 md:grid-cols-1 lg:grid-cols-1">
           {projects.map((project, index) => (
-            <ProjectCard key={project.id} project={project} index={index} />
+            <ProjectCard key={project.id} project={project} index={index} t={t} />
           ))}
         </div>
       </div>

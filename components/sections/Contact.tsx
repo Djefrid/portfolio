@@ -2,16 +2,18 @@
 
 import Link from "next/link";
 import { usePortfolio } from "@/context/PortfolioContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Contact() {
   const { profile } = usePortfolio();
+  const { t } = useLanguage();
 
   return (
     <section id="contact" className="py-20">
       <div className="section-container">
-        <h2 className="section-title text-center">Contact</h2>
+        <h2 className="section-title text-center">{t('contact.title')}</h2>
         <p className="section-subtitle text-center">
-          Intéressé par mon profil ? Contactez-moi !
+          {t('contact.subtitle')}
         </p>
 
         <div className="max-w-2xl mx-auto">
@@ -36,7 +38,7 @@ export default function Contact() {
                   />
                 </svg>
               </div>
-              <h3 className="text-white font-medium mb-2">Email</h3>
+              <h3 className="text-white font-medium mb-2">{t('contact.email')}</h3>
               <p className="text-gray-400 text-sm break-all">
                 {profile.email}
               </p>
@@ -63,7 +65,7 @@ export default function Contact() {
                 </svg>
               </div>
               <h3 className="text-white font-medium mb-2">GitHub</h3>
-              <p className="text-gray-400 text-sm">Voir mes projets</p>
+              <p className="text-gray-400 text-sm">{t('contact.github')}</p>
             </Link>
 
             {/* LinkedIn */}
@@ -83,7 +85,7 @@ export default function Contact() {
                 </svg>
               </div>
               <h3 className="text-white font-medium mb-2">LinkedIn</h3>
-              <p className="text-gray-400 text-sm">Mon profil professionnel</p>
+              <p className="text-gray-400 text-sm">{t('contact.linkedin')}</p>
             </Link>
           </div>
         </div>

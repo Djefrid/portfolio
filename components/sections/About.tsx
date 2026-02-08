@@ -1,16 +1,18 @@
 "use client";
 
 import { usePortfolio } from "@/context/PortfolioContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function About() {
   const { about } = usePortfolio();
+  const { t } = useLanguage();
 
   return (
     <section id="about" className="py-20 bg-dark-900">
       <div className="section-container">
-        <h2 className="section-title text-center">À propos</h2>
+        <h2 className="section-title text-center">{t('about.title')}</h2>
         <p className="section-subtitle text-center">
-          Mon parcours et mes motivations
+          {t('about.subtitle')}
         </p>
 
         <div className="grid md:grid-cols-2 gap-12 items-start">
@@ -26,7 +28,7 @@ export default function About() {
           {/* Highlights */}
           <div className="bg-dark-800 rounded-xl p-6 border border-dark-700">
             <h3 className="text-xl font-semibold text-white mb-6">
-              Points clés
+              {t('about.highlights')}
             </h3>
             <ul className="space-y-4">
               {about.highlights.map((highlight, index) => (

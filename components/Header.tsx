@@ -2,18 +2,20 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-
-const navLinks = [
-  { href: "#hero", label: "Accueil" },
-  { href: "#about", label: "À propos" },
-  { href: "#projects", label: "Projets" },
-  { href: "#skills", label: "Compétences" },
-  { href: "#contact", label: "Contact" },
-];
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Header() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { language, setLanguage, t } = useLanguage();
+
+  const navLinks = [
+    { href: "#hero", label: t('nav.home') },
+    { href: "#about", label: t('nav.about') },
+    { href: "#projects", label: t('nav.projects') },
+    { href: "#skills", label: t('nav.skills') },
+    { href: "#contact", label: t('nav.contact') },
+  ];
 
   useEffect(() => {
     const handleScroll = () => {
@@ -51,50 +53,110 @@ export default function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <ul className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className="text-gray-300 hover:text-primary-400 transition-colors font-medium"
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <div className="hidden md:flex items-center gap-8">
+            <ul className="flex items-center gap-8">
+              {navLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="text-gray-300 hover:text-primary-400 transition-colors font-medium"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+
+            {/* Language Switcher */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setLanguage('fr')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  language === 'fr'
+                    ? 'bg-primary-500 text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                aria-label="Français"
+              >
+                FR
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  language === 'en'
+                    ? 'bg-primary-500 text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                aria-label="English"
+              >
+                EN
+              </button>
+            </div>
+          </div>
 
           {/* Mobile Menu Button */}
-          <button
-            type="button"
-            className="md:hidden p-2 text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg"
-            onClick={toggleMobileMenu}
-            aria-expanded={isMobileMenuOpen}
-            aria-label="Menu de navigation"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex items-center gap-4 md:hidden">
+            {/* Mobile Language Switcher */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setLanguage('fr')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  language === 'fr'
+                    ? 'bg-primary-500 text-white'
+                    : 'text-gray-400'
+                }`}
+                aria-label="Français"
+              >
+                FR
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                  language === 'en'
+                    ? 'bg-primary-500 text-white'
+                    : 'text-gray-400'
+                }`}
+                aria-label="English"
+              >
+                EN
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className="p-2 text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 rounded-lg"
+              onClick={toggleMobileMenu}
+              aria-expanded={isMobileMenuOpen}
+              aria-label="Menu de navigation"
             >
-              {isMobileMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {isMobileMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}

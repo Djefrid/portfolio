@@ -1,17 +1,19 @@
 # Portfolio - Développeur Web Full-Stack Junior
 
-Portfolio professionnel présentant mes compétences, projets et parcours en développement web.
+Portfolio professionnel bilingue (FR/EN) présentant mes compétences, projets et parcours en développement web.
 
-## Description
+## Fonctionnalités
 
-Ce portfolio est une application web moderne développée avec Next.js 14 et TypeScript. Il présente :
-
+- **Bilingue** : Support français/anglais avec traduction automatique
 - **Hero** : Présentation avec nom, titre, stack technique et liens sociaux
 - **À propos** : Parcours professionnel et points clés
-- **Projets** : 3 projets détaillés avec stack, fonctionnalités et défis techniques
+- **Projets** : Projets détaillés avec stack, fonctionnalités et défis techniques
 - **Compétences** : Technologies maîtrisées par catégorie (Frontend, Backend, BDD, DevOps)
 - **Contact** : Liens de contact (Email, GitHub, LinkedIn)
-- **Admin** : Interface d'administration privée pour modifier le contenu en temps réel
+- **Admin** : Interface d'administration privée avec :
+  - Édition en français uniquement (traduction anglaise automatique)
+  - Synchronisation temps réel Firebase + fichier local
+  - Header séparé de la page publique
 
 ## Stack Technique
 
@@ -21,6 +23,7 @@ Ce portfolio est une application web moderne développée avec Next.js 14 et Typ
 | Langage | TypeScript 5 |
 | Styling | Tailwind CSS 3.4 |
 | Backend | Firebase (Auth + Firestore) |
+| Traduction | MyMemory API (automatique) |
 | Linting | ESLint |
 | Déploiement | Vercel (recommandé) |
 
@@ -113,12 +116,17 @@ Dans Firebase Console > Authentication > Users > Add user
 
 Accéder à `/admin` pour :
 
-- Modifier le profil (nom, titre, liens)
-- Modifier la section À propos
-- Gérer les projets (CRUD)
-- Modifier les compétences
+- **Profil** : Modifier nom, titre, liens (édition en français, traduction auto en anglais)
+- **À propos** : Modifier paragraphes et points clés
+- **Projets** : Gérer les projets (CRUD) avec traduction automatique
+- **Compétences** : Modifier les compétences par catégorie
 
-Les changements sont **instantanés** grâce aux listeners temps réel Firestore.
+### Fonctionnement de la synchronisation
+
+Lors de l'enregistrement dans l'admin :
+1. Les données sont automatiquement traduites (FR → EN)
+2. Sauvegarde dans Firebase Firestore
+3. Synchronisation dans `data/portfolio-data.ts` (fichier local)
 
 ## Commandes
 
@@ -133,41 +141,54 @@ Les changements sont **instantanés** grâce aux listeners temps réel Firestore
 
 ```
 portfolio/
-├── app/                    # App Router Next.js
-│   ├── layout.tsx          # Layout principal avec SEO
-│   ├── page.tsx            # Page d'accueil
-│   ├── globals.css         # Styles globaux Tailwind
-│   └── admin/              # Pages administration
-│       ├── layout.tsx      # Layout admin avec auth
-│       ├── page.tsx        # Dashboard admin
-│       └── login/
-│           └── page.tsx    # Page de connexion
-├── components/             # Composants React
-│   ├── Header.tsx          # Navigation responsive
-│   ├── Footer.tsx          # Pied de page
-│   ├── PortfolioWrapper.tsx # Wrapper avec contexte
-│   ├── sections/           # Sections du portfolio
-│   └── admin/              # Composants admin
+├── app/                      # App Router Next.js
+│   ├── layout.tsx            # Layout racine (Providers)
+│   ├── globals.css           # Styles globaux Tailwind
+│   ├── (main)/               # Route group site public
+│   │   ├── layout.tsx        # Layout avec Header/Footer
+│   │   └── page.tsx          # Page d'accueil
+│   ├── admin/                # Pages administration
+│   │   ├── layout.tsx        # Layout admin (sans Header public)
+│   │   ├── page.tsx          # Dashboard admin
+│   │   └── login/page.tsx    # Page de connexion
+│   └── api/                  # API Routes
+│       ├── sync-data/        # Sync Firebase → fichier local
+│       └── translate/        # Traduction automatique FR↔EN
+├── components/               # Composants React
+│   ├── Header.tsx            # Navigation responsive (site public)
+│   ├── Footer.tsx            # Pied de page
+│   ├── PortfolioWrapper.tsx  # Wrapper avec contexte
+│   ├── Providers.tsx         # Providers (Auth, Language)
+│   ├── sections/             # Sections du portfolio
+│   │   ├── Hero.tsx
+│   │   ├── About.tsx
+│   │   ├── Projects.tsx
+│   │   ├── Skills.tsx
+│   │   └── Contact.tsx
+│   └── admin/                # Composants admin
+│       ├── AdminHeader.tsx   # Header admin séparé
 │       ├── ProfileEditor.tsx
 │       ├── ProjectsEditor.tsx
 │       └── SkillsEditor.tsx
-├── lib/                    # Bibliothèques
-│   └── firebase/           # Configuration Firebase
-│       ├── config.ts       # Init Firebase
-│       ├── hooks.ts        # Hook useAuth
-│       ├── context.tsx     # AuthProvider
-│       └── firestore.ts    # CRUD Firestore
-├── hooks/                  # Hooks React
-│   └── usePortfolioData.ts # Données portfolio
-├── context/                # Contextes React
-│   └── PortfolioContext.tsx
-├── data/                   # Données statiques (fallback)
-│   └── portfolio-data.ts
-├── types/                  # Types TypeScript
+├── lib/                      # Bibliothèques
+│   └── firebase/             # Configuration Firebase
+│       ├── config.ts         # Init Firebase
+│       ├── hooks.ts          # Hook useAuth
+│       ├── context.tsx       # AuthProvider
+│       └── firestore.ts      # CRUD Firestore
+├── hooks/                    # Hooks React
+│   └── usePortfolioData.ts   # Données portfolio
+├── context/                  # Contextes React
+│   ├── PortfolioContext.tsx
+│   └── LanguageContext.tsx   # Contexte langue FR/EN
+├── data/                     # Données statiques/sync
+│   └── portfolio-data.ts     # Données bilingues (fallback + sync)
+├── types/                    # Types TypeScript
 │   ├── index.ts
-│   └── firebase.ts
-├── public/                 # Fichiers statiques
-│   └── favicon.svg
+│   └── firebase.ts           # Types bilingues
+├── public/                   # Fichiers statiques
+│   ├── favicon.svg
+│   └── *.pdf                 # CV
 └── package.json
 ```
 
@@ -180,27 +201,39 @@ portfolio/
 ### Mode dynamique (avec Firebase)
 
 Utiliser l'interface `/admin` pour modifier le contenu en temps réel.
+Les modifications sont synchronisées automatiquement dans le fichier local.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  Frontend (Next.js)             │
-├─────────────────────────────────────────────────┤
-│  Portfolio public    │    Admin privé (/admin)  │
-│  - Lit Firestore     │    - Login Firebase      │
-│  - Fallback static   │    - CRUD contenu        │
-└─────────────────────────────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│                    Firebase                     │
-├─────────────────────────────────────────────────┤
-│  Authentication      │    Firestore             │
-│  - Email/password    │    - settings/profile    │
-│  - 1 admin seul      │    - settings/skills     │
-│                      │    - projects/           │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js 14)                    │
+├─────────────────────────────────────────────────────────────┤
+│  Site public (FR/EN)      │     Admin privé (/admin)        │
+│  - Header avec nav         │    - Header admin séparé        │
+│  - Lit Firestore/local    │    - Login Firebase             │
+│  - Changement de langue   │    - Édition FR uniquement      │
+│  - Fallback statique      │    - Traduction auto → EN       │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                 API Routes (Next.js)                        │
+├─────────────────────────────────────────────────────────────┤
+│  /api/translate           │    /api/sync-data               │
+│  - MyMemory API           │    - Sync Firebase → fichier    │
+│  - FR ↔ EN automatique    │    - portfolio-data.ts          │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────────────────────────────┐
+│                        Firebase                             │
+├─────────────────────────────────────────────────────────────┤
+│  Authentication           │         Firestore               │
+│  - Email/password         │    - settings/profile           │
+│  - 1 admin seul           │    - settings/skills            │
+│                           │    - projects/ (bilingue)       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ## Sécurité

@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import Providers from "@/components/Providers";
 
 export const metadata: Metadata = {
   title: "Portfolio - Développeur Web Full-Stack Junior",
   description: "Portfolio de développeur web full-stack junior spécialisé en Django, Vue.js, React et Next.js. Découvrez mes projets et compétences.",
   keywords: ["développeur web", "full-stack", "Django", "Vue.js", "React", "Next.js", "portfolio"],
-  authors: [{ name: "Votre Nom" }],
+  authors: [{ name: "Djeff Kuate" }],
   icons: {
     icon: "/favicon.svg",
   },
@@ -35,9 +34,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans bg-dark-950 text-white antialiased">
-        <Header />
-        <main>{children}</main>
-        <Footer />
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

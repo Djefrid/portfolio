@@ -1,7 +1,12 @@
+"use client";
+
 import Link from "next/link";
-import { personalInfo } from "@/data/portfolio-data";
+import { usePortfolio } from "@/context/PortfolioContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Footer() {
+  const { profile } = usePortfolio();
+  const { t } = useLanguage();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -10,13 +15,13 @@ export default function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Copyright */}
           <p className="text-gray-400 text-sm">
-            &copy; {currentYear} {personalInfo.name}. Tous droits réservés.
+            &copy; {currentYear} {profile.name}. {t('footer.rights')}
           </p>
 
           {/* Social Links */}
           <div className="flex items-center gap-6">
             <Link
-              href={personalInfo.github}
+              href={profile.github}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-primary-400 transition-colors"
@@ -35,7 +40,7 @@ export default function Footer() {
               </svg>
             </Link>
             <Link
-              href={personalInfo.linkedin}
+              href={profile.linkedin}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-400 hover:text-primary-400 transition-colors"
@@ -50,7 +55,7 @@ export default function Footer() {
               </svg>
             </Link>
             <Link
-              href={`mailto:${personalInfo.email}`}
+              href={`mailto:${profile.email}`}
               className="text-gray-400 hover:text-primary-400 transition-colors"
               aria-label="Email"
             >

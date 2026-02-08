@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePortfolio } from "@/context/PortfolioContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Hero() {
   const { profile } = usePortfolio();
+  const { t } = useLanguage();
 
   return (
     <section
@@ -89,13 +91,13 @@ export default function Hero() {
                 d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
               />
             </svg>
-            Télécharger CV
+            {t('hero.downloadCV')}
           </Link>
         </div>
 
         {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce hidden md:block">
-          <Link href="#about" aria-label="Défiler vers la section À propos">
+          <Link href="#about" aria-label={t('hero.scrollDown')}>
             <svg
               className="w-6 h-6 text-gray-400"
               fill="none"

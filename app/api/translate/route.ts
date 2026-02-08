@@ -1,0 +1,222 @@
+import { NextRequest, NextResponse } from 'next/server';
+
+// Use MyMemory Translation API (free, no API key required for limited usage)
+const MYMEMORY_API = 'https://api.mymemory.translated.net/get';
+
+interface TranslationResult {
+  translatedText: string;
+  success: boolean;
+}
+
+// Split text into chunks of max 450 characters (leaving margin for encoding)
+function splitTextIntoChunks(text: string, maxLength: number = 450): string[] {
+  if (text.length <= maxLength) {
+    return [text];
+  }
+
+  const chunks: string[] = [];
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  let currentChunk = '';
+
+  for (const sentence of sentences) {
+    if (currentChunk.length + sentence.length + 1 <= maxLength) {
+      currentChunk += (currentChunk ? ' ' : '') + sentence;
+    } else {
+      if (currentChunk) {
+        chunks.push(currentChunk);
+      }
+      // If single sentence is too long, split by newlines or just chunk it
+      if (sentence.length > maxLength) {
+        const parts = sentence.split('\n');
+        for (const part of parts) {
+          if (part.length <= maxLength) {
+            chunks.push(part);
+          } else {
+            // Force split long text
+            for (let i = 0; i < part.length; i += maxLength) {
+              chunks.push(part.substring(i, i + maxLength));
+            }
+          }
+        }
+        currentChunk = '';
+      } else {
+        currentChunk = sentence;
+      }
+    }
+  }
+
+  if (currentChunk) {
+    chunks.push(currentChunk);
+  }
+
+  return chunks.length > 0 ? chunks : [text.substring(0, maxLength)];
+}
+
+async function translateSingleChunk(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string> {
+  if (!text || text.trim() === '') {
+    return '';
+  }
+
+  try {
+    const langPair = `${from}|${to}`;
+    const url = `${MYMEMORY_API}?q=${encodeURIComponent(text)}&langpair=${langPair}`;
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.responseStatus === 200 && data.responseData?.translatedText) {
+      return data.responseData.translatedText;
+    }
+
+    console.error('Translation API response:', data);
+    return text; // Return original if failed
+  } catch (error) {
+    console.error('Translation chunk error:', error);
+    return text;
+  }
+}
+
+async function translateText(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): Promise<TranslationResult> {
+  if (!text || text.trim() === '') {
+    return { translatedText: '', success: true };
+  }
+
+  try {
+    // Split long text into chunks
+    const chunks = splitTextIntoChunks(text);
+
+    // Translate each chunk with small delay to avoid rate limiting
+    const translatedChunks: string[] = [];
+    for (const chunk of chunks) {
+      const translated = await translateSingleChunk(chunk, from, to);
+      translatedChunks.push(translated);
+      // Small delay between requests to avoid rate limiting
+      if (chunks.length > 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    }
+
+    return {
+      translatedText: translatedChunks.join(' '),
+      success: true,
+    };
+  } catch (error) {
+    console.error('Translation error:', error);
+    return { translatedText: text, success: false };
+  }
+}
+
+async function translateArray(arr: string[], from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string[]> {
+  const results = await Promise.all(
+    arr.map(async (item) => {
+      const result = await translateText(item, from, to);
+      return result.translatedText;
+    })
+  );
+  return results;
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { type, data, sourceLang } = body;
+
+    if (!sourceLang || (sourceLang !== 'fr' && sourceLang !== 'en')) {
+      return NextResponse.json({ error: 'Invalid source language' }, { status: 400 });
+    }
+
+    const targetLang = sourceLang === 'fr' ? 'en' : 'fr';
+
+    if (type === 'profile') {
+      // Translate profile data
+      const profile = data;
+
+      // Translate title
+      const translatedTitle = await translateText(
+        profile.title[sourceLang],
+        sourceLang,
+        targetLang
+      );
+      profile.title[targetLang] = translatedTitle.translatedText;
+
+      // Translate about paragraphs
+      if (profile.about?.paragraphs) {
+        const sourceParagraphs = profile.about.paragraphs[sourceLang] || [];
+        profile.about.paragraphs[targetLang] = await translateArray(
+          sourceParagraphs,
+          sourceLang,
+          targetLang
+        );
+      }
+
+      // Translate about highlights
+      if (profile.about?.highlights) {
+        const sourceHighlights = profile.about.highlights[sourceLang] || [];
+        profile.about.highlights[targetLang] = await translateArray(
+          sourceHighlights,
+          sourceLang,
+          targetLang
+        );
+      }
+
+      return NextResponse.json({ success: true, data: profile });
+    } else if (type === 'project') {
+      // Translate a single project
+      const project = data;
+
+      // Translate title
+      const translatedTitle = await translateText(
+        project.title[sourceLang],
+        sourceLang,
+        targetLang
+      );
+      project.title[targetLang] = translatedTitle.translatedText;
+
+      // Translate description
+      const translatedDesc = await translateText(
+        project.description[sourceLang],
+        sourceLang,
+        targetLang
+      );
+      project.description[targetLang] = translatedDesc.translatedText;
+
+      // Translate long description
+      const translatedLongDesc = await translateText(
+        project.longDescription[sourceLang],
+        sourceLang,
+        targetLang
+      );
+      project.longDescription[targetLang] = translatedLongDesc.translatedText;
+
+      // Translate features
+      if (project.features) {
+        const sourceFeatures = project.features[sourceLang] || [];
+        project.features[targetLang] = await translateArray(
+          sourceFeatures,
+          sourceLang,
+          targetLang
+        );
+      }
+
+      // Translate challenges
+      if (project.challenges) {
+        const sourceChallenges = project.challenges[sourceLang] || [];
+        project.challenges[targetLang] = await translateArray(
+          sourceChallenges,
+          sourceLang,
+          targetLang
+        );
+      }
+
+      return NextResponse.json({ success: true, data: project });
+    }
+
+    return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+  } catch (error) {
+    console.error('Translation API error:', error);
+    return NextResponse.json(
+      { error: 'Translation failed', details: String(error) },
+      { status: 500 }
+    );
+  }
+}

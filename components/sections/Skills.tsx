@@ -1,16 +1,18 @@
 "use client";
 
 import { usePortfolio } from "@/context/PortfolioContext";
+import { useLanguage } from "@/context/LanguageContext";
 
 export default function Skills() {
   const { skills } = usePortfolio();
+  const { t } = useLanguage();
 
   return (
     <section id="skills" className="py-20 bg-dark-900">
       <div className="section-container">
-        <h2 className="section-title text-center">Compétences</h2>
+        <h2 className="section-title text-center">{t('skills.title')}</h2>
         <p className="section-subtitle text-center">
-          Technologies et outils que je maîtrise
+          {t('skills.subtitle')}
         </p>
 
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,6 +1,33 @@
 // Types pour Firestore
 
+// Bilingual text fields
+export interface BilingualText {
+  fr: string;
+  en: string;
+}
+
+export interface BilingualArray {
+  fr: string[];
+  en: string[];
+}
+
+// Profile with bilingual support
 export interface ProfileData {
+  name: string; // Name is the same in both languages
+  title: BilingualText;
+  stack: string[]; // Technical stack is the same in both languages
+  email: string;
+  github: string;
+  linkedin: string;
+  cvUrl: string;
+  about: {
+    paragraphs: BilingualArray;
+    highlights: BilingualArray;
+  };
+}
+
+// Legacy profile format (for backward compatibility)
+export interface ProfileDataLegacy {
   name: string;
   title: string;
   stack: string[];
@@ -14,7 +41,25 @@ export interface ProfileData {
   };
 }
 
+// Project with bilingual support
 export interface ProjectData {
+  id?: string;
+  title: BilingualText;
+  description: BilingualText;
+  longDescription: BilingualText;
+  stack: string[]; // Technical stack is the same in both languages
+  features: BilingualArray;
+  challenges: BilingualArray;
+  githubUrl: string;
+  demoUrl?: string;
+  image: string;
+  featured: boolean;
+  order: number;
+  published: boolean;
+}
+
+// Legacy project format (for backward compatibility)
+export interface ProjectDataLegacy {
   id?: string;
   title: string;
   description: string;
@@ -30,15 +75,32 @@ export interface ProjectData {
   published: boolean;
 }
 
+// Skills with bilingual category labels
 export interface SkillsData {
   frontend: string[];
   backend: string[];
   databases: string[];
   devops: string[];
+  networks: string[];
+  scripts: string[];
+  tools: string[];
+  collaboration: string[];
 }
 
 export interface PortfolioData {
   profile: ProfileData;
   projects: ProjectData[];
   skills: SkillsData;
+}
+
+// Helper to check if data is in new bilingual format
+export function isBilingualText(value: unknown): value is BilingualText {
+  return typeof value === 'object' && value !== null && 'fr' in value && 'en' in value;
+}
+
+export function isBilingualArray(value: unknown): value is BilingualArray {
+  return typeof value === 'object' && value !== null &&
+    'fr' in value && 'en' in value &&
+    Array.isArray((value as BilingualArray).fr) &&
+    Array.isArray((value as BilingualArray).en);
 }
