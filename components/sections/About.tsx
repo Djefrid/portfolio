@@ -3,6 +3,14 @@
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useLanguage } from "@/context/LanguageContext";
 
+// Function to normalize and add double line breaks after periods (sentences)
+function formatWithLineBreaks(text: string): string {
+  // Normalize: replace all types of line breaks and multiple spaces with single space
+  let normalized = text.replace(/\r\n/g, ' ').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  // Add double line breaks after periods (sentence endings) for better readability
+  return normalized.replace(/\.\s+/g, '.\n\n');
+}
+
 export default function About() {
   const { about } = usePortfolio();
   const { t } = useLanguage();
@@ -19,8 +27,8 @@ export default function About() {
           {/* Text content */}
           <div className="space-y-6 text-justify">
             {about.paragraphs.map((paragraph, index) => (
-              <p key={index} className="text-gray-300 leading-relaxed whitespace-pre-line">
-                {paragraph}
+              <p key={index} className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                {formatWithLineBreaks(paragraph)}
               </p>
             ))}
           </div>
@@ -32,7 +40,7 @@ export default function About() {
             </h3>
             <ul className="space-y-4">
               {about.highlights
-                .flatMap((highlight) => highlight.split('\n'))
+                .flatMap((highlight) => formatWithLineBreaks(highlight).split('\n'))
                 .filter((line) => line.trim() !== '')
                 .map((line, index) => (
                   <li key={index} className="flex items-start gap-3">

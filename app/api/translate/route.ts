@@ -96,8 +96,13 @@ async function translateText(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): 
       }
     }
 
+    // Join chunks and add line breaks after periods (sentence endings)
+    let result = translatedChunks.join(' ');
+    // Replace ". " (period + space) with ".\n" to create line breaks after each sentence
+    result = result.replace(/\.\s+/g, '.\n');
+
     return {
-      translatedText: translatedChunks.join(' '),
+      translatedText: result,
       success: true,
     };
   } catch (error) {
