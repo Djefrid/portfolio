@@ -65,7 +65,20 @@ async function translateSingleChunk(text: string, from: 'fr' | 'en', to: 'fr' | 
     const data = await response.json();
 
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      return data.responseData.translatedText;
+      let translated = data.responseData.translatedText;
+      // Clean up HTML tags that MyMemory sometimes adds
+      translated = translated.replace(/<[^>]*>/g, '');
+      // Decode common HTML entities
+      translated = translated
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ');
+      // Remove any remaining HTML-like artifacts
+      translated = translated.replace(/<[^>]*>/g, '').trim();
+      return translated;
     }
 
     console.error('Translation API response:', data);

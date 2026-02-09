@@ -80,7 +80,7 @@ function toFirebaseFormat(state: ProjectEditorState): ProjectData {
     image: state.image,
     featured: state.featured,
     order: state.order,
-    published: state.published,
+    published: state.published !== false, // Ensure boolean, default true if undefined
   };
 }
 
