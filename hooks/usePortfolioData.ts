@@ -251,12 +251,11 @@ export function usePortfolioData(): PortfolioData {
       }
     : staticAbout;
 
-  // For projects: use static bilingual data (portfolio-data.ts has proper translations)
-  // Only override if Firebase has bilingual project data
-  const hasFirebaseBilingualProjects = firebaseProjects && firebaseProjects.length > 0 &&
-    firebaseProjects[0] && isBilingual(firebaseProjects[0].title);
+  // For projects: always use Firebase data when available (Firebase is the source of truth)
+  // Static data (portfolio-data.ts) is only used as fallback when Firebase is not configured or has no data
+  const hasFirebaseProjects = source === 'firebase' && firebaseProjects && firebaseProjects.length > 0;
 
-  const projects = hasFirebaseBilingualProjects
+  const projects = hasFirebaseProjects
     ? firebaseProjects!
         .filter(p => p.published !== false)
         .map(p => convertFirebaseProjectToProject(p, language))
