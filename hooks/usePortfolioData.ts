@@ -10,7 +10,8 @@ import {
 } from '@/data/portfolio-data';
 import { getProfile, getProjects, getSkills, isFirebaseConfigured } from '@/lib/firebase';
 import type { Project, SkillCategory } from '@/types';
-import type { SkillsData } from '@/types/firebase';
+import type { SkillsData, SkillsDataNew } from '@/types/firebase';
+import { isNewSkillsFormat } from '@/types/firebase';
 
 interface PortfolioData {
   profile: {
@@ -61,8 +62,22 @@ function getArrayForLanguage(value: unknown, lang: 'fr' | 'en', fallback: string
   return fallback;
 }
 
-// Convert Firebase skills format to SkillCategory[] format
-function convertFirebaseSkillsToCategories(
+// Convert new Firebase skills format (with dynamic categories) to SkillCategory[]
+function convertNewSkillsToCategories(
+  skillsData: SkillsDataNew,
+  language: 'fr' | 'en'
+): SkillCategory[] {
+  return skillsData.categories
+    .sort((a, b) => a.order - b.order)
+    .filter(cat => cat.skills.length > 0)
+    .map(cat => ({
+      category: language === 'fr' ? cat.labelFr : cat.labelEn,
+      skills: cat.skills.map(name => ({ name })),
+    }));
+}
+
+// Convert legacy Firebase skills format to SkillCategory[] format
+function convertLegacySkillsToCategories(
   firebaseSkills: SkillsData,
   language: 'fr' | 'en'
 ): SkillCategory[] {
@@ -108,6 +123,19 @@ function convertFirebaseSkillsToCategories(
   }
 
   return categories;
+}
+
+// Convert Firebase skills (supports both new and legacy formats)
+function convertFirebaseSkillsToCategories(
+  firebaseSkills: SkillsData | SkillsDataNew,
+  language: 'fr' | 'en'
+): SkillCategory[] {
+  // Check if it's the new format with categories array
+  if (isNewSkillsFormat(firebaseSkills)) {
+    return convertNewSkillsToCategories(firebaseSkills, language);
+  }
+  // Legacy format
+  return convertLegacySkillsToCategories(firebaseSkills as SkillsData, language);
 }
 
 // Firebase data types (flexible to handle both legacy and new formats)
@@ -173,7 +201,7 @@ export function usePortfolioData(): PortfolioData {
   // State for Firebase data (raw format)
   const [firebaseProfile, setFirebaseProfile] = useState<FirebaseProfileRaw | null>(null);
   const [firebaseProjects, setFirebaseProjects] = useState<FirebaseProjectRaw[] | null>(null);
-  const [firebaseSkills, setFirebaseSkills] = useState<SkillsData | null>(null);
+  const [firebaseSkills, setFirebaseSkills] = useState<SkillsData | SkillsDataNew | null>(null);
 
   useEffect(() => {
     const loadFirebaseData = async () => {
@@ -190,7 +218,7 @@ export function usePortfolioData(): PortfolioData {
         const [profileData, projectsData, skillsData] = await Promise.all([
           getProfile() as Promise<FirebaseProfileRaw | null>,
           getProjects() as Promise<FirebaseProjectRaw[] | null>,
-          getSkills(),
+          getSkills() as Promise<SkillsData | SkillsDataNew | null>,
         ]);
 
         // Check if we got valid data from Firebase

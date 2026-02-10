@@ -75,7 +75,21 @@ export interface ProjectDataLegacy {
   published: boolean;
 }
 
-// Skills with bilingual category labels
+// Dynamic skill category
+export interface SkillCategoryData {
+  id: string;           // Unique identifier (slug)
+  labelFr: string;      // French label
+  labelEn: string;      // English label
+  skills: string[];     // List of skills
+  order: number;        // For sorting
+}
+
+// New flexible skills structure with dynamic categories
+export interface SkillsDataNew {
+  categories: SkillCategoryData[];
+}
+
+// Legacy skills with fixed category keys (for backward compatibility)
 export interface SkillsData {
   frontend: string[];
   backend: string[];
@@ -85,6 +99,11 @@ export interface SkillsData {
   scripts: string[];
   tools: string[];
   collaboration: string[];
+}
+
+// Helper to check if skills data is in new format
+export function isNewSkillsFormat(data: unknown): data is SkillsDataNew {
+  return typeof data === 'object' && data !== null && 'categories' in data && Array.isArray((data as SkillsDataNew).categories);
 }
 
 export interface PortfolioData {

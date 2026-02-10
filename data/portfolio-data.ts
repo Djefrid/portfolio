@@ -100,7 +100,7 @@ export const aboutInfoBilingual = {
   },
   en: {
     paragraphs: [
-      "Graduated with a DEC in computer technology, I have a versatile profile combining web development and technical skills in computer science and systems.\nMy background has allowed me to acquire a solid foundation in programming, management of IT environments and a rigorous working methodology.\n\nDuring my internship in web development, I worked on concrete PHP projects with phpMyAdmin, including database manipulation and updating existing features.\nI also designed and configured a complete local development environment.\n\nAs an IT technician, I master the installation, configuration and maintenance of Windows and Linux environments, the use of virtual machines, as well as the basics of network services.\n\nCurious and motivated, I continually seek to deepen my skills in both development and IT infrastructure."
+      "Graduated with a Dec in computer technology, I have a versatile profile combining web development and technical skills in computer science and systems.\nMy background has allowed me to acquire a solid foundation in programming, management of IT environments and a rigorous working methodology.\nDuring my internship in web development, I worked on concrete PHP projects with phpMyAdmin, including database manipulation and updating existing features.\nI also designed and configured a complete local development environment.\nAs an IT technician, I master the installation, configuration and maintenance of Windows and Linux environments, the use of virtual machines, as well as the basics of network services.\nCurious and motivated, I continually seek to deepen my skills in both development and IT infrastructure."
     ],
     highlights: [
       "Dec in Computer Science – Programming & Systems.\nInternship in web development with databases.\nFull-stack orientation, overall vision of the project.\nCode quality and best practices."
@@ -111,11 +111,20 @@ export const aboutInfoBilingual = {
 export const projectsBilingual = {
   fr: [
     {
-      id: "facttrack-saas",
+      id: "u2Pg23yoHgUtKV9GFG6n",
       title: "Facttrack — SaaS de gestion de factures",
       description: "SaaS de facturation avec gestion clients, création/gestion de factures, génération PDF et envoi email.",
       longDescription: "Facttrack est une application full-stack orientée SaaS pour créer, gérer et envoyer des factures. Le backend est construit avec Django REST Framework (API sécurisée JWT), et le frontend avec Vue 3 + Vite + TypeScript.",
-      stack: ["Django", "Django REST Framework", "Vue 3", "Vite", "TypeScript", "JWT", "PostgreSQL", "Docker"],
+      stack: [
+        "Django",
+        "Django REST Framework",
+        "Vue 3",
+        "Vite",
+        "TypeScript",
+        "JWT",
+        "PostgreSQL",
+        "Docker"
+      ],
       features: [
         "Authentification JWT sécurisée",
         "Gestion des clients (CRUD)",
@@ -133,35 +142,160 @@ export const projectsBilingual = {
       ],
       githubUrl: "https://github.com/Djefrid/facttrack",
       demoUrl: "https://facttrack.ca",
-      image: "/projects/facttrack.png",
+      image: "",
+      featured: true
+    },
+    {
+      id: "rgFqPLVlfOPgyzgsmqOb",
+      title: "Boutique Africaine – E-commerce Afro-Minimaliste",
+      description: "Boutique en ligne moderne pour produits africains : catalogue dynamique, filtres, panier persistant, paiement Stripe (Apple Pay/Google Pay) et prise de rendez-vous via Cal.com.",
+      longDescription: "Projet e-commerce complet au design “Afro-Minimaliste”, conçu pour offrir une expérience d’achat rapide et premium. Le frontend est développé avec Next.js (App Router) et Tailwind CSS pour un rendu performant, responsive et optimisé SEO. Le contenu (produits, catégories, images, tags, stock, recommandations) est administré via Sanity (Headless CMS) afin de permettre une gestion simple sans maintenance serveur.\nLe checkout utilise Stripe Checkout, activant Apple Pay et Google Pay sur appareils compatibles, avec un parcours optimisé incluant un choix Livraison / Retrait magasin. Un webhook Stripe sécurise la confirmation des paiements et permet l’enregistrement des commandes. Une page “Rendez-vous” intègre Cal.com pour réserver des créneaux de conseils personnalisés.\nLe projet inclut les pages légales indispensables (CGV, Confidentialité, Retours, Mentions légales) et une configuration prête au déploiement sur VPS via Docker.",
+      stack: [
+        "Next.js 14 (App Router)",
+        "TypeScript",
+        "Tailwind CSS",
+        "Sanity.io",
+        "Stripe",
+        "Cal.com",
+        "Docker"
+      ],
+      features: [
+        "Catalogue produits dynamique (CMS Sanity)",
+        "Recherche, filtres et tri (catégories, tags, prix)",
+        "Page produit détaillée (origine, badges, stock)",
+        "Recommandations “Souvent acheté avec” (cross-sell)",
+        "Panier persistant (quantité, suppression, total)",
+        "Checkout optimisé avec choix Livraison / Retrait magasin",
+        "Paiement Stripe Checkout avec Apple Pay et Google Pay",
+        "Webhook Stripe pour confirmation paiement et création de commande",
+        "Prise de rendez-vous intégrée via Cal.com",
+        "Pages légales complètes (CGV, Confidentialité, Retours, Mentions)",
+        "SEO de base (metadata, OpenGraph, sitemap, robots)",
+        "Déploiement VPS prêt via Docker"
+      ],
+      challenges: [
+        "Intégration Stripe Checkout et gestion sécurisée des webhooks (signature)",
+        "Modélisation des schémas Sanity (produits, catégories, commandes) et relations",
+        "Gestion d’un panier fiable et persistant sans complexité excessive",
+        "Optimisation performance/SEO avec App Router, Server Components et next/image",
+        "Conception du parcours Livraison vs Retrait (validation des champs et UX)",
+        "Déploiement Docker sur VPS (build, variables d’environnement, reverse proxy/HTTPS)"
+      ],
+      githubUrl: "https://github.com/Djefrid/onlinestoretemplate.git",
+      
+      image: "",
+      featured: true
+    },
+    {
+      id: "x477YU9WNE9D3XXX2hGd",
+      title: "test",
+      description: "",
+      longDescription: "",
+      stack: [],
+      features: [
+
+      ],
+      challenges: [
+
+      ],
+      githubUrl: "",
+      
+      image: "",
       featured: true
     }
   ],
   en: [
     {
-      id: "facttrack-saas",
+      id: "u2Pg23yoHgUtKV9GFG6n",
       title: "Facttrack — Invoice Management SaaS",
-      description: "Billing SaaS with client management, invoice creation/management, PDF generation and email sending.",
-      longDescription: "Facttrack is a full-stack SaaS-oriented application for creating, managing and sending invoices. The backend is built with Django REST Framework (JWT secured API), and the frontend with Vue 3 + Vite + TypeScript.",
-      stack: ["Django", "Django REST Framework", "Vue 3", "Vite", "TypeScript", "JWT", "PostgreSQL", "Docker"],
+      description: "Invoicing SaaS with customer management, invoice creation/management, PDF generation and emailing.",
+      longDescription: "Facttrack is a full-stack SaaS-oriented application for creating, managing and sending invoices.\nThe backend is built with Django rest Framework (JWT Secure API), and the frontend with Vue 3 + Quick + TypeScript.",
+      stack: [
+        "Django",
+        "Django REST Framework",
+        "Vue 3",
+        "Vite",
+        "TypeScript",
+        "JWT",
+        "PostgreSQL",
+        "Docker"
+      ],
       features: [
         "Secure JWT authentication",
-        "Client management (CRUD)",
-        "Invoice creation with lines and totals",
-        "PDF invoice generation",
-        "Email invoice sending",
-        "Responsive interface",
+        "&lt;html&gt;&lt;center&gt;Customers' Management&lt;/center&gt;&lt;/html&gt;",
+        "Creating invoices with lines and totals",
+        "PDF Invoice Generation",
+        "Sending invoice via e-mail",
+        "Responsive multilingual web",
         "Multi-language FR/EN"
       ],
       challenges: [
         "Clean API architecture with DRF",
-        "Reliable amount handling (Decimal)",
-        "UI / API state synchronization",
+        "Reliable Amount Management (Decimal)",
+        "UI / API status synchronization",
         "Docker deployment"
       ],
       githubUrl: "https://github.com/Djefrid/facttrack",
       demoUrl: "https://facttrack.ca",
-      image: "/projects/facttrack.png",
+      image: "",
+      featured: true
+    },
+    {
+      id: "rgFqPLVlfOPgyzgsmqOb",
+      title: "African Shop – Afro-Minimalist E-commerce",
+      description: "Modern online store for African products: dynamic catalog, filters, persistent cart, Stripe payment (Apple Pay/Google Pay) and appointment booking via Cal.com.",
+      longDescription: "Complete e-commerce project with an \"Afro-Minimalist\" design, designed to offer a fast and premium shopping experience.\nThe frontend is developed with Next.js (App Router) and Tailwind CSS for efficient, responsive and SEO optimized rendering.\nThe content (products, categories, images, tags, stock, recommendations) is administered via Sanity (Headless CMS) to allow simple management without server maintenance.\nThe checkout uses Stripe Checkout, activating Apple Pay and Google Pay on compatible devices, with an optimized journey including a choice of Delivery / Pickup store.\nA Stripe webhook secures payment confirmation and allows orders to be registered.\nAn “Appointment” page integrates Cal.com to book personalized advice slots.\nThe project includes the essential legal pages (GTCs, Privacy, Returns, Legal Notice) and a configuration ready for deployment on VPS via Docker.",
+      stack: [
+        "Next.js 14 (App Router)",
+        "TypeScript",
+        "Tailwind CSS",
+        "Sanity.io",
+        "Stripe",
+        "Cal.com",
+        "Docker"
+      ],
+      features: [
+        "Dynamic Product Catalog (Sanity CMS)",
+        "Search, filters and sorting (categories, tags, prices)",
+        "Detailed product page (origin, badges, stock)",
+        "Recommendations “Often bought with” (cross-sell)",
+        "Persistent basket (quantity, deletion, total)",
+        "Optimized checkout with choice Delivery / Pickup store",
+        "Stripe Checkout Payment with Apple Pay and Google Pay",
+        "Stripe webhook for payment confirmation and order creation",
+        "Integrated appointment booking via Cal.com",
+        "Complete legal pages (GTCs, Privacy, Returns, Mentions)",
+        "Basic SEO (metadata, OpenGraph, sitemap, bots)",
+        "VPS deployment ready via Docker"
+      ],
+      challenges: [
+        "Stripe Checkout integration and secure webhook management (signature)",
+        "Modeling of Sanity schemas (products, categories, orders) and relationships",
+        "Managing a reliable and persistent basket without undue complexity",
+        "Performance/SEO optimization with App Router, Server Components and next/image",
+        "Delivery vs Withdrawal journey design (field validation and UX)",
+        "Docker deployment on VPS (build, environment variables, reverse proxy/HTTPS)"
+      ],
+      githubUrl: "https://github.com/Djefrid/onlinestoretemplate.git",
+      
+      image: "",
+      featured: true
+    },
+    {
+      id: "x477YU9WNE9D3XXX2hGd",
+      title: "",
+      description: "",
+      longDescription: "",
+      stack: [],
+      features: [
+
+      ],
+      challenges: [
+
+      ],
+      githubUrl: "",
+      
+      image: "",
       featured: true
     }
   ]

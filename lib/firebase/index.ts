@@ -11,7 +11,9 @@ export {
   updateProject,
   deleteProject,
   getSkills,
+  getSkillsNew,
   updateSkills,
+  updateSkillsNew,
   subscribeToProfile,
   subscribeToProjects,
   subscribeToSkills
