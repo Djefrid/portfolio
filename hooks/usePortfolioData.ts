@@ -1,3 +1,24 @@
+/**
+ * ============================================================================
+ * HOOK usePortfolioData - Chargement des données du portfolio
+ * ============================================================================
+ *
+ * Ce hook est le point central pour récupérer les données affichées sur le site.
+ *
+ * Logique de chargement (priorité) :
+ *   1. Vérifie si Firebase est configuré (variables .env.local)
+ *   2. Si OUI → charge les données depuis Firebase Firestore
+ *   3. Si NON → utilise les données statiques de portfolio-data.ts (fallback)
+ *
+ * Ce hook gère aussi :
+ * - Le changement de langue (FR/EN) en temps réel
+ * - La conversion des formats de données (legacy → nouveau)
+ * - La fusion des données Firebase avec les données statiques
+ *
+ * Utilisé dans les composants du site public (page d'accueil, sections, etc.)
+ * ============================================================================
+ */
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -13,6 +34,7 @@ import type { Project, SkillCategory } from '@/types';
 import type { SkillsData, SkillsDataNew } from '@/types/firebase';
 import { isNewSkillsFormat } from '@/types/firebase';
 
+/** Structure des données retournées par le hook usePortfolioData() */
 interface PortfolioData {
   profile: {
     name: string;
@@ -33,7 +55,10 @@ interface PortfolioData {
   source: 'firebase' | 'static';
 }
 
-// Helper to extract text for current language from bilingual data
+/**
+ * Extrait le texte pour la langue courante depuis une valeur bilingue ou legacy.
+ * Gère : string (legacy), { fr, en } (bilingue), ou retourne le fallback.
+ */
 function getTextForLanguage(value: unknown, lang: 'fr' | 'en', fallback = ''): string {
   if (typeof value === 'string') {
     return value; // Legacy format
@@ -44,7 +69,10 @@ function getTextForLanguage(value: unknown, lang: 'fr' | 'en', fallback = ''): s
   return fallback;
 }
 
-// Helper to extract array for current language from bilingual data
+/**
+ * Extrait un tableau pour la langue courante depuis une valeur bilingue ou legacy.
+ * Gère : string[] (legacy), BilingualText[] (nouveau), { fr: [], en: [] } (bilingue).
+ */
 function getArrayForLanguage(value: unknown, lang: 'fr' | 'en', fallback: string[] = []): string[] {
   if (Array.isArray(value)) {
     // Could be legacy format (string[]) or new format (BilingualText[])
@@ -62,7 +90,11 @@ function getArrayForLanguage(value: unknown, lang: 'fr' | 'en', fallback: string
   return fallback;
 }
 
-// Convert new Firebase skills format (with dynamic categories) to SkillCategory[]
+/**
+ * Convertit le nouveau format de compétences (catégories dynamiques) vers
+ * le format d'affichage SkillCategory[] utilisé par les composants du site.
+ * Trie par ordre, filtre les catégories vides, et sélectionne le bon label selon la langue.
+ */
 function convertNewSkillsToCategories(
   skillsData: SkillsDataNew,
   language: 'fr' | 'en'
@@ -76,7 +108,10 @@ function convertNewSkillsToCategories(
     }));
 }
 
-// Convert legacy Firebase skills format to SkillCategory[] format
+/**
+ * Convertit l'ancien format de compétences (clés fixes) vers le format d'affichage.
+ * Utilisé quand les données Firestore sont encore au format legacy.
+ */
 function convertLegacySkillsToCategories(
   firebaseSkills: SkillsData,
   language: 'fr' | 'en'
@@ -125,7 +160,10 @@ function convertLegacySkillsToCategories(
   return categories;
 }
 
-// Convert Firebase skills (supports both new and legacy formats)
+/**
+ * Convertit les compétences Firebase (peu importe le format) vers SkillCategory[].
+ * Détecte automatiquement si c'est le nouveau ou l'ancien format.
+ */
 function convertFirebaseSkillsToCategories(
   firebaseSkills: SkillsData | SkillsDataNew,
   language: 'fr' | 'en'

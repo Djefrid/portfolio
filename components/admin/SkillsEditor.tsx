@@ -1,20 +1,47 @@
+/**
+ * ============================================================================
+ * ÉDITEUR DE COMPÉTENCES - Panneau admin pour gérer les catégories de skills
+ * ============================================================================
+ *
+ * Ce composant permet à l'admin de :
+ * - Voir toutes les catégories de compétences
+ * - Ajouter une nouvelle catégorie (avec labels FR et EN)
+ * - Modifier une catégorie existante (labels et compétences)
+ * - Supprimer une catégorie
+ * - Réordonner les catégories (monter/descendre)
+ * - Sauvegarder tout vers Firebase Firestore
+ *
+ * Les modifications sont stockées localement dans le state React,
+ * puis envoyées à Firebase quand l'admin clique "Sauvegarder tout".
+ * ============================================================================
+ */
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { getSkillsNew, updateSkillsNew } from '@/lib/firebase';
 import type { SkillCategoryData, SkillsDataNew } from '@/types/firebase';
 
-// Generate a unique ID for new categories
+/**
+ * Génère un identifiant unique (slug) à partir du label français.
+ * Ex: "Cloud & Hébergement" → "cloud-hebergement"
+ *
+ * Étapes :
+ * 1. Convertit en minuscules
+ * 2. Supprime les accents (normalize NFD + regex)
+ * 3. Remplace les caractères non-alphanumériques par des tirets
+ * 4. Supprime les tirets au début/fin
+ */
 function generateId(label: string): string {
   return label
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
 }
 
-// Empty category template
+/** Template vide pour créer une nouvelle catégorie */
 const emptyCategory: Omit<SkillCategoryData, 'id' | 'order'> = {
   labelFr: '',
   labelEn: '',
@@ -22,29 +49,32 @@ const emptyCategory: Omit<SkillCategoryData, 'id' | 'order'> = {
 };
 
 export default function SkillsEditor() {
-  const [categories, setCategories] = useState<SkillCategoryData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  // --- State principal ---
+  const [categories, setCategories] = useState<SkillCategoryData[]>([]); // Liste des catégories
+  const [loading, setLoading] = useState(true);    // Chargement initial depuis Firebase
+  const [saving, setSaving] = useState(false);      // Sauvegarde en cours
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Edit mode state
-  const [editingCategory, setEditingCategory] = useState<SkillCategoryData | null>(null);
-  const [isNewCategory, setIsNewCategory] = useState(false);
+  // --- State du mode édition ---
+  const [editingCategory, setEditingCategory] = useState<SkillCategoryData | null>(null); // Catégorie en cours d'édition
+  const [isNewCategory, setIsNewCategory] = useState(false); // true = ajout, false = modification
 
+  /** Charge les compétences depuis Firebase au montage du composant */
   useEffect(() => {
     loadSkills();
   }, []);
 
+  /** Récupère les compétences depuis Firestore et les trie par ordre */
   const loadSkills = async () => {
     const data = await getSkillsNew();
     if (data && data.categories) {
-      // Sort by order
       const sorted = [...data.categories].sort((a, b) => a.order - b.order);
       setCategories(sorted);
     }
     setLoading(false);
   };
 
+  /** Sauvegarde TOUTES les catégories vers Firebase Firestore */
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
@@ -62,78 +92,88 @@ export default function SkillsEditor() {
     setTimeout(() => setMessage(null), 3000);
   };
 
-  // Add new category
+  /** Ouvre le formulaire pour créer une nouvelle catégorie */
   const handleAddCategory = () => {
     const newCategory: SkillCategoryData = {
       ...emptyCategory,
-      id: `new-${Date.now()}`,
-      order: categories.length,
+      id: `new-${Date.now()}`,       // ID temporaire, sera remplacé par le slug du label
+      order: categories.length,       // Ajouté à la fin de la liste
     };
     setEditingCategory(newCategory);
     setIsNewCategory(true);
   };
 
-  // Edit existing category
+  /** Ouvre le formulaire pour modifier une catégorie existante */
   const handleEditCategory = (category: SkillCategoryData) => {
-    setEditingCategory({ ...category });
+    setEditingCategory({ ...category }); // Copie pour ne pas modifier l'original
     setIsNewCategory(false);
   };
 
-  // Delete category
+  /** Supprime une catégorie (avec confirmation) et recalcule les ordres */
   const handleDeleteCategory = (id: string) => {
     if (!confirm('Supprimer cette catégorie et toutes ses compétences?')) return;
 
     const updated = categories
-      .filter(c => c.id !== id)
-      .map((c, index) => ({ ...c, order: index }));
+      .filter(c => c.id !== id)                        // Supprime la catégorie
+      .map((c, index) => ({ ...c, order: index }));    // Recalcule les ordres
     setCategories(updated);
   };
 
-  // Move category up/down
+  /** Déplace une catégorie vers le haut ou le bas dans la liste */
   const handleMoveCategory = (index: number, direction: 'up' | 'down') => {
+    // Vérifie les limites
     if (direction === 'up' && index === 0) return;
     if (direction === 'down' && index === categories.length - 1) return;
 
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     const updated = [...categories];
+    // Échange les deux catégories (swap)
     [updated[index], updated[newIndex]] = [updated[newIndex], updated[index]];
 
-    // Update order values
+    // Recalcule les ordres après le déplacement
     const reordered = updated.map((c, i) => ({ ...c, order: i }));
     setCategories(reordered);
   };
 
-  // Save category being edited
+  /** Valide et enregistre la catégorie en cours d'édition dans le state local */
   const handleSaveCategory = () => {
     if (!editingCategory) return;
+
+    // Validation : les deux labels sont obligatoires
     if (!editingCategory.labelFr.trim() || !editingCategory.labelEn.trim()) {
       setMessage({ type: 'error', text: 'Les labels FR et EN sont requis' });
       return;
     }
 
-    // Generate ID from French label if new
+    // Pour une nouvelle catégorie, génère un ID à partir du label français
     const categoryToSave: SkillCategoryData = {
       ...editingCategory,
       id: isNewCategory ? generateId(editingCategory.labelFr) : editingCategory.id,
     };
 
+    // Ajoute ou met à jour dans la liste locale
     if (isNewCategory) {
       setCategories([...categories, categoryToSave]);
     } else {
       setCategories(categories.map(c => c.id === categoryToSave.id ? categoryToSave : c));
     }
 
+    // Ferme le formulaire d'édition
     setEditingCategory(null);
     setIsNewCategory(false);
   };
 
-  // Cancel editing
+  /** Annule l'édition en cours et ferme le formulaire */
   const handleCancelEdit = () => {
     setEditingCategory(null);
     setIsNewCategory(false);
   };
 
-  // Update skills in a category
+  /**
+   * Met à jour la liste des compétences d'une catégorie.
+   * Les compétences sont séparées par des virgules dans le textarea.
+   * Ex: "React, Vue.js, TypeScript" → ["React", "Vue.js", "TypeScript"]
+   */
   const updateCategorySkills = (value: string) => {
     if (!editingCategory) return;
     setEditingCategory({

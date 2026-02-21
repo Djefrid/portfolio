@@ -1,10 +1,31 @@
+/**
+ * ============================================================================
+ * ÉDITEUR DE PROJETS - Panneau admin pour gérer les projets du portfolio
+ * ============================================================================
+ *
+ * Ce composant permet à l'admin de :
+ * - Voir la liste de tous les projets
+ * - Ajouter un nouveau projet (avec traduction automatique FR → EN)
+ * - Modifier un projet existant
+ * - Supprimer un projet
+ *
+ * Flux de sauvegarde d'un projet :
+ *   1. L'admin remplit le formulaire en français
+ *   2. Au clic sur "Enregistrer", l'API /api/translate traduit automatiquement en anglais
+ *   3. Les données bilingues sont sauvegardées dans Firebase Firestore
+ *   4. Le fichier local est synchronisé via /api/sync-data (fallback)
+ *
+ * Les projets sont stockés dans Firestore : collection "projects"
+ * ============================================================================
+ */
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { getProjects, addProject, updateProject, deleteProject } from '@/lib/firebase';
 import type { ProjectData, BilingualText } from '@/types/firebase';
 
-// Internal state type for bilingual editing
+/** State interne de l'éditeur pour gérer l'édition bilingue */
 interface ProjectEditorState {
   id?: string;
   title: BilingualText;
@@ -21,7 +42,10 @@ interface ProjectEditorState {
   published: boolean;
 }
 
-// Helper to ensure bilingual text structure
+/**
+ * Assure qu'une valeur est au format bilingue { fr, en }.
+ * Si c'est un ancien format (string simple), le convertit en bilingue.
+ */
 function ensureBilingualText(value: unknown, defaultValue = ''): BilingualText {
   if (typeof value === 'object' && value !== null && 'fr' in value && 'en' in value) {
     return value as BilingualText;
@@ -30,7 +54,13 @@ function ensureBilingualText(value: unknown, defaultValue = ''): BilingualText {
   return { fr: str, en: str };
 }
 
-// Helper to ensure bilingual array structure (as array of BilingualText)
+/**
+ * Assure qu'un tableau est au format bilingue (tableau de { fr, en }).
+ * Gère 3 formats d'entrée possibles :
+ * 1. Nouveau format : [{ fr: "...", en: "..." }, ...]
+ * 2. Format BilingualArray : { fr: [...], en: [...] }
+ * 3. Legacy : ["string1", "string2", ...]
+ */
 function ensureBilingualItems(value: unknown, defaultValue: string[] = []): BilingualText[] {
   // If it's already in the new format (array of {fr, en} objects)
   if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'object' && 'fr' in value[0]) {
@@ -59,7 +89,7 @@ function ensureBilingualItems(value: unknown, defaultValue: string[] = []): Bili
   return defaultValue.map(item => ({ fr: item, en: item }));
 }
 
-// Convert editor state to Firebase format
+/** Convertit l'état de l'éditeur vers le format Firestore (features/challenges → BilingualArray) */
 function toFirebaseFormat(state: ProjectEditorState): ProjectData {
   return {
     id: state.id,
@@ -84,7 +114,7 @@ function toFirebaseFormat(state: ProjectEditorState): ProjectData {
   };
 }
 
-// Convert Firebase format to editor state
+/** Convertit le format Firestore vers l'état de l'éditeur (pour l'affichage du formulaire) */
 function toEditorState(project: ProjectData): ProjectEditorState {
   return {
     id: project.id,

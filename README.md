@@ -17,9 +17,10 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 9. [Fonctionnalités](#fonctionnalités)
 10. [Panneau Admin](#panneau-admin)
 11. [API de traduction](#api-de-traduction)
-12. [Déploiement sur Vercel](#déploiement-sur-vercel)
-13. [Dépannage](#dépannage)
-14. [Commandes disponibles](#commandes-disponibles)
+12. [SEO et Référencement](#seo-et-référencement)
+13. [Déploiement sur Vercel](#déploiement-sur-vercel)
+14. [Dépannage](#dépannage)
+15. [Commandes disponibles](#commandes-disponibles)
 
 ---
 
@@ -294,6 +295,13 @@ NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abcdef123456789
 
 # Email autorisé pour l'administration (celui créé dans Firebase Auth)
 NEXT_PUBLIC_ADMIN_EMAIL=votre@email.com
+
+# ================================
+# Configuration SEO
+# ================================
+
+# URL du site en production (utilisé pour le sitemap et les métadonnées)
+NEXT_PUBLIC_SITE_URL=https://portfolio.djefrid.ca
 ```
 
 ### Tableau récapitulatif
@@ -307,6 +315,7 @@ NEXT_PUBLIC_ADMIN_EMAIL=votre@email.com
 | `FIREBASE_MESSAGING_SENDER_ID` | ID sender | firebaseConfig → messagingSenderId |
 | `FIREBASE_APP_ID` | ID de l'app | firebaseConfig → appId |
 | `ADMIN_EMAIL` | Email admin | Email créé dans Firebase Auth |
+| `SITE_URL` | URL du site en production | Votre domaine (ex: `https://portfolio.djefrid.ca`) |
 
 ---
 
@@ -357,6 +366,9 @@ portfolio/
 │   │   ├── page.tsx                  # Dashboard admin (/admin)
 │   │   └── login/
 │   │       └── page.tsx              # Page connexion (/admin/login)
+│   │
+│   ├── sitemap.ts                    # Génère /sitemap.xml (SEO)
+│   ├── robots.ts                     # Génère /robots.txt (SEO)
 │   │
 │   └── api/                          # API Routes (serverless)
 │       ├── translate/
@@ -520,6 +532,50 @@ POST /api/translate
 
 ---
 
+## SEO et Référencement
+
+Le portfolio est configuré pour un bon référencement sur les moteurs de recherche (Google, Bing, etc.).
+
+### Fichiers SEO générés automatiquement
+
+| Fichier | URL | Description |
+|---------|-----|-------------|
+| `app/sitemap.ts` | `/sitemap.xml` | Plan du site pour les moteurs de recherche |
+| `app/robots.ts` | `/robots.txt` | Contrôle l'indexation (autorise `/`, bloque `/admin` et `/api`) |
+
+### Métadonnées SEO (app/layout.tsx)
+
+Le layout racine contient des métadonnées complètes :
+- **Title** : "Djefrid Byli - Développeur Web Full-Stack Junior | Portfolio"
+- **Description** : Description bilingue du portfolio
+- **Keywords** : Mots-clés pertinents (développeur, Montréal, Canada, etc.)
+- **Open Graph** : Aperçu pour Facebook, LinkedIn, etc.
+- **Twitter Card** : Aperçu pour Twitter/X
+- **Canonical URL** : URL canonique pour éviter le contenu dupliqué
+
+### Configuration Google Search Console
+
+1. Aller sur [Google Search Console](https://search.google.com/search-console/)
+2. Ajouter la propriété : `https://portfolio.djefrid.ca`
+3. Vérifier la propriété (méthode recommandée : enregistrement DNS ou balise HTML)
+4. Si vérification par balise HTML, ajouter dans `app/layout.tsx` :
+   ```tsx
+   verification: {
+     google: 'VOTRE_CODE_VERIFICATION',
+   },
+   ```
+5. Soumettre le sitemap : `https://portfolio.djefrid.ca/sitemap.xml`
+
+### Variable d'environnement requise
+
+```env
+NEXT_PUBLIC_SITE_URL=https://portfolio.djefrid.ca
+```
+
+> Cette variable est utilisée par `sitemap.ts` et les métadonnées pour générer les URLs correctes.
+
+---
+
 ## Déploiement sur Vercel
 
 ### Étape 1 : Préparer le repository
@@ -556,6 +612,7 @@ Dans **Settings → Environment Variables**, ajouter chaque variable :
 | `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | 123456789012 |
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | 1:123456789012:web:xxx |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | votre@email.com |
+| `NEXT_PUBLIC_SITE_URL` | https://portfolio.djefrid.ca |
 
 ### Étape 4 : Autoriser le domaine dans Firebase
 
@@ -761,4 +818,4 @@ MIT - Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 9 février 2026*
+*Documentation mise à jour le 13 février 2026*

@@ -1,14 +1,42 @@
+/**
+ * ============================================================================
+ * API DE TRADUCTION - Route Next.js pour traduire les contenus FR ↔ EN
+ * ============================================================================
+ *
+ * Cette API traduit automatiquement les textes du profil et des projets
+ * en utilisant l'API gratuite MyMemory (pas de clé API requise).
+ *
+ * Endpoint : POST /api/translate
+ *
+ * Body JSON attendu :
+ *   {
+ *     type: "profile" | "project",   // Type de données à traduire
+ *     data: { ... },                  // Les données avec textes bilingues
+ *     sourceLang: "fr" | "en"         // Langue source (traduit vers l'autre)
+ *   }
+ *
+ * Limites de MyMemory :
+ * - 500 caractères max par requête → le texte est découpé en chunks
+ * - Délai de 100ms entre les requêtes pour éviter le rate limiting
+ * - Nettoyage des balises HTML parasites dans les réponses
+ * ============================================================================
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 
-// Use MyMemory Translation API (free, no API key required for limited usage)
+/** URL de l'API MyMemory (traduction gratuite, sans clé API) */
 const MYMEMORY_API = 'https://api.mymemory.translated.net/get';
 
+/** Résultat d'une traduction */
 interface TranslationResult {
   translatedText: string;
   success: boolean;
 }
 
-// Split text into chunks of max 450 characters (leaving margin for encoding)
+/**
+ * Découpe un texte long en morceaux de 450 caractères max.
+ * Essaie de couper aux limites de phrases pour garder un sens cohérent.
+ */
 function splitTextIntoChunks(text: string, maxLength: number = 450): string[] {
   if (text.length <= maxLength) {
     return [text];
@@ -52,6 +80,7 @@ function splitTextIntoChunks(text: string, maxLength: number = 450): string[] {
   return chunks.length > 0 ? chunks : [text.substring(0, maxLength)];
 }
 
+/** Traduit un seul morceau de texte via l'API MyMemory, avec nettoyage HTML */
 async function translateSingleChunk(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string> {
   if (!text || text.trim() === '') {
     return '';
@@ -89,6 +118,7 @@ async function translateSingleChunk(text: string, from: 'fr' | 'en', to: 'fr' | 
   }
 }
 
+/** Traduit un texte complet (découpe en chunks si nécessaire) */
 async function translateText(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): Promise<TranslationResult> {
   if (!text || text.trim() === '') {
     return { translatedText: '', success: true };
@@ -124,6 +154,7 @@ async function translateText(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): 
   }
 }
 
+/** Traduit un tableau de textes (chaque élément traduit individuellement) */
 async function translateArray(arr: string[], from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string[]> {
   const results = await Promise.all(
     arr.map(async (item) => {
@@ -134,6 +165,10 @@ async function translateArray(arr: string[], from: 'fr' | 'en', to: 'fr' | 'en')
   return results;
 }
 
+/**
+ * Handler POST /api/translate
+ * Reçoit les données à traduire et retourne les données avec traductions ajoutées.
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
