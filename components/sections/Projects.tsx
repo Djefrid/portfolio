@@ -2,8 +2,10 @@
 
 import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { FadeInSection } from "@/components/ui/FadeInSection";
 import type { Project } from "@/types";
 
 /* ─── Modale détail projet ─── */
@@ -153,7 +155,7 @@ function ProjectModal({
   );
 }
 
-/* ─── Carte compacte ─── */
+/* ─── Carte compacte avec hover framer-motion ─── */
 function ProjectCard({
   project,
   index,
@@ -169,7 +171,16 @@ function ProjectCard({
   const badge = badges[index] || "";
 
   return (
-    <article className="card group h-full flex flex-col">
+    <motion.article
+      className="card group h-full flex flex-col cursor-pointer"
+      whileHover={{
+        y: -6,
+        boxShadow: "0 0 24px rgba(99, 102, 241, 0.25)",
+        borderColor: "rgba(99, 102, 241, 0.5)",
+      }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+      onClick={onOpen}
+    >
       {/* Header */}
       <div className="flex items-start gap-2 mb-3">
         {badge && <span className="text-xl flex-shrink-0">{badge}</span>}
@@ -241,7 +252,7 @@ function ProjectCard({
           </svg>
         </button>
       </div>
-    </article>
+    </motion.article>
   );
 }
 
@@ -265,56 +276,62 @@ export default function Projects() {
   return (
     <section id="projects" className="py-20">
       <div className="section-container">
-        <h2 className="section-title text-center">{t("projects.title")}</h2>
-        <p className="section-subtitle text-center">{t("projects.subtitle")}</p>
+        <FadeInSection>
+          <h2 className="section-title text-center">{t("projects.title")}</h2>
+          <p className="section-subtitle text-center">{t("projects.subtitle")}</p>
+        </FadeInSection>
 
-        <div className="relative">
-          {/* Flèche gauche */}
-          {projects.length > 1 && (
-            <button
-              onClick={() => scroll("prev")}
-              aria-label="Projet précédent"
-              className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-dark-800 hover:bg-dark-700 border border-dark-600 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-lg"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-
-          {/* Conteneur scroll */}
-          <div
-            ref={scrollRef}
-            className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-none"
-          >
-            {projects.map((project, index) => (
-              <div
-                key={project.id}
-                className="flex-shrink-0 w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] snap-start"
+        <FadeInSection delay={0.15}>
+          <div className="relative">
+            {/* Flèche gauche */}
+            {projects.length > 1 && (
+              <button
+                type="button"
+                onClick={() => scroll("prev")}
+                aria-label="Projet précédent"
+                className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 bg-dark-800 hover:bg-dark-700 border border-dark-600 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-lg"
               >
-                <ProjectCard
-                  project={project}
-                  index={index}
-                  t={t}
-                  onOpen={() => setSelected({ project, index })}
-                />
-              </div>
-            ))}
-          </div>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
 
-          {/* Flèche droite */}
-          {projects.length > 1 && (
-            <button
-              onClick={() => scroll("next")}
-              aria-label="Projet suivant"
-              className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-dark-800 hover:bg-dark-700 border border-dark-600 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-lg"
+            {/* Conteneur scroll */}
+            <div
+              ref={scrollRef}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-none"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
-        </div>
+              {projects.map((project, index) => (
+                <div
+                  key={project.id}
+                  className="flex-shrink-0 w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] snap-start"
+                >
+                  <ProjectCard
+                    project={project}
+                    index={index}
+                    t={t}
+                    onOpen={() => setSelected({ project, index })}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Flèche droite */}
+            {projects.length > 1 && (
+              <button
+                type="button"
+                onClick={() => scroll("next")}
+                aria-label="Projet suivant"
+                className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 bg-dark-800 hover:bg-dark-700 border border-dark-600 text-white rounded-full w-10 h-10 flex items-center justify-center transition-colors shadow-lg"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+          </div>
+        </FadeInSection>
       </div>
 
       {/* Modale */}

@@ -4,8 +4,8 @@ import type { PersonalInfo, AboutInfo, Project, SkillCategory } from '@/types';
 
 export const personalInfoBilingual = {
   fr: {
-    name: "Djefrid Byli",
-    title: "Développeur Web / Full-Stack Junior et Technicien en Informatique",
+    name: "Djefrid Byli Fotue Kuate",
+    title: "Développeur Full-Stack | Support IT",
     stack: [
       "HTML",
       "CSS",
@@ -17,8 +17,10 @@ export const personalInfoBilingual = {
       "Bootstrap",
       "Django",
       "Django REST Framework",
+      "Supabase",
       ".NET",
       "ASP.NET Core",
+      "Entity framework",
       "PostgreSQL",
       "MySQL",
       "SQL",
@@ -38,16 +40,24 @@ export const personalInfoBilingual = {
       "Jira",
       "Agile",
       "Scrum",
-      "UML"
+      "UML",
+      "Vercel",
+      "Hostinger",
+      "Cloudflare (DNS)",
+      "Domain & Subdomain Configuration",
+      "SSL / HTTPS Configuration",
+      "Google Search Console"
     ],
     email: "djeffkuate@gmail.com",
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
-    cvUrl: "/Copie de CVDJEFRID 2.pdf"
+    cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
+    location: "Levis, QC",
+    openToWork: true
   },
   en: {
-    name: "Djefrid Byli",
-    title: "Junior Web Developer/ Full-Stack & IT Technician",
+    name: "Djefrid Byli Fotue Kuate",
+    title: "Full-Stack Developer | IT Support",
     stack: [
       "HTML",
       "CSS",
@@ -59,8 +69,10 @@ export const personalInfoBilingual = {
       "Bootstrap",
       "Django",
       "Django REST Framework",
+      "Supabase",
       ".NET",
       "ASP.NET Core",
+      "Entity framework",
       "PostgreSQL",
       "MySQL",
       "SQL",
@@ -80,19 +92,27 @@ export const personalInfoBilingual = {
       "Jira",
       "Agile",
       "Scrum",
-      "UML"
+      "UML",
+      "Vercel",
+      "Hostinger",
+      "Cloudflare (DNS)",
+      "Domain & Subdomain Configuration",
+      "SSL / HTTPS Configuration",
+      "Google Search Console"
     ],
     email: "djeffkuate@gmail.com",
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
-    cvUrl: "/Copie de CVDJEFRID 2.pdf"
+    cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
+    location: "Levis, QC",
+    openToWork: true
   }
 };
 
 export const aboutInfoBilingual = {
   fr: {
     paragraphs: [
-      "Diplômé d'un DEC en technique de l'informatique, je possède un profil polyvalent combinant le développement web et les compétences techniques en informatique et systèmes. Mon parcours m'a permis d'acquérir une base solide en programmation, en gestion des environnements informatiques et une méthodologie de travail rigoureuse.\n\nLors de mon stage en développement web, j'ai travaillé sur des projets concrets en PHP avec phpMyAdmin, incluant la manipulation de bases de données et la mise à jour de fonctionnalités existantes. J'ai également conçu et configuré un environnement de développement local complet.\n\nEn tant que technicien en informatique, je maîtrise l'installation, la configuration et la maintenance d'environnements Windows et Linux, l'utilisation de machines virtuelles, ainsi que les bases des services réseau.\n\nCurieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu'en infrastructure informatique."
+      "Diplômé d'un DEC en technique de l'informatique, je possède un profil polyvalent combinant le développement web et les compétences techniques en informatique et systèmes. Mon parcours m'a permis d'acquérir une base solide en programmation, en gestion des environnements informatiques et une méthodologie de travail rigoureuse.\n\nLors de mon stage en développement web, j'ai travaillé sur des projets concrets en PHP avec phpMyAdmin, incluant la manipulation de bases de données et la mise à jour de fonctionnalités existantes. J'ai également conçu et configuré un environnement de développement local complet.\n\nEn tant que technicien en informatique, je maîtrise l'installation, la configuration et la maintenance d'environnements Windows et Linux, l'utilisation de machines virtuelles, ainsi que les bases des services réseau.\n\nJ’utilise activement des outils d’intelligence artificielle générative pour améliorer la productivité ,\naccélérer le développement, optimiser la qualité du code, automatiser la documentation et assister\nla résolution de problèmes techniques tout en respectant les bonnes pratiques d’ingénierie\nlogicielle.\n\nCurieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu'en infrastructure informatique."
     ],
     highlights: [
       "DEC en informatique – programmation & systèmes.\nStage en développement web avec bases de données.\nOrientation full-stack, vision globale du projet.\nQualité du code et bonnes pratiques."
@@ -100,7 +120,7 @@ export const aboutInfoBilingual = {
   },
   en: {
     paragraphs: [
-      "Graduated with a Dec in computer technology, I have a versatile profile combining web development and technical skills in computer science and systems.\nMy background has allowed me to acquire a solid foundation in programming, management of IT environments and a rigorous working methodology.\nDuring my internship in web development, I worked on concrete PHP projects with phpMyAdmin, including database manipulation and updating existing features.\nI also designed and configured a complete local development environment.\nAs an IT technician, I master the installation, configuration and maintenance of Windows and Linux environments, the use of virtual machines, as well as the basics of network services.\nCurious and motivated, I continually seek to deepen my skills in both development and IT infrastructure."
+      "Graduated with a Dec in computer technology, I have a versatile profile combining web development and technical skills in computer science and systems.\nMy background has allowed me to acquire a solid foundation in programming, management of IT environments and a rigorous working methodology.\nDuring my internship in web development, I worked on concrete PHP projects with phpMyAdmin, including database manipulation and updating existing features.\nI also designed and configured a complete local development environment.\nAs an IT technician, I master the installation, configuration and maintenance of Windows and Linux environments, the use of virtual machines, as well as the basics of network services.\nI actively use generative artificial intelligence tools to improve productivity ,\naccelerate development, optimize code quality, automate documentation, and assist\nsolving technical problems while adhering to good engineering practices\nsoftware.\nCurious and motivated, I continually seek to deepen my skills in both development and IT infrastructure."
     ],
     highlights: [
       "Dec in Computer Science – Programming & Systems.\nInternship in web development with databases.\nFull-stack orientation, overall vision of the project.\nCode quality and best practices."

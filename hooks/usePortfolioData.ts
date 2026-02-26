@@ -44,6 +44,8 @@ interface PortfolioData {
     github: string;
     linkedin: string;
     cvUrl: string;
+    location?: string;
+    openToWork?: boolean;
   };
   about: {
     paragraphs: string[];
@@ -185,6 +187,8 @@ interface FirebaseProfileRaw {
   github?: string;
   linkedin?: string;
   cvUrl?: string;
+  location?: string;
+  openToWork?: boolean;
   about?: {
     paragraphs?: string[] | { fr: string[]; en: string[] };
     highlights?: string[] | { fr: string[]; en: string[] };
@@ -307,6 +311,8 @@ export function usePortfolioData(): PortfolioData {
     github: firebaseProfile?.github || staticProfile.github,
     linkedin: firebaseProfile?.linkedin || staticProfile.linkedin,
     cvUrl: firebaseProfile?.cvUrl || staticProfile.cvUrl,
+    location: firebaseProfile?.location ?? staticProfile.location,
+    openToWork: firebaseProfile?.openToWork ?? staticProfile.openToWork,
   };
 
   // For about: use static bilingual data unless Firebase has bilingual format

@@ -38,6 +38,8 @@ export interface PersonalInfo {
   github: string;
   linkedin: string;
   cvUrl: string;
+  location?: string;
+  openToWork?: boolean;
 }
 
 export interface AboutInfo {

@@ -13,6 +13,8 @@ interface ProfileEditorState {
   github: string;
   linkedin: string;
   cvUrl: string;
+  location: string;
+  openToWork: boolean;
   about: {
     paragraphs: BilingualText[];
     highlights: BilingualText[];
@@ -67,6 +69,8 @@ function toFirebaseFormat(state: ProfileEditorState): ProfileData {
     github: state.github,
     linkedin: state.linkedin,
     cvUrl: state.cvUrl,
+    location: state.location,
+    openToWork: state.openToWork,
     about: {
       paragraphs: {
         fr: state.about.paragraphs.map(p => p.fr),
@@ -88,6 +92,8 @@ const defaultProfile: ProfileEditorState = {
   github: '',
   linkedin: '',
   cvUrl: '',
+  location: '',
+  openToWork: false,
   about: {
     paragraphs: [{ fr: '', en: '' }],
     highlights: [{ fr: '', en: '' }],
@@ -117,6 +123,8 @@ export default function ProfileEditor() {
         github: data.github || '',
         linkedin: data.linkedin || '',
         cvUrl: data.cvUrl || '',
+        location: data.location || '',
+        openToWork: data.openToWork ?? false,
         about: {
           paragraphs: ensureBilingualParagraphs(data.about?.paragraphs),
           highlights: ensureBilingualParagraphs(data.about?.highlights),
@@ -271,6 +279,36 @@ export default function ProfileEditor() {
               onChange={(e) => setProfile({ ...profile, name: e.target.value })}
               className="w-full px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Localisation (ex: Montréal, QC)</label>
+            <input
+              type="text"
+              value={profile.location}
+              onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+              placeholder="Montréal, QC"
+              className="w-full px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+          <div className="sm:col-span-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setProfile({ ...profile, openToWork: !profile.openToWork })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-dark-900 ${
+                profile.openToWork ? 'bg-green-500' : 'bg-dark-600'
+              }`}
+              aria-label="Disponible pour travailler"
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  profile.openToWork ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <label className="text-sm font-medium text-gray-300">
+              Disponible pour travailler (badge &quot;Open to Work&quot;)
+              {profile.openToWork && <span className="ml-2 text-green-400">● Activé</span>}
+            </label>
           </div>
           <div className="sm:col-span-2">
             <label className="block text-sm font-medium text-gray-300 mb-2">

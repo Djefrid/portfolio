@@ -13,6 +13,8 @@ interface PortfolioContextType {
     github: string;
     linkedin: string;
     cvUrl: string;
+    location?: string;
+    openToWork?: boolean;
   };
   about: {
     paragraphs: string[];

@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { motion } from "framer-motion";
+import { MapPin, Briefcase } from "lucide-react";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useLanguage } from "@/context/LanguageContext";
+import { Badge } from "@/components/ui/badge";
 
 export default function Hero() {
   const { profile } = usePortfolio();
@@ -11,21 +14,84 @@ export default function Hero() {
   return (
     <section
       id="hero"
-      className="min-h-screen flex items-center justify-center pt-16"
+      className="min-h-screen flex items-center justify-center pt-16 relative overflow-hidden"
     >
-      <div className="section-container text-center">
+      {/* Glow background */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary-600/20 rounded-full blur-[120px]" />
+        <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-primary-800/10 rounded-full blur-[80px]" />
+      </div>
+
+      <div className="section-container text-center relative z-10">
+
+        {/* Badge Open to Work */}
+        {profile.openToWork && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            className="flex justify-center mb-6"
+          >
+            <Badge className="bg-green-500/20 text-green-400 border border-green-500/40 px-4 py-1.5 text-sm font-medium flex items-center gap-2 hover:bg-green-500/30 transition-colors">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
+              </span>
+              {t('hero.openToWork')}
+            </Badge>
+          </motion.div>
+        )}
+
         {/* Name */}
-        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4">
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4"
+        >
           {profile.name}
-        </h1>
+        </motion.h1>
 
         {/* Title */}
-        <h2 className="text-xl sm:text-2xl lg:text-3xl text-primary-400 font-medium mb-6">
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="text-xl sm:text-2xl lg:text-3xl text-primary-400 font-medium mb-4"
+        >
           {profile.title}
-        </h2>
+        </motion.h2>
+
+        {/* Location + availability */}
+        {(profile.location || profile.openToWork) && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="flex items-center justify-center gap-4 mb-8 text-gray-400 text-sm flex-wrap"
+          >
+            {profile.location && (
+              <span className="flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-primary-400" />
+                {profile.location}
+              </span>
+            )}
+            {profile.openToWork && (
+              <span className="flex items-center gap-1.5">
+                <Briefcase className="w-4 h-4 text-green-400" />
+                {t('hero.availableForWork')}
+              </span>
+            )}
+          </motion.div>
+        )}
 
         {/* Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.4 }}
+          className="flex flex-col sm:flex-row items-center justify-center gap-4"
+        >
           <Link
             href={profile.github}
             target="_blank"
@@ -81,7 +147,7 @@ export default function Hero() {
             </svg>
             {t('hero.downloadCV')}
           </Link>
-        </div>
+        </motion.div>
 
         {/* Scroll indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce hidden md:block">

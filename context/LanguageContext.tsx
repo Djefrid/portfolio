@@ -22,6 +22,8 @@ const translations: Record<Language, Translations> = {
     hero: {
       downloadCV: 'Télécharger CV',
       scrollDown: 'Défiler vers la section À propos',
+      openToWork: 'Disponible pour travailler',
+      availableForWork: 'Ouvert aux opportunités',
     },
     // About
     about: {
@@ -55,6 +57,16 @@ const translations: Record<Language, Translations> = {
       email: 'Email',
       github: 'Voir mes projets',
       linkedin: 'Mon profil professionnel',
+      form: {
+        name: 'Votre nom',
+        email: 'Votre email',
+        message: 'Votre message',
+        send: 'Envoyer le message',
+        sending: 'Envoi...',
+        namePlaceholder: 'Jean Dupont',
+        emailPlaceholder: 'jean@exemple.com',
+        messagePlaceholder: 'Bonjour, je souhaite vous contacter...',
+      },
     },
     // Footer
     footer: {
@@ -74,6 +86,8 @@ const translations: Record<Language, Translations> = {
     hero: {
       downloadCV: 'Download CV',
       scrollDown: 'Scroll to About section',
+      openToWork: 'Open to Work',
+      availableForWork: 'Available for opportunities',
     },
     // About
     about: {
@@ -107,6 +121,16 @@ const translations: Record<Language, Translations> = {
       email: 'Email',
       github: 'View my projects',
       linkedin: 'My professional profile',
+      form: {
+        name: 'Your name',
+        email: 'Your email',
+        message: 'Your message',
+        send: 'Send message',
+        sending: 'Sending...',
+        namePlaceholder: 'John Doe',
+        emailPlaceholder: 'john@example.com',
+        messagePlaceholder: 'Hello, I would like to contact you...',
+      },
     },
     // Footer
     footer: {

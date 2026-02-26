@@ -23,6 +23,8 @@ interface ProfileData {
   github: string;
   linkedin: string;
   cvUrl: string;
+  location?: string;
+  openToWork?: boolean;
   about: {
     paragraphs: BilingualArray;
     highlights: BilingualArray;
@@ -60,6 +62,8 @@ function escapeString(s: string): string {
 }
 
 function generateProfileSection(profile: ProfileData): string {
+  const locationLine = profile.location ? `,\n    location: "${escapeString(profile.location)}"` : '';
+  const openToWorkLine = profile.openToWork !== undefined ? `,\n    openToWork: ${profile.openToWork}` : '';
   return `export const personalInfoBilingual = {
   fr: {
     name: "${escapeString(profile.name)}",
@@ -68,7 +72,7 @@ function generateProfileSection(profile: ProfileData): string {
     email: "${escapeString(profile.email)}",
     github: "${escapeString(profile.github)}",
     linkedin: "${escapeString(profile.linkedin)}",
-    cvUrl: "${escapeString(profile.cvUrl)}"
+    cvUrl: "${escapeString(profile.cvUrl)}"${locationLine}${openToWorkLine}
   },
   en: {
     name: "${escapeString(profile.name)}",
@@ -77,7 +81,7 @@ function generateProfileSection(profile: ProfileData): string {
     email: "${escapeString(profile.email)}",
     github: "${escapeString(profile.github)}",
     linkedin: "${escapeString(profile.linkedin)}",
-    cvUrl: "${escapeString(profile.cvUrl)}"
+    cvUrl: "${escapeString(profile.cvUrl)}"${locationLine}${openToWorkLine}
   }
 };`;
 }
