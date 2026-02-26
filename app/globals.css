@@ -54,4 +54,12 @@
   .text-gradient {
     @apply bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent;
   }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }
