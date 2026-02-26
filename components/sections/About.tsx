@@ -1,39 +1,75 @@
 "use client";
 
+import { useState } from "react";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useLanguage } from "@/context/LanguageContext";
 
-// Function to normalize and add double line breaks after periods (sentences)
 function formatWithLineBreaks(text: string): string {
-  // Normalize: replace all types of line breaks and multiple spaces with single space
   let normalized = text.replace(/\r\n/g, ' ').replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
-  // Add double line breaks after periods (sentence endings) for better readability
   return normalized.replace(/\.\s+/g, '.\n\n');
 }
 
 export default function About() {
   const { about } = usePortfolio();
   const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <section id="about" className="py-20 bg-dark-900">
       <div className="section-container">
         <h2 className="section-title text-center">{t('about.title')}</h2>
-        <p className="section-subtitle text-center">
-          {t('about.subtitle')}
-        </p>
+        <p className="section-subtitle text-center">{t('about.subtitle')}</p>
 
         <div className="grid md:grid-cols-2 gap-12 items-start">
-          {/* Text content */}
-          <div className="space-y-6 text-justify">
-            {about.paragraphs.map((paragraph, index) => (
-              <p key={index} className="text-gray-300 leading-relaxed whitespace-pre-wrap">
-                {formatWithLineBreaks(paragraph)}
-              </p>
-            ))}
+          {/* Texte avec accordion */}
+          <div className="space-y-4">
+            <div className="relative">
+              {/* Conteneur avec hauteur limitée ou pleine */}
+              <div
+                className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                  expanded ? "max-h-[2000px]" : "max-h-[12rem]"
+                }`}
+              >
+                <div className="space-y-6 text-justify">
+                  {about.paragraphs.map((paragraph, index) => (
+                    <p key={index} className="text-gray-300 leading-relaxed whitespace-pre-wrap">
+                      {formatWithLineBreaks(paragraph)}
+                    </p>
+                  ))}
+                </div>
+              </div>
+
+              {/* Dégradé masquant quand replié */}
+              {!expanded && (
+                <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-dark-900 to-transparent pointer-events-none" />
+              )}
+            </div>
+
+            {/* Bouton Lire la suite / Réduire */}
+            <button
+              type="button"
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center gap-1.5 text-sm text-primary-400 hover:text-primary-300 transition-colors mt-2"
+            >
+              {expanded ? (
+                <>
+                  Réduire
+                  <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                </>
+              ) : (
+                <>
+                  Lire la suite
+                  <svg className="w-4 h-4 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </>
+              )}
+            </button>
           </div>
 
-          {/* Highlights */}
+          {/* Points clés — toujours visibles */}
           <div className="bg-dark-800 rounded-xl p-6 border border-dark-700">
             <h3 className="text-xl font-semibold text-white mb-6">
               {t('about.highlights')}
@@ -50,12 +86,7 @@ export default function About() {
                       stroke="currentColor"
                       viewBox="0 0 24 24"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     <span className="text-gray-300">{line}</span>
                   </li>

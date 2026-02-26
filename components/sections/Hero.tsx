@@ -24,18 +24,6 @@ export default function Hero() {
           {profile.title}
         </h2>
 
-        {/* Stack */}
-        <div className="flex flex-wrap justify-center gap-3 mb-8">
-          {profile.stack.map((tech) => (
-            <span
-              key={tech}
-              className="px-4 py-2 bg-dark-800 text-gray-300 rounded-full text-sm font-medium"
-            >
-              {tech}
-            </span>
-          ))}
-        </div>
-
         {/* Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
