@@ -115,93 +115,162 @@ export async function POST(request: NextRequest) {
       from: 'Portfolio Contact <onboarding@resend.dev>',
       to: toEmail,
       replyTo: safeEmail,
-      subject: `✉️ Nouveau message de ${safeName} — Portfolio`,
+      subject: `Nouveau message de ${safeName} — Portfolio`,
       html: `
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin:0; padding:0; background-color:#0b1120; }
+    [data-ogsb] .eo { background-color:#0b1120 !important; }
+    [data-ogsb] .ec { background-color:#101827 !important; }
+    [data-ogsb] .ef { background-color:#0d1929 !important; }
+    [data-ogsb] .eb { background-color:#4338ca !important; }
+    [data-ogsc] .tt { color:#dde3ed !important; }
+    [data-ogsc] .tb { color:#8296b0 !important; }
+    [data-ogsc] .tl { color:#6d7fbd !important; }
+    [data-ogsc] .tm { color:#4a6080 !important; }
+    @media (prefers-color-scheme: dark) {
+      .eo { background-color:#0b1120 !important; }
+      .ec { background-color:#101827 !important; }
+      .ef { background-color:#0d1929 !important; }
+      .eb { background-color:#4338ca !important; }
+      .tt { color:#dde3ed !important; }
+      .tb { color:#8296b0 !important; }
+      .tl { color:#6d7fbd !important; }
+      .tm { color:#4a6080 !important; }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#0f172a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#0f172a;padding:40px 20px;">
-    <tr>
-      <td align="center">
-        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+<body style="margin:0;padding:0;background-color:#0b1120;" bgcolor="#0b1120">
 
-          <!-- Header -->
-          <tr>
-            <td style="background:linear-gradient(135deg,#1e1b4b 0%,#312e81 100%);border-radius:16px 16px 0 0;padding:32px 40px;text-align:center;">
-              <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#a5b4fc;">Portfolio</p>
-              <h1 style="margin:0;font-size:24px;font-weight:700;color:#ffffff;">Nouveau message reçu</h1>
-              <p style="margin:8px 0 0 0;font-size:14px;color:#c7d2fe;">${now}</p>
-            </td>
-          </tr>
+<!-- ═══ Fond extérieur ═══ -->
+<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b1120" style="background-color:#0b1120;">
+  <tr>
+    <!-- padding ICI sur le td, jamais sur table -->
+    <td class="eo" align="center" bgcolor="#0b1120"
+        style="background-color:#0b1120;padding:48px 16px;">
 
-          <!-- Body -->
-          <tr>
-            <td style="background-color:#1e293b;padding:32px 40px;">
+      <!-- ═══ Colonne 560px ═══ -->
+      <table width="560" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b1120"
+             style="background-color:#0b1120;max-width:560px;width:100%;">
 
-              <!-- Sender info -->
-              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
-                <tr>
-                  <td style="background-color:#0f172a;border-radius:12px;padding:20px 24px;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td style="padding:4px 0;">
-                          <span style="font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#64748b;">De</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:4px 0;">
-                          <span style="font-size:18px;font-weight:700;color:#f1f5f9;">${safeName}</span>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:4px 0;">
-                          <a href="mailto:${safeEmail}" style="font-size:14px;color:#818cf8;text-decoration:none;">${safeEmail}</a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
+        <!-- Barre accent -->
+        <tr>
+          <td class="eb" bgcolor="#4f46e5" height="4"
+              style="background-color:#4f46e5;font-size:0;line-height:0;" height="4">&nbsp;</td>
+        </tr>
 
-              <!-- Message -->
-              <p style="margin:0 0 8px 0;font-size:12px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:#64748b;">Message</p>
-              <div style="background-color:#0f172a;border-left:3px solid #6366f1;border-radius:0 12px 12px 0;padding:20px 24px;margin-bottom:32px;">
-                <p style="margin:0;font-size:15px;line-height:1.7;color:#cbd5e1;white-space:pre-line;">${safeMessage}</p>
-              </div>
+        <!-- ═══ Carte ═══ -->
+        <tr>
+          <td class="ec" bgcolor="#101827"
+              style="background-color:#101827;border:1px solid #1e2f45;border-top:none;padding:36px 36px 28px;">
 
-              <!-- CTA -->
-              <table width="100%" cellpadding="0" cellspacing="0">
-                <tr>
-                  <td align="center">
-                    <a href="mailto:${safeEmail}?subject=Re: Message depuis ton portfolio"
-                       style="display:inline-block;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;padding:14px 32px;border-radius:8px;">
-                      ↩ Répondre à ${safeName}
-                    </a>
-                  </td>
-                </tr>
-              </table>
+            <!-- En-tête -->
+            <p class="tl" style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#6d7fbd;">Djefrid Byli &middot; Portfolio</p>
+            <h1 class="tt" style="margin:0 0 4px;font-size:20px;font-weight:600;color:#dde3ed;line-height:1.3;">Nouveau message re&ccedil;u</h1>
+            <p class="tm" style="margin:0 0 24px;font-size:12px;color:#4a6080;">${now}</p>
 
-            </td>
-          </tr>
+            <!-- Séparateur -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td bgcolor="#1e2f45" height="1" style="background-color:#1e2f45;font-size:0;line-height:0;" height="1"></td></tr>
+            </table>
 
-          <!-- Footer -->
-          <tr>
-            <td style="background-color:#0f172a;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center;border-top:1px solid #1e293b;">
-              <p style="margin:0 0 4px 0;font-size:12px;color:#475569;">
-                Ce message a été envoyé depuis le formulaire de contact de
-              </p>
-              <a href="${siteUrl}" style="font-size:12px;color:#6366f1;text-decoration:none;">${siteUrl}</a>
-            </td>
-          </tr>
+            <!-- Spacer -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td class="ec" bgcolor="#101827" height="20" style="background-color:#101827;font-size:0;line-height:0;" height="20"></td></tr>
+            </table>
 
-        </table>
-      </td>
-    </tr>
-  </table>
+            <!-- Expéditeur — label -->
+            <p class="tm" style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#4a6080;">Exp&eacute;diteur</p>
+
+            <!-- Expéditeur — bloc -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0d1929"
+                   style="background-color:#0d1929;">
+              <tr>
+                <td class="ef" bgcolor="#0d1929"
+                    style="background-color:#0d1929;border-left:3px solid #4f46e5;padding:14px 18px;">
+                  <p class="tt" style="margin:0 0 4px;font-size:15px;font-weight:600;color:#dde3ed;">${safeName}</p>
+                  <a href="mailto:${safeEmail}" class="tl"
+                     style="font-size:13px;color:#6d7fbd;text-decoration:none;">${safeEmail}</a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Spacer -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td class="ec" bgcolor="#101827" height="20" style="background-color:#101827;font-size:0;line-height:0;" height="20"></td></tr>
+            </table>
+
+            <!-- Message — label -->
+            <p class="tm" style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#4a6080;">Message</p>
+
+            <!-- Message — bloc -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0d1929"
+                   style="background-color:#0d1929;">
+              <tr>
+                <td class="ef" bgcolor="#0d1929"
+                    style="background-color:#0d1929;padding:18px 20px;">
+                  <p class="tb" style="margin:0;font-size:14px;line-height:1.8;color:#8296b0;white-space:pre-wrap;">${safeMessage}</p>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Spacer -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td class="ec" bgcolor="#101827" height="24" style="background-color:#101827;font-size:0;line-height:0;" height="24"></td></tr>
+            </table>
+
+            <!-- Bouton -->
+            <table cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td class="eb" bgcolor="#4338ca"
+                    style="background-color:#4338ca;border-radius:8px;">
+                  <a href="mailto:${safeEmail}?subject=Re%3A%20Votre%20message%20depuis%20le%20portfolio"
+                     style="display:inline-block;background-color:#4338ca;color:#e0e3f0;font-size:13px;font-weight:500;text-decoration:none;padding:12px 26px;border-radius:8px;">
+                    R&eacute;pondre &agrave; ${safeName}
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Spacer -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td class="ec" bgcolor="#101827" height="24" style="background-color:#101827;font-size:0;line-height:0;" height="24"></td></tr>
+            </table>
+
+            <!-- Séparateur bas -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td bgcolor="#1e2f45" height="1" style="background-color:#1e2f45;font-size:0;line-height:0;" height="1"></td></tr>
+            </table>
+
+            <!-- Spacer -->
+            <table width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr><td class="ec" bgcolor="#101827" height="16" style="background-color:#101827;font-size:0;line-height:0;" height="16"></td></tr>
+            </table>
+
+            <!-- Pied de page -->
+            <p style="margin:0;font-size:11px;color:#4a6080;line-height:1.6;">
+              Formulaire de contact &mdash;
+              <a href="${siteUrl}" style="color:#5a7090;text-decoration:none;">${siteUrl}</a>
+            </p>
+
+          </td>
+        </tr>
+
+      </table>
+      <!-- fin colonne 560px -->
+
+    </td>
+  </tr>
+</table>
+<!-- fin fond extérieur -->
+
 </body>
 </html>
       `,
