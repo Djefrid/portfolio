@@ -1,12 +1,12 @@
-# Portfolio - Développeur Web Full-Stack
+# Portfolio — Développeur Web Full-Stack
 
-Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, Firebase et Tailwind CSS. Inclut un panneau d'administration complet pour gérer le contenu dynamiquement.
+Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, Firebase et Tailwind CSS. Inclut un panneau d'administration complet pour gérer le contenu dynamiquement, un mode clair/sombre animé, et des animations au défilement.
 
 ---
 
 ## Table des matières
 
-1. [Apercu](#apercu)
+1. [Aperçu](#aperçu)
 2. [Stack Technique](#stack-technique)
 3. [Prérequis](#prérequis)
 4. [Installation pas à pas](#installation-pas-à-pas)
@@ -16,21 +16,24 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 8. [Structure du projet](#structure-du-projet)
 9. [Fonctionnalités](#fonctionnalités)
 10. [Panneau Admin](#panneau-admin)
-11. [API de traduction](#api-de-traduction)
+11. [API Routes](#api-routes)
 12. [SEO et Référencement](#seo-et-référencement)
 13. [Déploiement sur Vercel](#déploiement-sur-vercel)
-14. [Dépannage](#dépannage)
-15. [Commandes disponibles](#commandes-disponibles)
+14. [Sécurité](#sécurité)
+15. [Dépannage](#dépannage)
+16. [Commandes disponibles](#commandes-disponibles)
 
 ---
 
-## Apercu
+## Aperçu
 
 | Site Public | Panneau Admin |
 |-------------|---------------|
 | Portfolio bilingue FR/EN | Interface d'édition sécurisée |
-| Sections: Hero, À propos, Projets, Compétences, Contact | Éditeurs: Profil, Projets, Compétences |
-| Design responsive | Traduction automatique FR→EN |
+| Sections : Hero, À propos, Projets, Compétences, Contact | Éditeurs : Profil, Projets, Compétences |
+| Mode clair / sombre animé (next-themes) | Traduction automatique FR→EN |
+| Animations scroll bidirectionnelles (framer-motion) | Formulaire de contact (Resend) |
+| Design responsive mobile/tablette/desktop | Données Firebase ou fallback statique |
 
 ---
 
@@ -38,62 +41,45 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 
 | Catégorie | Technologies |
 |-----------|-------------|
-| **Framework** | Next.js 14 (App Router) |
+| **Framework** | Next.js 14.2.35 (App Router) |
 | **Frontend** | React 18, TypeScript 5 |
-| **Styling** | Tailwind CSS 3.4 |
-| **Backend/BDD** | Firebase (Authentication + Firestore) |
+| **Styling** | Tailwind CSS 3.4, framer-motion 12 |
+| **Thème** | next-themes (mode clair / sombre) |
+| **Composants UI** | Radix UI (Label, Slot), lucide-react, CVA |
+| **Backend / BDD** | Firebase 12 (Authentication + Firestore) |
+| **Emails** | Resend (formulaire de contact) |
 | **Traduction** | MyMemory API (automatique FR↔EN) |
-| **Linting** | ESLint |
-| **Déploiement** | Vercel |
+| **Linting** | ESLint 8 |
+| **Déploiement** | Vercel (standalone output) |
 
 ---
 
 ## Prérequis
 
-Avant de commencer, installer ces outils sur votre machine :
-
 ### 1. Node.js (v18.17 ou supérieur)
 
 **Téléchargement** : [https://nodejs.org/](https://nodejs.org/)
 
-Vérifier l'installation :
 ```bash
-node --version
-# Attendu : v18.17.0 ou supérieur
+node --version   # v18.17.0 ou supérieur
+npm --version    # 9.0.0 ou supérieur
 ```
 
-### 2. npm (inclus avec Node.js)
-
-```bash
-npm --version
-# Attendu : 9.0.0 ou supérieur
-```
-
-### 3. Git
+### 2. Git
 
 **Téléchargement** : [https://git-scm.com/](https://git-scm.com/)
 
-```bash
-git --version
-```
-
-### 4. Compte Firebase (gratuit)
+### 3. Compte Firebase (gratuit)
 
 **Console** : [https://console.firebase.google.com/](https://console.firebase.google.com/)
+
+### 4. Compte Resend (gratuit, optionnel — pour les emails)
+
+**Site** : [https://resend.com/](https://resend.com/)
 
 ### 5. Compte Vercel (optionnel, pour le déploiement)
 
 **Site** : [https://vercel.com/](https://vercel.com/)
-
-### 6. Éditeur de code recommandé
-
-**VS Code** : [https://code.visualstudio.com/](https://code.visualstudio.com/)
-
-Extensions recommandées :
-- ES7+ React/Redux/React-Native snippets
-- Tailwind CSS IntelliSense
-- TypeScript Vue Plugin (Volar)
-- Prettier - Code formatter
 
 ---
 
@@ -102,10 +88,7 @@ Extensions recommandées :
 ### Étape 1 : Cloner le projet
 
 ```bash
-# Cloner le repository
 git clone https://github.com/Djefrid/portfolio.git
-
-# Entrer dans le dossier
 cd portfolio
 ```
 
@@ -114,8 +97,6 @@ cd portfolio
 ```bash
 npm install
 ```
-
-> **Durée estimée** : 1-2 minutes selon votre connexion
 
 ### Étape 3 : Créer le fichier d'environnement
 
@@ -134,7 +115,9 @@ Copy-Item .env.local.example .env.local
 copy .env.local.example .env.local
 ```
 
-### Étape 4 : Configurer Firebase (voir section suivante)
+### Étape 4 : Configurer les variables d'environnement
+
+Ouvrir `.env.local` et remplir avec vos valeurs (voir section [Variables d'environnement](#variables-denvironnement)).
 
 ### Étape 5 : Lancer le projet
 
@@ -153,60 +136,41 @@ Ouvrir : [http://localhost:3000](http://localhost:3000)
 ### Étape 1 : Créer un projet Firebase
 
 1. Aller sur [Firebase Console](https://console.firebase.google.com/)
-2. Cliquer sur **"Créer un projet"** (ou "Add project")
-3. Nommer le projet : `mon-portfolio` (ou autre nom)
-4. **Google Analytics** : Désactiver (optionnel, non nécessaire)
+2. Cliquer sur **"Créer un projet"**
+3. Nommer le projet : `mon-portfolio`
+4. Désactiver Google Analytics (optionnel)
 5. Cliquer sur **"Créer le projet"**
-6. Attendre la création (~30 secondes)
-7. Cliquer sur **"Continuer"**
 
-### Étape 2 : Activer l'authentification
+### Étape 2 : Activer l'authentification Email/Mot de passe
 
-1. Dans le menu de gauche : **Build → Authentication**
-2. Cliquer sur **"Commencer"** (ou "Get started")
-3. Onglet **"Sign-in method"**
-4. Cliquer sur **"E-mail/Mot de passe"**
-5. Activer **"E-mail/Mot de passe"** (premier toggle)
-6. Cliquer sur **"Enregistrer"**
+1. **Build → Authentication → Get started**
+2. Onglet **"Sign-in method"**
+3. Activer **"E-mail/Mot de passe"**
+4. Cliquer sur **"Enregistrer"**
 
 ### Étape 3 : Ajouter les domaines autorisés
 
 > **Critique pour Vercel** : Sans cette étape, la connexion admin échouera en production.
 
-1. Rester dans **Authentication**
-2. Aller dans l'onglet **"Settings"**
-3. Section **"Authorized domains"**
-4. Vérifier que ces domaines sont présents :
-   - `localhost` (par défaut)
-5. Cliquer sur **"Add domain"** et ajouter :
-   - `votre-projet.vercel.app` (votre domaine Vercel)
+1. **Authentication → Settings → Authorized domains**
+2. Cliquer sur **"Add domain"** et ajouter votre domaine Vercel :
+   - `votre-projet.vercel.app`
 
 ### Étape 4 : Créer un utilisateur admin
 
-1. Dans **Authentication → Users**
-2. Cliquer sur **"Add user"**
-3. Entrer :
-   - **Email** : votre email (ex: `djeffkuate@gmail.com`)
-   - **Password** : un mot de passe sécurisé (min 6 caractères)
-4. Cliquer sur **"Add user"**
-
-> **Important** : Notez cet email, il sera votre `NEXT_PUBLIC_ADMIN_EMAIL`
+1. **Authentication → Users → Add user**
+2. Entrer votre email et un mot de passe sécurisé (min 6 caractères)
 
 ### Étape 5 : Créer la base de données Firestore
 
-1. Dans le menu : **Build → Firestore Database**
-2. Cliquer sur **"Créer une base de données"**
-3. Choisir **"Start in production mode"**
-4. Sélectionner une région :
-   - Europe : `eur3 (europe-west)`
-   - Amérique : `nam5 (us-central)`
-5. Cliquer sur **"Activer"**
+1. **Build → Firestore Database → Créer une base de données**
+2. Choisir **"Start in production mode"**
+3. Sélectionner une région (ex: `nam5 (us-central)` pour le Canada)
 
 ### Étape 6 : Configurer les règles de sécurité Firestore
 
-1. Dans Firestore, aller à l'onglet **"Règles"** (ou "Rules")
-2. **Supprimer** tout le contenu existant
-3. **Coller** ces règles :
+1. **Firestore → Règles**
+2. Remplacer par :
 
 ```javascript
 rules_version = '2';
@@ -214,7 +178,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Lecture publique pour tout le monde (site public)
+    // Lecture publique (site public)
     match /{document=**} {
       allow read: if true;
     }
@@ -233,89 +197,66 @@ service cloud.firestore {
 }
 ```
 
-4. **Remplacer** `VOTRE_EMAIL_ADMIN` par votre email (ex: `djeffkuate@gmail.com`)
-5. Cliquer sur **"Publier"** (ou "Publish")
+3. Remplacer `VOTRE_EMAIL_ADMIN` par votre email
+4. Cliquer sur **"Publier"**
 
 ### Étape 7 : Récupérer les clés Firebase
 
-1. Cliquer sur l'icône **engrenage** (⚙️) en haut à gauche
-2. Sélectionner **"Paramètres du projet"**
-3. Défiler vers le bas jusqu'à **"Vos applications"**
-4. Cliquer sur l'icône **Web** (`</>`)
-5. Nommer l'app : `portfolio-web`
-6. **NE PAS** cocher "Firebase Hosting"
-7. Cliquer sur **"Enregistrer l'application"**
-8. Un bloc de code apparaît avec `firebaseConfig`
-
-**Copier ces valeurs** (vous en aurez besoin) :
-
-```javascript
-const firebaseConfig = {
-  apiKey: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-  authDomain: "votre-projet.firebaseapp.com",
-  projectId: "votre-projet",
-  storageBucket: "votre-projet.appspot.com",
-  messagingSenderId: "123456789012",
-  appId: "1:123456789012:web:abcdef123456789"
-};
-```
+1. **Paramètres du projet (⚙️) → Vos applications → Web (`</>`)**
+2. Nommer l'app `portfolio-web`
+3. Copier les valeurs du bloc `firebaseConfig`
 
 ---
 
 ## Variables d'environnement
 
-Ouvrir le fichier `.env.local` et remplir avec vos valeurs :
+Ouvrir `.env.local` et remplir :
 
 ```env
 # ================================
 # Configuration Firebase
 # ================================
-
-# Clé API (apiKey dans firebaseConfig)
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-# Domaine d'authentification (authDomain)
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=votre-projet.firebaseapp.com
-
-# ID du projet (projectId)
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=votre-projet
-
-# Bucket de stockage (storageBucket)
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=votre-projet.appspot.com
-
-# ID du sender de messagerie (messagingSenderId)
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789012
-
-# ID de l'application (appId)
 NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789012:web:abcdef123456789
 
 # ================================
 # Configuration Admin
 # ================================
-
-# Email autorisé pour l'administration (celui créé dans Firebase Auth)
 NEXT_PUBLIC_ADMIN_EMAIL=votre@email.com
 
 # ================================
 # Configuration SEO
 # ================================
-
-# URL du site en production (utilisé pour le sitemap et les métadonnées)
 NEXT_PUBLIC_SITE_URL=https://portfolio.djefrid.ca
+
+# ================================
+# Configuration Resend (emails de contact)
+# ================================
+# Clé API Resend — côté serveur uniquement (SANS préfixe NEXT_PUBLIC_)
+RESEND_API_KEY=re_XXXXXXXXXXXXXXXXXXXX
+CONTACT_EMAIL=votre@email.com
 ```
 
 ### Tableau récapitulatif
 
-| Variable | Description | Où la trouver |
-|----------|-------------|---------------|
-| `FIREBASE_API_KEY` | Clé API Firebase | firebaseConfig → apiKey |
-| `FIREBASE_AUTH_DOMAIN` | Domaine d'auth | firebaseConfig → authDomain |
-| `FIREBASE_PROJECT_ID` | ID du projet | firebaseConfig → projectId |
-| `FIREBASE_STORAGE_BUCKET` | Bucket storage | firebaseConfig → storageBucket |
-| `FIREBASE_MESSAGING_SENDER_ID` | ID sender | firebaseConfig → messagingSenderId |
-| `FIREBASE_APP_ID` | ID de l'app | firebaseConfig → appId |
-| `ADMIN_EMAIL` | Email admin | Email créé dans Firebase Auth |
-| `SITE_URL` | URL du site en production | Votre domaine (ex: `https://portfolio.djefrid.ca`) |
+| Variable | Description | Visibilité |
+|----------|-------------|------------|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Clé API Firebase | Client + Serveur |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Domaine d'authentification | Client + Serveur |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | ID du projet Firebase | Client + Serveur |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Bucket de stockage | Client + Serveur |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | ID sender | Client + Serveur |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | ID de l'application | Client + Serveur |
+| `NEXT_PUBLIC_ADMIN_EMAIL` | Email autorisé pour l'admin | Client + Serveur |
+| `NEXT_PUBLIC_SITE_URL` | URL du site en production | Client + Serveur |
+| `RESEND_API_KEY` | Clé API Resend (emails) | **Serveur uniquement** |
+| `CONTACT_EMAIL` | Email destinataire des contacts | **Serveur uniquement** |
+
+> **Sécurité** : `RESEND_API_KEY` et `CONTACT_EMAIL` n'ont pas le préfixe `NEXT_PUBLIC_` — ils ne sont jamais exposés au navigateur.
 
 ---
 
@@ -327,16 +268,13 @@ NEXT_PUBLIC_SITE_URL=https://portfolio.djefrid.ca
 npm run dev
 ```
 
-- Site : [http://localhost:3000](http://localhost:3000)
+- Site public : [http://localhost:3000](http://localhost:3000)
 - Admin : [http://localhost:3000/admin](http://localhost:3000/admin)
 
 ### Mode production (test local)
 
 ```bash
-# Construire le projet
 npm run build
-
-# Lancer le serveur de production
 npm run start
 ```
 
@@ -354,81 +292,95 @@ npm run lint
 portfolio/
 │
 ├── app/                              # Routes Next.js 14 (App Router)
-│   ├── layout.tsx                    # Layout racine (Providers globaux)
-│   ├── globals.css                   # Styles Tailwind globaux
+│   ├── layout.tsx                    # Layout racine — SEO metadata, Providers
+│   ├── globals.css                   # Styles Tailwind + overrides mode clair
 │   │
-│   ├── (main)/                       # Groupe de routes - Site public
+│   ├── (main)/                       # Groupe de routes — Site public
 │   │   ├── layout.tsx                # Layout avec Header + Footer
-│   │   └── page.tsx                  # Page d'accueil (/)
+│   │   └── page.tsx                  # Page d'accueil (/) → PortfolioWrapper
 │   │
 │   ├── admin/                        # Routes administration (protégées)
-│   │   ├── layout.tsx                # Layout admin (Header séparé)
-│   │   ├── page.tsx                  # Dashboard admin (/admin)
+│   │   ├── layout.tsx                # Guard d'authentification Firebase
+│   │   ├── page.tsx                  # Dashboard admin (onglets profil/projets/compétences)
 │   │   └── login/
-│   │       └── page.tsx              # Page connexion (/admin/login)
+│   │       └── page.tsx              # Connexion admin (/admin/login)
 │   │
-│   ├── sitemap.ts                    # Génère /sitemap.xml (SEO)
-│   ├── robots.ts                     # Génère /robots.txt (SEO)
+│   ├── sitemap.ts                    # Génère /sitemap.xml dynamique (SEO)
+│   ├── robots.ts                     # Génère /robots.txt (bloque /admin, /api/)
 │   │
-│   └── api/                          # API Routes (serverless)
+│   └── api/                          # API Routes serverless
+│       ├── contact/
+│       │   └── route.ts              # POST — Envoi email via Resend
 │       ├── translate/
-│       │   └── route.ts              # API traduction FR↔EN
+│       │   └── route.ts              # POST — Traduction FR↔EN via MyMemory
 │       └── sync-data/
-│           └── route.ts              # Sync Firebase → fichier local
+│           └── route.ts              # POST — Sync Firebase → portfolio-data.ts (dev)
 │
-├── components/                       # Composants React réutilisables
+├── components/                       # Composants React
 │   │
 │   ├── sections/                     # Sections du portfolio
-│   │   ├── Hero.tsx                  # Section héro (nom, titre, liens)
-│   │   ├── About.tsx                 # Section À propos
-│   │   ├── Projects.tsx              # Section Projets
-│   │   ├── Skills.tsx                # Section Compétences
-│   │   └── Contact.tsx               # Section Contact
+│   │   ├── index.ts                  # Barrel exports
+│   │   ├── Hero.tsx                  # Section hero (nom, titre, CTA, animations)
+│   │   ├── About.tsx                 # Section à propos (accordion, points clés)
+│   │   ├── Projects.tsx              # Section projets (carousel, modale détail)
+│   │   ├── Skills.tsx                # Section compétences (carousel horizontal)
+│   │   └── Contact.tsx               # Section contact (formulaire Resend + liens)
 │   │
-│   ├── admin/                        # Composants administration
-│   │   ├── AdminHeader.tsx           # Header admin (séparé du public)
-│   │   ├── ProfileEditor.tsx         # Éditeur de profil
-│   │   ├── ProjectsEditor.tsx        # Éditeur de projets
-│   │   └── SkillsEditor.tsx          # Éditeur de compétences
+│   ├── admin/                        # Composants panneau d'administration
+│   │   ├── index.ts                  # Barrel exports
+│   │   ├── AdminHeader.tsx           # Header admin (navigation + déconnexion)
+│   │   ├── ProfileEditor.tsx         # Éditeur profil bilingue
+│   │   ├── ProjectsEditor.tsx        # Éditeur projets CRUD bilingue
+│   │   └── SkillsEditor.tsx          # Éditeur catégories de compétences
 │   │
-│   ├── Header.tsx                    # Navigation site public
-│   ├── Footer.tsx                    # Pied de page
-│   ├── Providers.tsx                 # Providers React (Auth, Language)
-│   └── PortfolioWrapper.tsx          # Wrapper contexte portfolio
+│   ├── ui/                           # Composants UI réutilisables
+│   │   ├── badge.tsx                 # Badge (CVA variants)
+│   │   ├── input.tsx                 # Input (forwardRef)
+│   │   ├── textarea.tsx              # Textarea (forwardRef)
+│   │   ├── label.tsx                 # Label (Radix UI + CVA)
+│   │   ├── ThemeToggle.tsx           # Bouton mode clair/sombre animé (framer-motion)
+│   │   └── FadeInSection.tsx         # Wrapper animation scroll (useInView)
+│   │
+│   ├── Header.tsx                    # Navigation fixe (scroll, mobile, langue, thème)
+│   ├── Footer.tsx                    # Pied de page (copyright, liens sociaux)
+│   ├── Providers.tsx                 # Providers globaux (Theme, Language, Portfolio)
+│   └── PortfolioWrapper.tsx          # Assemblage des sections du site public
 │
-├── context/                          # Contextes React (state global)
-│   ├── LanguageContext.tsx           # Gestion langue FR/EN
-│   └── PortfolioContext.tsx          # Données portfolio
+├── context/                          # Contextes React (état global)
+│   ├── LanguageContext.tsx           # FR/EN — localStorage, t() traductions
+│   └── PortfolioContext.tsx          # Données portfolio — Firebase ou statique
 │
-├── hooks/                            # Hooks React personnalisés
-│   ├── index.ts                      # Exports
-│   └── usePortfolioData.ts           # Hook chargement données
+├── hooks/                            # Hooks personnalisés
+│   ├── index.ts                      # Barrel export
+│   └── usePortfolioData.ts           # Chargement données + conversion bilingual
 │
-├── lib/                              # Librairies et configurations
-│   └── firebase/                     # Configuration Firebase
-│       ├── config.ts                 # Initialisation Firebase
-│       ├── hooks.ts                  # Hook useAuth
-│       ├── context.tsx               # AuthProvider
-│       ├── firestore.ts              # Fonctions CRUD Firestore
-│       └── index.ts                  # Exports
+├── lib/                              # Bibliothèques et utilitaires
+│   ├── utils.ts                      # cn() — clsx + tailwind-merge
+│   └── firebase/
+│       ├── index.ts                  # Barrel exports
+│       ├── config.ts                 # Init Firebase, isFirebaseConfigured
+│       ├── hooks.ts                  # useAuth() — signIn, signOut, isAdmin
+│       ├── context.tsx               # AuthProvider, useAuthContext()
+│       └── firestore.ts              # CRUD Firestore (profil, projets, compétences)
 │
-├── data/                             # Données statiques
-│   └── portfolio-data.ts             # Données par défaut (fallback si pas Firebase)
+├── data/
+│   └── portfolio-data.ts             # Données statiques bilingues (fallback Firebase)
 │
-├── types/                            # Types TypeScript
-│   ├── index.ts                      # Types généraux
-│   └── firebase.ts                   # Types données Firebase
+├── types/
+│   ├── index.ts                      # Types UI (Project, Skill, PersonalInfo, etc.)
+│   └── firebase.ts                   # Types Firebase (BilingualText, ProfileData, etc.)
 │
-├── public/                           # Fichiers statiques (accessibles via URL)
-│   ├── favicon.svg                   # Favicon du site
+├── public/                           # Fichiers statiques publics
+│   ├── favicon.svg                   # Icône du site
 │   └── *.pdf                         # CV téléchargeable
 │
 ├── .env.local                        # Variables d'environnement (NON COMMITÉ)
-├── .env.local.example                # Exemple de configuration
+├── .env.local.example                # Modèle de configuration (commité, sans secrets)
 ├── .gitignore                        # Fichiers ignorés par Git
-├── next.config.mjs                   # Configuration Next.js
-├── tailwind.config.ts                # Configuration Tailwind CSS
-├── tsconfig.json                     # Configuration TypeScript
+├── components.json                   # Config shadcn/ui
+├── next.config.js                    # Config Next.js (standalone + headers sécurité)
+├── tailwind.config.js                # Config Tailwind (couleurs primary/dark, polices)
+├── tsconfig.json                     # Config TypeScript strict + alias @/*
 ├── package.json                      # Dépendances et scripts npm
 └── README.md                         # Cette documentation
 ```
@@ -441,25 +393,28 @@ portfolio/
 
 | Fonctionnalité | Description |
 |----------------|-------------|
-| **Bilingue FR/EN** | Changement de langue instantané via boutons |
-| **Design Responsive** | Adapté mobile, tablette, desktop |
-| **Hero** | Nom, titre, stack technique, liens sociaux, CV |
-| **À propos** | Paragraphes + points clés avec formatage automatique |
-| **Projets** | Cards avec stack, fonctionnalités, défis, liens |
-| **Compétences** | Technologies groupées par catégorie |
-| **Contact** | Liens Email, GitHub, LinkedIn |
-| **Formatage auto** | Sauts de ligne après chaque phrase |
+| **Bilingue FR/EN** | Changement instantané via boutons, persisté en localStorage |
+| **Mode clair / sombre** | Toggle animé Moon↔Sun (next-themes, framer-motion) |
+| **Animations scroll** | FadeIn bidirectionnel à l'entrée dans le viewport (framer-motion) |
+| **Design responsive** | Mobile, tablette, desktop |
+| **Hero** | Nom, titre animé, stack, badge "Open to Work", liens sociaux, CV |
+| **À propos** | Accordion expand/collapse avec dégradé de fondu |
+| **Projets** | Carousel + modale détail (stack, fonctionnalités, défis, liens) |
+| **Compétences** | Carousel horizontal par catégorie |
+| **Contact** | Formulaire d'envoi d'email via Resend + liens Email/GitHub/LinkedIn |
+| **SEO** | Sitemap XML, robots.txt, OpenGraph, Twitter Card, canonical URL |
 
-### Panneau Admin
+### Panneau Admin (`/admin`)
 
 | Fonctionnalité | Description |
 |----------------|-------------|
 | **Auth sécurisée** | Connexion Firebase (email/password) |
-| **Éditeur Profil** | Nom, titre, bio, liens sociaux |
-| **Éditeur Projets** | CRUD complet (ajouter, modifier, supprimer, réordonner) |
-| **Éditeur Compétences** | Gestion par catégories |
+| **Guard de route** | Redirection automatique si non connecté |
+| **Éditeur Profil** | Nom, titre, bio, points clés, liens sociaux, "Open to Work" |
+| **Éditeur Projets** | CRUD complet (ajouter, modifier, supprimer) |
+| **Éditeur Compétences** | Gestion par catégories (créer, réordonner, supprimer) |
 | **Traduction auto** | FR → EN automatique via MyMemory API |
-| **Temps réel** | Modifications visibles immédiatement |
+| **Temps réel** | Modifications visibles immédiatement (Firestore listeners) |
 
 ---
 
@@ -469,169 +424,143 @@ portfolio/
 
 1. Aller sur `/admin/login`
 2. Entrer l'email et mot de passe créés dans Firebase Auth
-3. Cliquer sur **"Se connecter"**
-4. Vous êtes redirigé vers le dashboard
+3. Vous êtes redirigé vers le dashboard
 
 ### Sections d'édition
 
 | Section | Ce qu'on peut modifier |
 |---------|------------------------|
-| **Profil** | Nom, titre, paragraphes "À propos", points clés, liens sociaux |
-| **Projets** | Titre, description, stack technique, fonctionnalités, défis, liens |
-| **Compétences** | Technologies par catégorie (Frontend, Backend, BDD, DevOps, etc.) |
+| **Profil** | Nom, titre, paragraphes "À propos", points clés, stack, liens sociaux |
+| **Projets** | Titre, description, description longue, stack, fonctionnalités, défis, liens GitHub/démo |
+| **Compétences** | Catégories et technologies par catégorie |
 
 ### Processus de sauvegarde
 
 Quand vous cliquez sur **"Enregistrer"** :
 
-1. ✏️ **Édition** : Vous modifiez le texte en français
-2. 🔄 **Traduction** : L'API `/api/translate` traduit automatiquement en anglais
-3. 📝 **Formatage** : Sauts de ligne ajoutés après chaque phrase
-4. 💾 **Sauvegarde** : Données enregistrées dans Firebase Firestore
-5. 🌐 **Publication** : Site public mis à jour en temps réel
+1. ✏️ Vous modifiez le contenu en français
+2. 🔄 L'API `/api/translate` traduit automatiquement en anglais (MyMemory)
+3. 💾 Les données bilingues sont enregistrées dans Firebase Firestore
+4. 🌐 Le site public est mis à jour en temps réel
 
 ---
 
-## API de traduction
+## API Routes
 
-### Endpoint
+### `POST /api/contact`
 
-```
-POST /api/translate
-```
-
-### Requête
+Envoi d'un email via Resend.
 
 ```json
-{
-  "type": "text",
-  "text": "Votre texte en français à traduire.",
-  "from": "fr",
-  "to": "en"
-}
+// Requête
+{ "name": "Jean", "email": "jean@example.com", "message": "Bonjour !" }
+
+// Réponse succès
+{ "success": true }
 ```
 
-### Réponse
+Variables requises : `RESEND_API_KEY`, `CONTACT_EMAIL`
+
+---
+
+### `POST /api/translate`
+
+Traduction automatique FR↔EN via MyMemory API.
 
 ```json
+// Requête
 {
-  "translatedText": "Your French text to translate.",
-  "success": true
+  "type": "profile",
+  "data": { "title": "Développeur Full-Stack" },
+  "sourceLang": "fr"
 }
+
+// Réponse
+{ "success": true, "data": { "title": "Full-Stack Developer" } }
 ```
 
-### Caractéristiques
+Caractéristiques :
+- Découpage automatique en chunks de 450 caractères
+- Délai de 100ms entre requêtes (anti rate-limiting)
+- Nettoyage des entités HTML dans les réponses
 
-| Paramètre | Valeur |
-|-----------|--------|
-| **Service** | MyMemory API (gratuit) |
-| **Limite par requête** | 450 caractères |
-| **Chunking** | Automatique si texte trop long |
-| **Délai entre chunks** | 100ms (anti rate-limiting) |
-| **Formatage** | Ajout automatique de `\n\n` après chaque phrase |
+---
+
+### `POST /api/sync-data`
+
+Synchronise les données Firebase vers `data/portfolio-data.ts` (dev uniquement — ignoré en production Vercel).
 
 ---
 
 ## SEO et Référencement
 
-Le portfolio est configuré pour un bon référencement sur les moteurs de recherche (Google, Bing, etc.).
-
-### Fichiers SEO générés automatiquement
-
 | Fichier | URL | Description |
 |---------|-----|-------------|
 | `app/sitemap.ts` | `/sitemap.xml` | Plan du site pour les moteurs de recherche |
-| `app/robots.ts` | `/robots.txt` | Contrôle l'indexation (autorise `/`, bloque `/admin` et `/api`) |
+| `app/robots.ts` | `/robots.txt` | Autorise `/`, bloque `/admin` et `/api/` |
 
-### Métadonnées SEO (app/layout.tsx)
+### Métadonnées (app/layout.tsx)
 
-Le layout racine contient des métadonnées complètes :
 - **Title** : "Djefrid Byli - Développeur Web Full-Stack Junior | Portfolio"
-- **Description** : Description bilingue du portfolio
-- **Keywords** : Mots-clés pertinents (développeur, Montréal, Canada, etc.)
-- **Open Graph** : Aperçu pour Facebook, LinkedIn, etc.
+- **OpenGraph** : Aperçu pour LinkedIn, Facebook
 - **Twitter Card** : Aperçu pour Twitter/X
-- **Canonical URL** : URL canonique pour éviter le contenu dupliqué
+- **Canonical URL** : évite le contenu dupliqué
 
-### Configuration Google Search Console
-
-1. Aller sur [Google Search Console](https://search.google.com/search-console/)
-2. Ajouter la propriété : `https://portfolio.djefrid.ca`
-3. Vérifier la propriété (méthode recommandée : enregistrement DNS ou balise HTML)
-4. Si vérification par balise HTML, ajouter dans `app/layout.tsx` :
-   ```tsx
-   verification: {
-     google: 'VOTRE_CODE_VERIFICATION',
-   },
-   ```
-5. Soumettre le sitemap : `https://portfolio.djefrid.ca/sitemap.xml`
-
-### Variable d'environnement requise
+### Variables SEO requises
 
 ```env
 NEXT_PUBLIC_SITE_URL=https://portfolio.djefrid.ca
 ```
 
-> Cette variable est utilisée par `sitemap.ts` et les métadonnées pour générer les URLs correctes.
-
 ---
 
 ## Déploiement sur Vercel
 
-### Étape 1 : Préparer le repository
+### Étape 1 : Importer sur Vercel
 
-```bash
-# Ajouter tous les fichiers
-git add .
+1. Aller sur [https://vercel.com/](https://vercel.com/) → connecter avec GitHub
+2. **"Add New... → Project"** → sélectionner le repository `portfolio`
+3. Vercel détecte automatiquement Next.js
 
-# Créer un commit
-git commit -m "Ready for deployment"
+### Étape 2 : Configurer les variables d'environnement
 
-# Pousser vers GitHub
-git push origin main
-```
+Dans **Settings → Environment Variables** :
 
-### Étape 2 : Importer sur Vercel
+| Name | Description |
+|------|-------------|
+| `NEXT_PUBLIC_FIREBASE_API_KEY` | Clé API Firebase |
+| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | Domaine d'auth Firebase |
+| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | ID projet Firebase |
+| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | Bucket storage Firebase |
+| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Sender ID Firebase |
+| `NEXT_PUBLIC_FIREBASE_APP_ID` | App ID Firebase |
+| `NEXT_PUBLIC_ADMIN_EMAIL` | Email admin |
+| `NEXT_PUBLIC_SITE_URL` | URL du site (ex: `https://portfolio.djefrid.ca`) |
+| `RESEND_API_KEY` | Clé API Resend |
+| `CONTACT_EMAIL` | Email destinataire des contacts |
 
-1. Aller sur [https://vercel.com/](https://vercel.com/)
-2. Se connecter avec GitHub
-3. Cliquer sur **"Add New..." → "Project"**
-4. Sélectionner votre repository `portfolio`
-5. Vercel détecte automatiquement Next.js
-
-### Étape 3 : Configurer les variables d'environnement
-
-Dans **Settings → Environment Variables**, ajouter chaque variable :
-
-| Name | Value |
-|------|-------|
-| `NEXT_PUBLIC_FIREBASE_API_KEY` | AIzaSyXXXXXXX... |
-| `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` | votre-projet.firebaseapp.com |
-| `NEXT_PUBLIC_FIREBASE_PROJECT_ID` | votre-projet |
-| `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET` | votre-projet.appspot.com |
-| `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | 123456789012 |
-| `NEXT_PUBLIC_FIREBASE_APP_ID` | 1:123456789012:web:xxx |
-| `NEXT_PUBLIC_ADMIN_EMAIL` | votre@email.com |
-| `NEXT_PUBLIC_SITE_URL` | https://portfolio.djefrid.ca |
-
-### Étape 4 : Autoriser le domaine dans Firebase
-
-> **CRITIQUE** : Sans cette étape, la connexion admin ne fonctionnera PAS sur Vercel.
+### Étape 3 : Autoriser le domaine dans Firebase
 
 1. Firebase Console → Authentication → Settings → Authorized domains
-2. Cliquer sur **"Add domain"**
-3. Ajouter : `votre-projet.vercel.app`
+2. Ajouter : `votre-projet.vercel.app`
 
-### Étape 5 : Déployer
+### Étape 4 : Déployer
 
-1. Retourner sur Vercel
-2. Cliquer sur **"Deploy"**
-3. Attendre la construction (~1-2 minutes)
-4. Votre site est live !
+Cliquer sur **"Deploy"**. Chaque `git push` sur `main` déclenche un redéploiement automatique.
 
-### Redéploiements automatiques
+---
 
-Chaque `git push` sur la branche `main` déclenche automatiquement un nouveau déploiement.
+## Sécurité
+
+- ✅ **Next.js 14.2.35** — CVE-2025-29927 corrigée (bypass d'autorisation middleware critique)
+- ✅ **Headers HTTP** : HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
+- ✅ **Authentification Firebase** (email/password)
+- ✅ **Règles Firestore** restrictives — écriture réservée à l'admin authentifié
+- ✅ **Variables d'environnement** non commitées (`.gitignore`)
+- ✅ **`RESEND_API_KEY`** côté serveur uniquement (jamais exposé au navigateur)
+- ✅ **Domaines Firebase** autorisés explicitement
+- ✅ **`.gitignore` renforcé** : certificats SSL (`*.pem`, `*.key`), clés Firebase Admin SDK, `.vercel/`
+- ✅ **Dégradation gracieuse** : fonctionne sans Firebase (données statiques en fallback)
 
 ---
 
@@ -639,96 +568,58 @@ Chaque `git push` sur la branche `main` déclenche automatiquement un nouveau d�
 
 ### ❌ "Firebase non configuré"
 
-**Cause** : Variables d'environnement manquantes ou incorrectes.
+Variables d'environnement manquantes ou incorrectes.
 
-**Solution** :
-1. Vérifier que `.env.local` existe
-2. Vérifier que toutes les variables sont remplies
-3. Redémarrer le serveur :
-   ```bash
-   # Arrêter (Ctrl+C) puis relancer
-   npm run dev
-   ```
-
----
-
-### ❌ "Could not find module in React Client Manifest"
-
-**Cause** : Cache Next.js corrompu.
-
-**Solution** :
 ```bash
-# Supprimer le cache
-rm -rf .next
-
-# Relancer
+# Vérifier que .env.local existe et contient toutes les variables
+# Redémarrer le serveur
 npm run dev
 ```
 
-**Windows PowerShell** :
-```powershell
-Remove-Item -Recurse -Force .next
-npm run dev
+---
+
+### ❌ Cache Next.js corrompu
+
+```bash
+# Linux/Mac
+rm -rf .next && npm run dev
+
+# Windows PowerShell
+Remove-Item -Recurse -Force .next; npm run dev
 ```
 
 ---
 
 ### ❌ Connexion admin échoue sur Vercel
 
-**Cause** : Domaine Vercel non autorisé dans Firebase.
+Domaine Vercel non autorisé dans Firebase Auth.
 
-**Solution** :
-1. Firebase Console → Authentication → Settings
-2. Onglet "Authorized domains"
-3. Ajouter : `votre-projet.vercel.app`
+1. Firebase Console → Authentication → Settings → Authorized domains
+2. Ajouter : `votre-projet.vercel.app`
+
+---
+
+### ❌ Emails de contact non reçus
+
+1. Vérifier `RESEND_API_KEY` dans les variables d'environnement Vercel
+2. Vérifier que `CONTACT_EMAIL` est correct
+3. Vérifier le dashboard Resend pour les logs d'envoi
 
 ---
 
 ### ❌ Traductions ne fonctionnent pas
 
-**Cause** : API MyMemory rate-limitée ou texte trop long.
+L'API MyMemory peut être rate-limitée.
 
-**Solution** :
-- Le texte est automatiquement découpé en chunks de 450 caractères
-- Un délai de 100ms est appliqué entre chaque requête
-- Vérifier la console du navigateur (F12) pour les erreurs
-- Réessayer après quelques minutes si rate-limited
-
----
-
-### ❌ Données ne s'affichent pas
-
-**Cause** : Firebase non connecté ou règles incorrectes.
-
-**Solution** :
-1. Vérifier les règles Firestore (lecture publique)
-2. Vérifier la console du navigateur pour les erreurs
-3. Les données de `data/portfolio-data.ts` s'affichent en fallback
+- Le texte est découpé automatiquement en chunks de 450 caractères
+- Réessayer après quelques minutes
 
 ---
 
 ### ❌ Port 3000 déjà utilisé
 
-**Cause** : Une autre application utilise le port.
-
-**Solution** :
 ```bash
-# Utiliser un autre port
 npm run dev -- -p 3001
-```
-
-Ou tuer le processus existant :
-
-**Windows** :
-```cmd
-netstat -ano | findstr :3000
-taskkill /F /PID <PID>
-```
-
-**Linux/Mac** :
-```bash
-lsof -i :3000
-kill -9 <PID>
 ```
 
 ---
@@ -737,85 +628,84 @@ kill -9 <PID>
 
 | Commande | Description |
 |----------|-------------|
-| `npm run dev` | Lance le serveur de développement (hot reload) |
-| `npm run build` | Construit l'application pour la production |
-| `npm run start` | Lance le serveur de production |
-| `npm run lint` | Vérifie le code avec ESLint |
+| `npm run dev` | Serveur de développement avec hot reload |
+| `npm run build` | Build production optimisé |
+| `npm run start` | Serveur de production |
+| `npm run lint` | Vérification ESLint |
 
 ---
 
-## Architecture du projet
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     FRONTEND (Next.js 14)                       │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   SITE PUBLIC (/)              │    ADMIN (/admin)              │
-│   ─────────────────            │    ──────────────              │
-│   • Header avec navigation     │    • Header admin séparé       │
-│   • Sections: Hero, About,     │    • Login Firebase Auth       │
-│     Projects, Skills, Contact  │    • Éditeurs: Profil,         │
-│   • Changement langue FR/EN    │      Projets, Compétences      │
-│   • Données Firebase/fallback  │    • Traduction auto FR→EN     │
-│                                │                                 │
-└─────────────────────────────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      API ROUTES (Serverless)                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   /api/translate               │    /api/sync-data              │
-│   ────────────────             │    ──────────────              │
-│   • Traduction FR ↔ EN         │    • Sync Firebase → Local     │
-│   • MyMemory API               │    • Backup dans portfolio-    │
-│   • Chunking auto (450 chars)  │      data.ts                   │
-│   • Formatage sauts de ligne   │                                │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                          FIREBASE                               │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│   AUTHENTICATION              │    FIRESTORE DATABASE           │
-│   ──────────────              │    ──────────────────           │
-│   • Email/Password            │    • settings/profile           │
-│   • 1 admin autorisé          │    • settings/skills            │
-│   • Domaines autorisés        │    • projects/{id}              │
-│                               │    • Données bilingues FR/EN    │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                  FRONTEND (Next.js 14.2.35)                  │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   SITE PUBLIC (/)              │    ADMIN (/admin)           │
+│   ─────────────────            │    ──────────────           │
+│   • Header (navigation,        │    • Guard Firebase Auth    │
+│     langue, thème)             │    • Éditeurs bilingues     │
+│   • Hero, About, Projects,     │      Profil / Projets /     │
+│     Skills, Contact            │      Compétences            │
+│   • Mode clair/sombre          │    • Traduction auto FR→EN  │
+│   • Animations framer-motion   │    • CRUD Firestore         │
+│   • Bilingue FR/EN             │                             │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    API ROUTES (Serverless)                    │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   /api/contact          /api/translate     /api/sync-data   │
+│   ─────────────         ──────────────     ──────────────   │
+│   • Resend API          • MyMemory API     • Dev only       │
+│   • Email HTML          • Chunking auto    • Firebase →     │
+│   • Validation          • Rate limiting      portfolio-     │
+│     nom/email/msg         100ms delay        data.ts        │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                          FIREBASE                            │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│   AUTHENTICATION              │    FIRESTORE DATABASE        │
+│   ──────────────              │    ──────────────────        │
+│   • Email/Password            │    • settings/profile        │
+│   • 1 admin autorisé          │    • settings/skills         │
+│   • Domaines autorisés        │    • projects/{id}           │
+│                               │    • Données FR/EN           │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+                              │
+                       Fallback si absent
+                              ↓
+┌──────────────────────────────────────────────────────────────┐
+│              DONNÉES STATIQUES (data/portfolio-data.ts)      │
+│  Profil bilingue, 3 projets, 8 catégories de compétences     │
+└──────────────────────────────────────────────────────────────┘
 ```
-
----
-
-## Sécurité
-
-- ✅ Authentification Firebase (email/password)
-- ✅ Règles Firestore restrictives (1 admin)
-- ✅ Variables d'environnement (non commitées)
-- ✅ Domaines autorisés explicites
-- ✅ Pas de secrets côté client
 
 ---
 
 ## Licence
 
-MIT - Libre d'utilisation, modification et distribution.
+MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
 ## Contact
 
-**Djefrid Byli** - Développeur Web Full-Stack Junior
+**Djefrid Byli Fotue Kuate** — Développeur Web Full-Stack Junior
 
-- 📧 Email: [djeffkuate@gmail.com](mailto:djeffkuate@gmail.com)
-- 💻 GitHub: [github.com/Djefrid](https://github.com/Djefrid)
-- 💼 LinkedIn: [linkedin.com/in/djefrid-byli-fotue-kuate-a30633225](https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/)
+- Email : [djeffkuate@gmail.com](mailto:djeffkuate@gmail.com)
+- GitHub : [github.com/Djefrid](https://github.com/Djefrid)
+- LinkedIn : [linkedin.com/in/djefrid-byli-fotue-kuate-a30633225](https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/)
 
 ---
 
-*Documentation mise à jour le 13 février 2026*
+*Documentation mise à jour le 26 février 2026*
