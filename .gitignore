@@ -39,6 +39,28 @@ Thumbs.db
 nul
 
 # ========================
+# Secrets & Certificats
+# ========================
+*.pem
+*.key
+*.p12
+*.pfx
+serviceAccountKey.json
+firebase-service-account*.json
+*-service-account*.json
+
+# ========================
+# Déploiement
+# ========================
+.vercel/
+
+# ========================
+# Tests
+# ========================
+coverage/
+.nyc_output/
+
+# ========================
 # Misc
 # ========================
 *.log

@@ -11,7 +11,7 @@ interface FadeInSectionProps {
 
 export function FadeInSection({ children, delay = 0, className }: FadeInSectionProps) {
   const ref = useRef(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
+  const isInView = useInView(ref, { once: false, margin: "-80px" });
 
   return (
     <motion.div
