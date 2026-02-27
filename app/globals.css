@@ -104,6 +104,16 @@
 }
 
 @layer utilities {
+  /* Champ honeypot anti-spam — invisible pour les humains, détecté par les bots */
+  .honeypot-field {
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+  }
+
   .text-gradient {
     @apply bg-gradient-to-r from-primary-400 to-primary-600 bg-clip-text text-transparent;
   }

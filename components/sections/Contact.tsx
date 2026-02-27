@@ -13,9 +13,11 @@ export default function Contact() {
   const { profile } = usePortfolio();
   const { t } = useLanguage();
 
-  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", message: "", honeypot: "" });
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  // Timestamp de montage — permet de détecter les soumissions trop rapides (bots)
+  const mountedAt = useState(() => Date.now())[0];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,12 +28,18 @@ export default function Contact() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          message: form.message,
+          honeypot: form.honeypot,
+          elapsed: Date.now() - mountedAt,
+        }),
       });
 
       if (res.ok) {
         setStatus("success");
-        setForm({ name: "", email: "", message: "" });
+        setForm({ name: "", email: "", message: "", honeypot: "" });
       } else {
         setStatus("error");
       }
@@ -134,6 +142,20 @@ export default function Contact() {
             <div className="bg-dark-800 rounded-2xl border border-dark-700 p-6 sm:p-8">
               <h3 className="text-xl font-semibold text-white mb-6">Envoyer un message</h3>
               <form onSubmit={handleSubmit} className="space-y-5">
+                {/* Champ honeypot — invisible pour les humains, les bots le remplissent */}
+                <div aria-hidden="true" className="honeypot-field">
+                  <label htmlFor="contact-website">Website</label>
+                  <input
+                    id="contact-website"
+                    name="website"
+                    type="text"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={form.honeypot}
+                    onChange={(e) => setForm({ ...form, honeypot: e.target.value })}
+                  />
+                </div>
+
                 <div className="grid sm:grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <Label htmlFor="contact-name" className="text-gray-300">
