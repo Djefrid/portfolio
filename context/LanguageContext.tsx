@@ -30,6 +30,8 @@ const translations: Record<Language, Translations> = {
       title: 'À propos',
       subtitle: 'Mon parcours et mes motivations',
       highlights: 'Points clés',
+      readMore: 'Lire la suite',
+      readLess: 'Réduire',
     },
     // Projects
     projects: {
@@ -40,6 +42,8 @@ const translations: Record<Language, Translations> = {
       challenges: 'Défis techniques',
       sourceCode: 'Code source',
       liveDemo: 'Démo live',
+      viewMore: 'Voir plus',
+      close: 'Fermer',
     },
     // Skills
     skills: {
@@ -97,6 +101,8 @@ const translations: Record<Language, Translations> = {
       title: 'About',
       subtitle: 'My journey and motivations',
       highlights: 'Key points',
+      readMore: 'Read more',
+      readLess: 'Show less',
     },
     // Projects
     projects: {
@@ -107,6 +113,8 @@ const translations: Record<Language, Translations> = {
       challenges: 'Technical challenges',
       sourceCode: 'Source code',
       liveDemo: 'Live demo',
+      viewMore: 'View more',
+      close: 'Close',
     },
     // Skills
     skills: {

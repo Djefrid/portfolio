@@ -51,7 +51,7 @@ function ProjectModal({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Fermer"
+          aria-label={t("projects.close")}
           className="absolute top-4 right-4 z-10 bg-dark-700 hover:bg-dark-600 text-gray-400 hover:text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -246,7 +246,7 @@ function ProjectCard({
           onClick={onOpen}
           className="text-xs text-gray-500 hover:text-primary-400 transition-colors flex items-center gap-1"
         >
-          Voir plus
+          {t("projects.viewMore")}
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
