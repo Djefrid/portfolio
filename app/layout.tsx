@@ -14,15 +14,15 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://portfolio.djefrid.
 export const metadata: Metadata = {
   // --- Métadonnées de base ---
   title: {
-    default: "Djefrid Byli - Développeur Web Full-Stack Junior | Portfolio",
+    default: "Djefrid Byli - Développeur Full-Stack | Support IT | Portfolio",
     template: "%s | Djefrid Byli Portfolio",
   },
-  description: "Portfolio de Djefrid Byli, développeur web full-stack junior spécialisé en Django, Vue.js, React, Next.js, .NET et PostgreSQL. Découvrez mes projets et compétences en développement web et administration système.",
+  description: "Portfolio de Djefrid Byli, développeur full-stack et technicien support IT spécialisé en Django, Vue.js, React, Next.js, .NET et PostgreSQL. Découvrez mes projets et compétences en développement web et administration système.",
   keywords: [
-    "Djefrid Byli", "développeur web", "full-stack", "junior",
+    "Djefrid Byli", "développeur web", "full-stack", "support IT",
     "Django", "Vue.js", "React", "Next.js", ".NET", "ASP.NET Core",
     "TypeScript", "PostgreSQL", "Docker", "portfolio",
-    "développeur Montréal", "développeur Canada", "web developer",
+    "développeur Québec", "développeur Canada", "web developer",
     "technicien informatique", "DEC informatique",
   ],
   authors: [{ name: "Djefrid Byli", url: SITE_URL }],
@@ -46,8 +46,8 @@ export const metadata: Metadata = {
 
   // --- Open Graph (Facebook, LinkedIn, etc.) ---
   openGraph: {
-    title: "Djefrid Byli - Développeur Web Full-Stack Junior",
-    description: "Portfolio de Djefrid Byli : projets web full-stack, compétences en Django, React, Next.js, .NET et plus encore.",
+    title: "Djefrid Byli - Développeur Full-Stack | Support IT",
+    description: "Portfolio de Djefrid Byli : projets full-stack et support IT, compétences en Django, React, Next.js, .NET et plus encore.",
     type: "website",
     locale: "fr_CA",
     alternateLocale: "en_CA",
@@ -58,8 +58,8 @@ export const metadata: Metadata = {
   // --- Twitter Card ---
   twitter: {
     card: "summary_large_image",
-    title: "Djefrid Byli - Développeur Web Full-Stack Junior",
-    description: "Portfolio de Djefrid Byli : projets web full-stack, compétences en Django, React, Next.js, .NET et plus encore.",
+    title: "Djefrid Byli - Développeur Full-Stack | Support IT",
+    description: "Portfolio de Djefrid Byli : projets full-stack et support IT, compétences en Django, React, Next.js, .NET et plus encore.",
   },
 
   // --- Robots (complète le fichier robots.txt) ---
@@ -87,7 +87,7 @@ const jsonLd = {
   '@type': 'Person',
   name: 'Djefrid Byli Fotue Kuate',
   url: SITE_URL,
-  jobTitle: 'Développeur Web Full-Stack Junior',
+  jobTitle: 'Développeur Full-Stack | Support IT',
   email: 'djeffkuate@gmail.com',
   sameAs: [
     'https://github.com/Djefrid',
