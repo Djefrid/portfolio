@@ -256,9 +256,35 @@ function ProjectCard({
   );
 }
 
+/* ─── Skeleton shimmer card ─── */
+function ProjectSkeleton() {
+  return (
+    <div className="card h-full flex flex-col animate-pulse">
+      <div className="flex items-start gap-2 mb-3">
+        <div className="w-6 h-6 bg-dark-700 rounded flex-shrink-0" />
+        <div className="h-5 bg-dark-700 rounded w-3/4" />
+      </div>
+      <div className="space-y-2 mb-4 flex-1">
+        <div className="h-3 bg-dark-700 rounded w-full" />
+        <div className="h-3 bg-dark-700 rounded w-5/6" />
+        <div className="h-3 bg-dark-700 rounded w-4/6" />
+      </div>
+      <div className="flex flex-wrap gap-1.5 mb-4">
+        {["w-20", "w-14", "w-16", "w-12"].map((w, i) => (
+          <div key={i} className={`h-6 bg-dark-700 rounded-lg ${w}`} />
+        ))}
+      </div>
+      <div className="pt-3 mt-auto border-t border-dark-700 flex gap-3">
+        <div className="h-4 bg-dark-700 rounded w-20" />
+        <div className="h-4 bg-dark-700 rounded w-16" />
+      </div>
+    </div>
+  );
+}
+
 /* ─── Section principale ─── */
 export default function Projects() {
-  const { projects } = usePortfolio();
+  const { projects, loading } = usePortfolio();
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<{ project: Project; index: number } | null>(null);
@@ -270,6 +296,26 @@ export default function Projects() {
     const cardWidth = card ? card.offsetWidth + 24 : 320;
     el.scrollBy({ left: dir === "next" ? cardWidth : -cardWidth, behavior: "smooth" });
   };
+
+  if (loading) {
+    return (
+      <section className="py-20">
+        <div className="section-container">
+          <FadeInSection>
+            <h2 className="section-title text-center">{t("projects.title")}</h2>
+            <p className="section-subtitle text-center">{t("projects.subtitle")}</p>
+          </FadeInSection>
+          <div className="flex gap-6 overflow-hidden">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex-shrink-0 w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)]">
+                <ProjectSkeleton />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   if (projects.length === 0) return null;
 

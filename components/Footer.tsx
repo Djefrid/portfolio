@@ -13,10 +13,13 @@ export default function Footer() {
     <footer className="bg-dark-900 border-t border-dark-800">
       <div className="section-container py-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Copyright */}
-          <p className="text-gray-400 text-sm">
-            &copy; {currentYear} {profile.name}. {t('footer.rights')}
-          </p>
+          {/* Copyright + lien légal */}
+          <div className="flex flex-wrap items-center gap-3 text-gray-400 text-sm">
+            <p>&copy; {currentYear} {profile.name}. {t('footer.rights')}</p>
+            <Link href="/legal" className="hover:text-primary-400 transition-colors underline-offset-2 hover:underline">
+              {t('footer.legal')}
+            </Link>
+          </div>
 
           {/* Social Links */}
           <div className="flex items-center gap-6">

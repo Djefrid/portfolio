@@ -66,11 +66,14 @@ const translations: Record<Language, Translations> = {
         namePlaceholder: 'Jean Dupont',
         emailPlaceholder: 'jean@exemple.com',
         messagePlaceholder: 'Bonjour, je souhaite vous contacter...',
+        success: '✓ Message envoyé ! Je vous répondrai bientôt.',
+        error: '✗ Erreur lors de l\'envoi. Essayez par email directement.',
       },
     },
     // Footer
     footer: {
       rights: 'Tous droits réservés.',
+      legal: 'Mentions légales',
     },
   },
   en: {
@@ -130,11 +133,14 @@ const translations: Record<Language, Translations> = {
         namePlaceholder: 'John Doe',
         emailPlaceholder: 'john@example.com',
         messagePlaceholder: 'Hello, I would like to contact you...',
+        success: '✓ Message sent! I will get back to you soon.',
+        error: '✗ Failed to send. Please contact me directly by email.',
       },
     },
     // Footer
     footer: {
       rights: 'All rights reserved.',
+      legal: 'Legal Notice',
     },
   },
 };
