@@ -34,10 +34,14 @@ export const metadata: Metadata = {
     icon: "/favicon.svg",
   },
 
-  // --- URL canonique (évite le contenu dupliqué pour Google) ---
+  // --- URL canonique + hreflang bilingue FR/EN ---
   metadataBase: new URL(SITE_URL),
   alternates: {
     canonical: '/',
+    languages: {
+      'fr-CA': '/',
+      'en-CA': '/',
+    },
   },
 
   // --- Open Graph (Facebook, LinkedIn, etc.) ---
@@ -78,6 +82,19 @@ export const metadata: Metadata = {
   // },
 };
 
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  name: 'Djefrid Byli Fotue Kuate',
+  url: SITE_URL,
+  jobTitle: 'Développeur Web Full-Stack Junior',
+  email: 'djeffkuate@gmail.com',
+  sameAs: [
+    'https://github.com/Djefrid',
+    'https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/',
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -86,6 +103,10 @@ export default function RootLayout({
   return (
     <html lang="fr" className="scroll-smooth" suppressHydrationWarning>
       <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
