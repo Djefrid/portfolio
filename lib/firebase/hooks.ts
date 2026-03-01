@@ -75,8 +75,8 @@ export function useAuth() {
   };
 
   /**
-   * Connecte l'utilisateur via son compte Google (redirection).
-   * La page navigue vers Google puis revient — pas de popup.
+   * Connecte l'utilisateur via son compte Google (popup).
+   * @returns { user, error } - L'utilisateur connecté ou un message d'erreur
    */
   const signInWithGoogle = async () => {
     if (!auth) {
