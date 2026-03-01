@@ -23,11 +23,10 @@ export default function LoginPage() {
     setIsLoading(true);
     const { error } = await signInWithGoogle();
     if (error) {
-      setError('Connexion Google échouée. Vérifie que ton compte est autorisé.');
+      setError('Connexion Google échouée : ' + error);
       setIsLoading(false);
-    } else {
-      router.push('/admin');
     }
+    // Si pas d'erreur : la page redirige vers Google automatiquement
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
