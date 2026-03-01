@@ -27,6 +27,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: string | null }>;
+  signInWithGoogle: () => Promise<{ user: User | null; error: string | null }>;
   signOut: () => Promise<{ error: string | null }>;
 }
 

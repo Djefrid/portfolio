@@ -20,6 +20,8 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
+  GoogleAuthProvider,
+  signInWithPopup,
   User
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from './config';
@@ -73,6 +75,23 @@ export function useAuth() {
   };
 
   /**
+   * Connecte l'utilisateur via son compte Google (popup).
+   * @returns { user, error } - L'utilisateur connecté ou un message d'erreur
+   */
+  const signInWithGoogle = async () => {
+    if (!auth) {
+      return { user: null, error: 'Firebase non configuré' };
+    }
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      return { user: result.user, error: null };
+    } catch (error) {
+      return { user: null, error: (error as Error).message };
+    }
+  };
+
+  /**
    * Déconnecte l'utilisateur actuel.
    * @returns { error } - null si succès, message d'erreur sinon
    */
@@ -91,5 +110,5 @@ export function useAuth() {
   // Vérifie si l'utilisateur connecté est l'admin autorisé
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
 
-  return { user, loading, signIn, signOut, isAdmin };
+  return { user, loading, signIn, signInWithGoogle, signOut, isAdmin };
 }
