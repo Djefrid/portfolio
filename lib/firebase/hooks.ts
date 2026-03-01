@@ -49,7 +49,14 @@ export function useAuth() {
     }
 
     // Récupère le résultat après redirection Google (si applicable)
-    getRedirectResult(auth).catch(() => {});
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          setUser(result.user);
+          setLoading(false);
+        }
+      })
+      .catch((err) => console.error('getRedirectResult error:', err));
 
     // onAuthStateChanged écoute les changements d'état de connexion en temps réel
     // (connexion, déconnexion, expiration de session, etc.)
