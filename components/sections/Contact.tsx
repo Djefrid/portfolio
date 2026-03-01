@@ -101,7 +101,7 @@ export default function Contact() {
           {/* Formulaire de contact */}
           <FadeInSection delay={0.2}>
             <div className="bg-dark-800 rounded-2xl border border-dark-700 p-6 sm:p-8">
-              <h3 className="text-xl font-semibold text-white mb-6">{t('contact.form.send')}</h3>
+              <h3 className="text-xl font-semibold text-white mb-6">{t('contact.form.title')}</h3>
               <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Honeypot anti-spam */}
                 <div aria-hidden="true" className="honeypot-field">

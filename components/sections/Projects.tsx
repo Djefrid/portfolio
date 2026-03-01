@@ -67,11 +67,11 @@ function ProjectModal({
           </div>
 
           {/* Description courte */}
-          <p className="text-gray-300 mb-3">{project.description}</p>
+          <p className="text-gray-300 mb-3 text-justify">{project.description}</p>
 
           {/* Description longue */}
           {project.longDescription && (
-            <p className="text-gray-400 text-sm mb-6 whitespace-pre-line">{project.longDescription}</p>
+            <p className="text-gray-400 text-sm mb-6 whitespace-pre-line text-justify">{project.longDescription}</p>
           )}
 
           {/* Stack */}

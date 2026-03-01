@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthContext } from '@/lib/firebase';
 import AdminHeader from '@/components/admin/AdminHeader';
 import ProfileEditor from '@/components/admin/ProfileEditor';
@@ -9,9 +9,19 @@ import SkillsEditor from '@/components/admin/SkillsEditor';
 
 type Tab = 'profile' | 'projects' | 'skills';
 
+const VALID_TABS: Tab[] = ['profile', 'projects', 'skills'];
+
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<Tab>('profile');
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuthContext();
+
+  const rawTab = searchParams.get('tab') as Tab | null;
+  const activeTab: Tab = rawTab && VALID_TABS.includes(rawTab) ? rawTab : 'profile';
+
+  const setActiveTab = (tab: Tab) => {
+    router.push(`/admin?tab=${tab}`, { scroll: false });
+  };
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'profile', label: 'Profil & À propos' },

@@ -28,7 +28,7 @@ const translations: Record<Language, Translations> = {
     // About
     about: {
       title: 'À propos',
-      subtitle: 'Mon parcours et mes motivations',
+      subtitle: 'Mon parcours et ce qui me motive',
       highlights: 'Points clés',
       readMore: 'Lire la suite',
       readLess: 'Réduire',
@@ -36,7 +36,7 @@ const translations: Record<Language, Translations> = {
     // Projects
     projects: {
       title: 'Projets',
-      subtitle: 'Découvrez mes réalisations techniques',
+      subtitle: 'Une sélection de projets concrets avec des technologies modernes',
       stack: 'Stack technique',
       features: 'Fonctionnalités',
       challenges: 'Défis techniques',
@@ -57,11 +57,12 @@ const translations: Record<Language, Translations> = {
     // Contact
     contact: {
       title: 'Contact',
-      subtitle: 'Intéressé par mon profil ? Contactez-moi !',
+      subtitle: 'Opportunité de travail ou idée de projet ? Je suis disponible — discutons !',
       email: 'Email',
       github: 'Voir mes projets',
       linkedin: 'Mon profil professionnel',
       form: {
+        title: 'Envoie-moi un message',
         name: 'Votre nom',
         email: 'Votre email',
         message: 'Votre message',
@@ -99,7 +100,7 @@ const translations: Record<Language, Translations> = {
     // About
     about: {
       title: 'About',
-      subtitle: 'My journey and motivations',
+      subtitle: 'My background & what drives me',
       highlights: 'Key points',
       readMore: 'Read more',
       readLess: 'Show less',
@@ -107,7 +108,7 @@ const translations: Record<Language, Translations> = {
     // Projects
     projects: {
       title: 'Projects',
-      subtitle: 'Discover my technical achievements',
+      subtitle: 'A selection of projects built with modern web technologies',
       stack: 'Tech stack',
       features: 'Features',
       challenges: 'Technical challenges',
@@ -119,7 +120,7 @@ const translations: Record<Language, Translations> = {
     // Skills
     skills: {
       title: 'Skills',
-      subtitle: 'Technologies and tools I master',
+      subtitle: 'Technologies and tools I work with',
       frontend: 'Frontend',
       backend: 'Backend',
       databases: 'Databases',
@@ -128,11 +129,12 @@ const translations: Record<Language, Translations> = {
     // Contact
     contact: {
       title: 'Contact',
-      subtitle: 'Interested in my profile? Contact me!',
+      subtitle: 'Open to work & new projects — let\'s talk.',
       email: 'Email',
       github: 'View my projects',
       linkedin: 'My professional profile',
       form: {
+        title: 'Send me a message',
         name: 'Your name',
         email: 'Your email',
         message: 'Your message',

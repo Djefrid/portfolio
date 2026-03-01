@@ -30,8 +30,7 @@ export const personalInfoBilingual = {
       "Git",
       "GitHub",
       "GitHub Actions",
-      "Linux (Ubuntu",
-      "Debian)",
+      "Linux (Ubuntu/Debian)",
       "Proxmox",
       "VMware",
       "Postman",
@@ -52,7 +51,7 @@ export const personalInfoBilingual = {
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
     cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
-    location: "Levis, QC",
+    location: "Montréal, QC",
     openToWork: true
   },
   en: {
@@ -82,8 +81,7 @@ export const personalInfoBilingual = {
       "Git",
       "GitHub",
       "GitHub Actions",
-      "Linux (Ubuntu",
-      "Debian)",
+      "Linux (Ubuntu/Debian)",
       "Proxmox",
       "VMware",
       "Postman",
@@ -104,7 +102,7 @@ export const personalInfoBilingual = {
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
     cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
-    location: "Levis, QC",
+    location: "Montréal, QC",
     openToWork: true
   }
 };
@@ -112,7 +110,7 @@ export const personalInfoBilingual = {
 export const aboutInfoBilingual = {
   fr: {
     paragraphs: [
-      "Diplômé d'un DEC en technique de l'informatique, je possède un profil polyvalent combinant le développement web et les compétences techniques en informatique et systèmes. Mon parcours m'a permis d'acquérir une base solide en programmation, en gestion des environnements informatiques et une méthodologie de travail rigoureuse.\n\nLors de mon stage en développement web, j'ai travaillé sur des projets concrets en PHP avec phpMyAdmin, incluant la manipulation de bases de données et la mise à jour de fonctionnalités existantes. J'ai également conçu et configuré un environnement de développement local complet.\n\nEn tant que technicien en informatique, je maîtrise l'installation, la configuration et la maintenance d'environnements Windows et Linux, l'utilisation de machines virtuelles, ainsi que les bases des services réseau.\n\nJ’utilise activement des outils d’intelligence artificielle générative pour améliorer la productivité ,\naccélérer le développement, optimiser la qualité du code, automatiser la documentation et assister\nla résolution de problèmes techniques tout en respectant les bonnes pratiques d’ingénierie\nlogicielle.\n\nCurieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu'en infrastructure informatique."
+      "Diplômé d'un DEC en technique de l'informatique, je possède un profil polyvalent combinant le développement web et les compétences techniques en informatique et systèmes. Mon parcours m'a permis d'acquérir une base solide en programmation, en gestion des environnements informatiques et une méthodologie de travail rigoureuse.\n\nLors de mon stage en développement web, j'ai travaillé sur des projets concrets en PHP avec phpMyAdmin, incluant la manipulation de bases de données et la mise à jour de fonctionnalités existantes. J'ai également conçu et configuré un environnement de développement local complet.\n\nEn tant que technicien en informatique, je maîtrise l'installation, la configuration et la maintenance d'environnements Windows et Linux, l'utilisation de machines virtuelles, ainsi que les bases des services réseau.\n\nJ'utilise activement des outils d'intelligence artificielle générative pour améliorer la productivité, accélérer le développement, optimiser la qualité du code, automatiser la documentation et assister la résolution de problèmes techniques tout en respectant les bonnes pratiques d'ingénierie logicielle.\n\nCurieux et motivé, je cherche continuellement à approfondir mes compétences autant en développement qu'en infrastructure informatique."
     ],
     highlights: [
       "DEC en informatique – programmation & systèmes.\nStage en développement web avec bases de données.\nOrientation full-stack, vision globale du projet.\nQualité du code et bonnes pratiques."
@@ -120,10 +118,10 @@ export const aboutInfoBilingual = {
   },
   en: {
     paragraphs: [
-      "Graduated with a Dec in computer technology, I have a versatile profile combining web development and technical skills in computer science and systems.\nMy background has allowed me to acquire a solid foundation in programming, management of IT environments and a rigorous working methodology.\nDuring my internship in web development, I worked on concrete PHP projects with phpMyAdmin, including database manipulation and updating existing features.\nI also designed and configured a complete local development environment.\nAs an IT technician, I master the installation, configuration and maintenance of Windows and Linux environments, the use of virtual machines, as well as the basics of network services.\nI actively use generative artificial intelligence tools to improve productivity ,\naccelerate development, optimize code quality, automate documentation, and assist\nsolving technical problems while adhering to good engineering practices\nsoftware.\nCurious and motivated, I continually seek to deepen my skills in both development and IT infrastructure."
+      "Graduated with a DEC in Computer Technology, I have a versatile profile combining web development and technical IT skills. My background has given me a solid foundation in programming, IT environment management, and a rigorous working methodology.\n\nDuring my web development internship, I worked on real PHP projects with phpMyAdmin, including database manipulation and updating existing features. I also designed and configured a complete local development environment.\n\nAs an IT technician, I am proficient in installing, configuring, and maintaining Windows and Linux environments, using virtual machines, and working with the basics of network services.\n\nI actively use generative AI tools to improve productivity, accelerate development, optimize code quality, automate documentation, and assist in solving technical problems — while adhering to good software engineering practices.\n\nCurious and driven, I continually seek to deepen my skills in both development and IT infrastructure."
     ],
     highlights: [
-      "Dec in Computer Science – Programming & Systems.\nInternship in web development with databases.\nFull-stack orientation, overall vision of the project.\nCode quality and best practices."
+      "DEC in Computer Technology – programming & systems.\nWeb development internship with real database projects.\nFull-stack mindset, end-to-end project ownership.\nCode quality and software engineering best practices."
     ]
   }
 };
@@ -131,45 +129,53 @@ export const aboutInfoBilingual = {
 export const projectsBilingual = {
   fr: [
     {
-      id: "u2Pg23yoHgUtKV9GFG6n",
-      title: "Facttrack — SaaS de gestion de factures",
-      description: "SaaS de facturation avec gestion clients, création/gestion de factures, génération PDF et envoi email.",
-      longDescription: "Facttrack est une application full-stack orientée SaaS pour créer, gérer et envoyer des factures. Le backend est construit avec Django REST Framework (API sécurisée JWT), et le frontend avec Vue 3 + Vite + TypeScript.",
+      id: "rPXnbUjbyWR4pGtfteRW",
+      title: "Portfolio — Next.js & Firebase",
+      description: "Site portfolio production-ready : CMS maison piloté par Firebase, contenu bilingue FR/EN, animations soignées et SEO complet — déployé en continu sur Vercel.",
+      longDescription: "Conçu pour refléter mes compétences autant que les présenter, ce portfolio est une application Next.js 14 full-stack déployée en production sur Vercel. Toutes les données (projets, compétences, profil) sont stockées dans Firebase Firestore et administrées via un panneau sécurisé — aucune modification de code requise pour mettre le contenu à jour.\n\nL'interface est entièrement bilingue FR/EN avec traduction automatique des nouveaux contenus via une API interne. Chaque décision d'architecture vise la performance : chargement Firebase en parallèle, fallback statique si Firebase est indisponible, et thème sombre/clair persistant sans flash d'hydratation (CLS ≈ 0).\n\nLe SEO est traité en profondeur : image Open Graph 1200×630 générée dynamiquement via Edge Runtime, balisage JSON-LD Schema.org, hreflang FR/EN, sitemap et robots.txt dynamiques. Le formulaire de contact intègre trois couches de protection anti-spam : honeypot invisible, vérification du timing et rate limiting par IP.",
       stack: [
-        "Django",
-        "Django REST Framework",
-        "Vue 3",
-        "Vite",
+        "Next.js 14 (App Router)",
         "TypeScript",
-        "JWT",
-        "PostgreSQL",
-        "Docker"
+        "Tailwind CSS",
+        "Firebase / Firestore",
+        "Firebase Authentication",
+        "Framer Motion",
+        "lucide-react",
+        "clsx",
+        "i18n (custom)",
+        "next-themes",
+        "shadcn/ui",
+        "Resend",
+        "Vercel Analytics",
+        "Vercel"
       ],
       features: [
-        "Authentification JWT sécurisée",
-        "Gestion des clients (CRUD)",
-        "Création de factures avec lignes et totaux",
-        "Génération de facture en PDF",
-        "Envoi de facture par email",
-        "Interface responsive",
-        "Multi-langue FR/EN"
+        "Panneau d'administration sécurisé (Firebase Auth) — mise à jour du contenu sans toucher au code",
+        "Contenu bilingue FR/EN avec traduction automatique via API interne",
+        "Thème sombre/clair persistant sans flash d'hydratation (next-themes + SSR)",
+        "Formulaire de contact anti-spam 3 couches : honeypot, timing check, rate limiting par IP",
+        "Animations Framer Motion : entrées au scroll, hover spring sur les cartes, menu mobile animé",
+        "Image Open Graph 1200×630 générée dynamiquement (Next.js Edge Runtime)",
+        "SEO complet : JSON-LD Schema.org, hreflang FR/EN, sitemap et robots.txt dynamiques",
+        "Fallback statique automatique si Firebase est indisponible"
       ],
       challenges: [
-        "Architecture API propre avec DRF",
-        "Gestion fiable des montants (Decimal)",
-        "Synchronisation état UI / API",
-        "Déploiement Docker"
+        "Synchroniser Firebase Firestore avec le rendu SSR Next.js sans bloquer le LCP",
+        "Éliminer le flash de thème à l'hydratation (suppressHydrationWarning + placeholder SSR)",
+        "Architecturer un système bilingue acceptant deux formats de données Firebase (legacy et nouveau)",
+        "Sécuriser le formulaire contre les bots sans CAPTCHA intrusif",
+        "Générer une OG image dynamique performante via Edge Runtime avec inline styles uniquement"
       ],
-      githubUrl: "https://github.com/Djefrid/facttrack",
-      demoUrl: "https://facttrack.ca",
+      githubUrl: "https://github.com/Djefrid/portfolio",
+      demoUrl: "https://portfolio.djefrid.ca",
       image: "",
       featured: true
     },
     {
       id: "rgFqPLVlfOPgyzgsmqOb",
       title: "Boutique Africaine – E-commerce Afro-Minimaliste",
-      description: "Boutique en ligne moderne pour produits africains : catalogue dynamique, filtres, panier persistant, paiement Stripe (Apple Pay/Google Pay) et prise de rendez-vous via Cal.com.",
-      longDescription: "Projet e-commerce complet au design “Afro-Minimaliste”, conçu pour offrir une expérience d’achat rapide et premium. Le frontend est développé avec Next.js (App Router) et Tailwind CSS pour un rendu performant, responsive et optimisé SEO. Le contenu (produits, catégories, images, tags, stock, recommandations) est administré via Sanity (Headless CMS) afin de permettre une gestion simple sans maintenance serveur.\nLe checkout utilise Stripe Checkout, activant Apple Pay et Google Pay sur appareils compatibles, avec un parcours optimisé incluant un choix Livraison / Retrait magasin. Un webhook Stripe sécurise la confirmation des paiements et permet l’enregistrement des commandes. Une page “Rendez-vous” intègre Cal.com pour réserver des créneaux de conseils personnalisés.\nLe projet inclut les pages légales indispensables (CGV, Confidentialité, Retours, Mentions légales) et une configuration prête au déploiement sur VPS via Docker.",
+      description: "E-commerce afro-minimaliste clé en main : catalogue géré via Sanity CMS, paiement Stripe avec Apple/Google Pay, panier persistant et prise de rendez-vous intégrée via Cal.com.",
+      longDescription: "Projet e-commerce complet au design \"Afro-Minimaliste\", conçu pour offrir une expérience d'achat rapide et premium. Le frontend est développé avec Next.js (App Router) et Tailwind CSS pour un rendu performant, responsive et optimisé SEO. Le contenu (produits, catégories, images, tags, stock, recommandations) est administré via Sanity (Headless CMS), permettant une gestion de contenu autonome, sans toucher au code.\n\nLe checkout utilise Stripe Checkout, activant Apple Pay et Google Pay sur appareils compatibles, avec un parcours optimisé incluant un choix Livraison / Retrait magasin. Un webhook Stripe sécurise la confirmation des paiements et enregistre les commandes. Une page \"Rendez-vous\" intègre Cal.com pour réserver des créneaux de conseils personnalisés.\n\nLe projet inclut les pages légales indispensables (CGV, Confidentialité, Retours, Mentions légales) et une configuration prête au déploiement sur VPS via Docker.",
       stack: [
         "Next.js 14 (App Router)",
         "TypeScript",
@@ -177,7 +183,8 @@ export const projectsBilingual = {
         "Sanity.io",
         "Stripe",
         "Cal.com",
-        "Docker"
+        "Docker",
+        "Supabase"
       ],
       features: [
         "Catalogue produits dynamique (CMS Sanity)",
@@ -202,34 +209,15 @@ export const projectsBilingual = {
         "Déploiement Docker sur VPS (build, variables d’environnement, reverse proxy/HTTPS)"
       ],
       githubUrl: "https://github.com/Djefrid/onlinestoretemplate.git",
-      
+      demoUrl: "https://storetemplate.djefrid.ca/",
       image: "",
       featured: true
     },
     {
-      id: "x477YU9WNE9D3XXX2hGd",
-      title: "test",
-      description: "",
-      longDescription: "",
-      stack: [],
-      features: [
-
-      ],
-      challenges: [
-
-      ],
-      githubUrl: "",
-      
-      image: "",
-      featured: true
-    }
-  ],
-  en: [
-    {
       id: "u2Pg23yoHgUtKV9GFG6n",
-      title: "Facttrack — Invoice Management SaaS",
-      description: "Invoicing SaaS with customer management, invoice creation/management, PDF generation and emailing.",
-      longDescription: "Facttrack is a full-stack SaaS-oriented application for creating, managing and sending invoices.\nThe backend is built with Django rest Framework (JWT Secure API), and the frontend with Vue 3 + Quick + TypeScript.",
+      title: "Facttrack — Application SaaS de facturation full-stack",
+      description: "Outil SaaS full-stack pour professionnaliser sa facturation : gestion clients, factures PDF détaillées et envoi email — pensé pour les indépendants.",
+      longDescription: "Facttrack est une application SaaS full-stack conçue pour les freelances et petites équipes qui veulent professionnaliser leur facturation sans complexité. L'outil couvre tout le cycle : gestion des clients, création de factures détaillées avec lignes de service et calcul automatique des totaux, export PDF prêt à envoyer et envoi direct par email depuis l'application.\n\nL'architecture repose sur un backend Django REST Framework sécurisé par JWT et un frontend Vue 3 + Vite + TypeScript, garantissant fiabilité, rapidité et précision financière (montants gérés en Decimal pour éviter les erreurs d'arrondi).",
       stack: [
         "Django",
         "Django REST Framework",
@@ -241,30 +229,75 @@ export const projectsBilingual = {
         "Docker"
       ],
       features: [
-        "Secure JWT authentication",
-        "&lt;html&gt;&lt;center&gt;Customers' Management&lt;/center&gt;&lt;/html&gt;",
-        "Creating invoices with lines and totals",
-        "PDF Invoice Generation",
-        "Sending invoice via e-mail",
-        "Responsive multilingual web",
-        "Multi-language FR/EN"
+        "Authentification JWT sécurisée",
+        "Gestion complète des clients (CRUD)",
+        "Création de factures détaillées avec lignes et totaux automatiques",
+        "Export PDF professionnel prêt à envoyer",
+        "Envoi de la facture par email depuis l'application",
+        "Interface responsive",
+        "Support bilingue FR/EN"
       ],
       challenges: [
-        "Clean API architecture with DRF",
-        "Reliable Amount Management (Decimal)",
-        "UI / API status synchronization",
-        "Docker deployment"
+        "Conception d'une API RESTful propre et maintenable avec DRF",
+        "Précision financière : montants en Decimal pour éviter les erreurs d'arrondi",
+        "Synchronisation temps réel entre l'état UI Vue 3 et l'API REST",
+        "Conteneurisation complète avec Docker pour un déploiement reproductible"
       ],
       githubUrl: "https://github.com/Djefrid/facttrack",
       demoUrl: "https://facttrack.ca",
+      image: "",
+      featured: true
+    }
+  ],
+  en: [
+    {
+      id: "rPXnbUjbyWR4pGtfteRW",
+      title: "Portfolio — Next.js & Firebase",
+      description: "Production-ready portfolio site: in-house Firebase-powered CMS, bilingual FR/EN content, polished animations and complete SEO — continuously deployed on Vercel.",
+      longDescription: "Designed to reflect my skills as much as to present them, this portfolio is a full-stack Next.js 14 application deployed in production on Vercel. All data (projects, skills, profile) is stored in Firebase Firestore and managed via a secure admin panel — no code changes required to update content.\n\nThe interface is fully bilingual FR/EN with automatic translation of new content via an internal API. Every architectural decision targets performance: parallel Firebase loading, static fallback if Firebase is unavailable, and persistent dark/light theme without hydration flash (CLS ≈ 0).\n\nSEO is handled in depth: Open Graph 1200×630 image generated dynamically via Edge Runtime, JSON-LD Schema.org markup, hreflang FR/EN, sitemap and dynamic robots.txt. The contact form includes three layers of spam protection: invisible honeypot, timing check, and IP rate limiting.",
+      stack: [
+        "Next.js 14 (App Router)",
+        "TypeScript",
+        "Tailwind CSS",
+        "Firebase / Firestore",
+        "Firebase Authentication",
+        "Framer Motion",
+        "lucide-react",
+        "clsx",
+        "i18n (custom)",
+        "next-themes",
+        "shadcn/ui",
+        "Resend",
+        "Vercel Analytics",
+        "Vercel"
+      ],
+      features: [
+        "Secure admin panel (Firebase Auth) — update content without touching code",
+        "Bilingual FR/EN content with automatic translation via internal API",
+        "Persistent dark/light theme without hydration flash (next-themes + SSR)",
+        "3-layer anti-spam contact form: honeypot, timing check, IP rate limiting",
+        "Framer Motion animations: scroll entries, hover spring on cards, animated mobile menu",
+        "Dynamically generated Open Graph 1200×630 image (Next.js Edge Runtime)",
+        "Full SEO: JSON-LD Schema.org, hreflang FR/EN, sitemap and dynamic robots.txt",
+        "Automatic static fallback if Firebase is unavailable"
+      ],
+      challenges: [
+        "Synchronize Firebase Firestore with Next.js SSR rendering without blocking LCP",
+        "Eliminate theme flash at hydration (suppressHydrationWarning + SSR placeholder)",
+        "Architect a bilingual system supporting two Firebase data formats (legacy and new)",
+        "Secure the form against bots without intrusive CAPTCHA",
+        "Generate a high-performance dynamic OG image via Edge Runtime with inline styles only"
+      ],
+      githubUrl: "https://github.com/Djefrid/portfolio",
+      demoUrl: "https://portfolio.djefrid.ca",
       image: "",
       featured: true
     },
     {
       id: "rgFqPLVlfOPgyzgsmqOb",
       title: "African Shop – Afro-Minimalist E-commerce",
-      description: "Modern online store for African products: dynamic catalog, filters, persistent cart, Stripe payment (Apple Pay/Google Pay) and appointment booking via Cal.com.",
-      longDescription: "Complete e-commerce project with an \"Afro-Minimalist\" design, designed to offer a fast and premium shopping experience.\nThe frontend is developed with Next.js (App Router) and Tailwind CSS for efficient, responsive and SEO optimized rendering.\nThe content (products, categories, images, tags, stock, recommendations) is administered via Sanity (Headless CMS) to allow simple management without server maintenance.\nThe checkout uses Stripe Checkout, activating Apple Pay and Google Pay on compatible devices, with an optimized journey including a choice of Delivery / Pickup store.\nA Stripe webhook secures payment confirmation and allows orders to be registered.\nAn “Appointment” page integrates Cal.com to book personalized advice slots.\nThe project includes the essential legal pages (GTCs, Privacy, Returns, Legal Notice) and a configuration ready for deployment on VPS via Docker.",
+      description: "Afro-minimalist e-commerce turnkey: catalogue managed via Sanity CMS, Stripe payment with Apple/Google Pay, persistent shopping cart and integrated appointment booking via Cal.com.",
+      longDescription: "Complete e-commerce project with an \"Afro-Minimalist\" design, built to offer a fast and premium shopping experience. The frontend is developed with Next.js (App Router) and Tailwind CSS for performant, responsive, and SEO-optimized rendering. Content (products, categories, images, tags, stock, recommendations) is managed via Sanity (Headless CMS), enabling autonomous content updates without touching code.\n\nThe checkout uses Stripe Checkout, enabling Apple Pay and Google Pay on compatible devices, with an optimized flow including a Delivery / In-store Pickup choice. A Stripe webhook secures payment confirmation and records orders. An \"Appointments\" page integrates Cal.com for booking personalized consultation slots.\n\nThe project includes all essential legal pages (T&Cs, Privacy, Returns, Legal Notice) and a configuration ready for VPS deployment via Docker.",
       stack: [
         "Next.js 14 (App Router)",
         "TypeScript",
@@ -272,7 +305,8 @@ export const projectsBilingual = {
         "Sanity.io",
         "Stripe",
         "Cal.com",
-        "Docker"
+        "Docker",
+        "Supabase"
       ],
       features: [
         "Dynamic Product Catalog (Sanity CMS)",
@@ -297,24 +331,42 @@ export const projectsBilingual = {
         "Docker deployment on VPS (build, environment variables, reverse proxy/HTTPS)"
       ],
       githubUrl: "https://github.com/Djefrid/onlinestoretemplate.git",
-      
+      demoUrl: "https://storetemplate.djefrid.ca/",
       image: "",
       featured: true
     },
     {
-      id: "x477YU9WNE9D3XXX2hGd",
-      title: "",
-      description: "",
-      longDescription: "",
-      stack: [],
+      id: "u2Pg23yoHgUtKV9GFG6n",
+      title: "Facttrack — Full-stack billing SaaS application",
+      description: "Full-stack SaaS tool to professionalize your invoicing: customer management, detailed PDF invoices and email sending — designed for freelancers.",
+      longDescription: "Facttrack is a full-stack SaaS application designed for freelancers and small teams who want to professionalize their invoicing without complexity.\nThe tool covers the entire cycle: customer management, creation of detailed invoices with service lines and automatic calculation of totals, PDF export ready to send and direct sending by email from the application.\nThe architecture is based on a Django rest Framework backend secured by JWT and a Vue 3 + Vite + TypeScript frontend, guaranteeing reliability, speed and financial accuracy (amounts managed in Decimal to avoid rounding errors).",
+      stack: [
+        "Django",
+        "Django REST Framework",
+        "Vue 3",
+        "Vite",
+        "TypeScript",
+        "JWT",
+        "PostgreSQL",
+        "Docker"
+      ],
       features: [
-
+        "Secure JWT authentication",
+        "Complete client management",
+        "Create detailed invoices with service lines and automatic totals",
+        "Professional PDF export ready to send",
+        "Sending the invoice by email from the application",
+        "Responsive interface",
+        "Bilingual support FR/EN"
       ],
       challenges: [
-
+        "Design of a clean and maintainable RESTful API with DRF",
+        "Financial accuracy: amounts in Decimal to avoid rounding errors",
+        "Real-time synchronization between Vue 3 UI state and the REST API",
+        "Full containerization with Docker for repeatable deployment"
       ],
-      githubUrl: "",
-      
+      githubUrl: "https://github.com/Djefrid/facttrack",
+      demoUrl: "https://facttrack.ca",
       image: "",
       featured: true
     }

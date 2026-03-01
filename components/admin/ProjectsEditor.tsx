@@ -264,6 +264,23 @@ export default function ProjectsEditor() {
     setTimeout(() => setMessage(null), 8000);
   };
 
+  /** Déplace un projet vers le haut ou le bas et sauvegarde les nouveaux ordres dans Firebase */
+  const handleMoveProject = async (index: number, direction: 'up' | 'down') => {
+    const sorted = [...projects].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === sorted.length - 1) return;
+
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    [sorted[index], sorted[newIndex]] = [sorted[newIndex], sorted[index]];
+    const reordered = sorted.map((p, i) => ({ ...p, order: i }));
+    setProjects(reordered);
+
+    await Promise.all([
+      updateProject(reordered[index].id!, { order: reordered[index].order }),
+      updateProject(reordered[newIndex].id!, { order: reordered[newIndex].order }),
+    ]);
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer ce projet?')) return;
 
@@ -521,7 +538,7 @@ export default function ProjectsEditor() {
         <p className="text-gray-400">Aucun projet. Créez votre premier projet!</p>
       ) : (
         <div className="space-y-4">
-          {projects.map((project) => (
+          {[...projects].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).map((project, index, sorted) => (
             <div
               key={project.id}
               className="flex items-center justify-between p-4 bg-dark-800 rounded-lg border border-dark-700"
@@ -542,14 +559,34 @@ export default function ProjectsEditor() {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
                 <button
+                  type="button"
+                  onClick={() => handleMoveProject(index, 'up')}
+                  disabled={index === 0}
+                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Monter"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleMoveProject(index, 'down')}
+                  disabled={index === sorted.length - 1}
+                  className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Descendre"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleEdit(project)}
                   className="px-3 py-1 text-sm text-primary-400 hover:text-primary-300 hover:bg-primary-500/20 rounded transition-colors"
                 >
                   Modifier
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleDelete(project.id!)}
                   className="px-3 py-1 text-sm text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
                 >
