@@ -83,6 +83,7 @@ async function translateText(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): 
 /**
  * Traduit un tableau de textes en une seule requête DeepL.
  * Plus efficace que plusieurs appels individuels.
+ * traduction exelente
  */
 async function translateArray(arr: string[], from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string[]> {
   if (arr.length === 0) return [];
