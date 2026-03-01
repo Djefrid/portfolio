@@ -4,7 +4,7 @@
  * ============================================================================
  *
  * Cette API traduit automatiquement les textes du profil et des projets
- * en utilisant l'API gratuite MyMemory (pas de clé API requise).
+ * en utilisant l'API DeepL (plan Free : 500 000 caractères/mois).
  *
  * Endpoint : POST /api/translate
  *
@@ -15,17 +15,19 @@
  *     sourceLang: "fr" | "en"         // Langue source (traduit vers l'autre)
  *   }
  *
- * Limites de MyMemory :
- * - 500 caractères max par requête → le texte est découpé en chunks
- * - Délai de 100ms entre les requêtes pour éviter le rate limiting
- * - Nettoyage des balises HTML parasites dans les réponses
+ * Avantages DeepL vs MyMemory :
+ * - 500 000 chars/mois gratuits (vs ~1 000 mots/jour pour MyMemory)
+ * - Meilleure qualité FR↔EN du marché
+ * - Pas de découpage en chunks requis (jusqu'à 128KB par requête)
+ * - Pas d'artefacts HTML dans les réponses
+ * - Requête par clé API dans DEEPL_API_KEY (.env.local)
  * ============================================================================
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 
-/** URL de l'API MyMemory (traduction gratuite, sans clé API) */
-const MYMEMORY_API = 'https://api.mymemory.translated.net/get';
+/** URL de l'API DeepL Free */
+const DEEPL_API = 'https://api-free.deepl.com/v2/translate';
 
 /** Résultat d'une traduction */
 interface TranslationResult {
@@ -34,135 +36,91 @@ interface TranslationResult {
 }
 
 /**
- * Découpe un texte long en morceaux de 450 caractères max.
- * Essaie de couper aux limites de phrases pour garder un sens cohérent.
+ * Traduit un texte via DeepL.
+ * Conserve les sauts de ligne et la structure du texte original.
  */
-function splitTextIntoChunks(text: string, maxLength: number = 450): string[] {
-  if (text.length <= maxLength) {
-    return [text];
-  }
-
-  const chunks: string[] = [];
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  let currentChunk = '';
-
-  for (const sentence of sentences) {
-    if (currentChunk.length + sentence.length + 1 <= maxLength) {
-      currentChunk += (currentChunk ? ' ' : '') + sentence;
-    } else {
-      if (currentChunk) {
-        chunks.push(currentChunk);
-      }
-      // If single sentence is too long, split by newlines or just chunk it
-      if (sentence.length > maxLength) {
-        const parts = sentence.split('\n');
-        for (const part of parts) {
-          if (part.length <= maxLength) {
-            chunks.push(part);
-          } else {
-            // Force split long text
-            for (let i = 0; i < part.length; i += maxLength) {
-              chunks.push(part.substring(i, i + maxLength));
-            }
-          }
-        }
-        currentChunk = '';
-      } else {
-        currentChunk = sentence;
-      }
-    }
-  }
-
-  if (currentChunk) {
-    chunks.push(currentChunk);
-  }
-
-  return chunks.length > 0 ? chunks : [text.substring(0, maxLength)];
-}
-
-/** Traduit un seul morceau de texte via l'API MyMemory, avec nettoyage HTML */
-async function translateSingleChunk(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string> {
-  if (!text || text.trim() === '') {
-    return '';
-  }
-
-  try {
-    const langPair = `${from}|${to}`;
-    const url = `${MYMEMORY_API}?q=${encodeURIComponent(text)}&langpair=${langPair}`;
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    if (data.responseStatus === 200 && data.responseData?.translatedText) {
-      let translated = data.responseData.translatedText;
-      // Clean up HTML tags that MyMemory sometimes adds
-      translated = translated.replace(/<[^>]*>/g, '');
-      // Decode common HTML entities
-      translated = translated
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&nbsp;/g, ' ');
-      // Remove any remaining HTML-like artifacts
-      translated = translated.replace(/<[^>]*>/g, '').trim();
-      return translated;
-    }
-
-    console.error('Translation API response:', data);
-    return text; // Return original if failed
-  } catch (error) {
-    console.error('Translation chunk error:', error);
-    return text;
-  }
-}
-
-/** Traduit un texte complet (découpe en chunks si nécessaire) */
 async function translateText(text: string, from: 'fr' | 'en', to: 'fr' | 'en'): Promise<TranslationResult> {
   if (!text || text.trim() === '') {
     return { translatedText: '', success: true };
   }
 
-  try {
-    // Split long text into chunks
-    const chunks = splitTextIntoChunks(text);
+  const apiKey = process.env.DEEPL_API_KEY;
+  if (!apiKey) {
+    console.error('DEEPL_API_KEY manquant dans .env.local');
+    return { translatedText: text, success: false };
+  }
 
-    // Translate each chunk with small delay to avoid rate limiting
-    const translatedChunks: string[] = [];
-    for (const chunk of chunks) {
-      const translated = await translateSingleChunk(chunk, from, to);
-      translatedChunks.push(translated);
-      // Small delay between requests to avoid rate limiting
-      if (chunks.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
+  try {
+    const targetLang = to === 'en' ? 'EN-US' : 'FR';
+
+    const response = await fetch(DEEPL_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `DeepL-Auth-Key ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: [text],
+        source_lang: from.toUpperCase(),
+        target_lang: targetLang,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.translations && data.translations[0]?.text) {
+      return { translatedText: data.translations[0].text, success: true };
     }
 
-    // Join chunks and add line breaks after periods (sentence endings)
-    let result = translatedChunks.join(' ');
-    // Replace ". " (period + space) with ".\n" to create line breaks after each sentence
-    result = result.replace(/\.\s+/g, '.\n');
-
-    return {
-      translatedText: result,
-      success: true,
-    };
+    console.error('DeepL API response:', data);
+    return { translatedText: text, success: false };
   } catch (error) {
     console.error('Translation error:', error);
     return { translatedText: text, success: false };
   }
 }
 
-/** Traduit un tableau de textes (chaque élément traduit individuellement) */
+/**
+ * Traduit un tableau de textes en une seule requête DeepL.
+ * Plus efficace que plusieurs appels individuels.
+ */
 async function translateArray(arr: string[], from: 'fr' | 'en', to: 'fr' | 'en'): Promise<string[]> {
-  const results = await Promise.all(
-    arr.map(async (item) => {
-      const result = await translateText(item, from, to);
-      return result.translatedText;
-    })
-  );
-  return results;
+  if (arr.length === 0) return [];
+
+  const apiKey = process.env.DEEPL_API_KEY;
+  if (!apiKey) {
+    console.error('DEEPL_API_KEY manquant dans .env.local');
+    return arr;
+  }
+
+  try {
+    const targetLang = to === 'en' ? 'EN-US' : 'FR';
+
+    const response = await fetch(DEEPL_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `DeepL-Auth-Key ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        text: arr,
+        source_lang: from.toUpperCase(),
+        target_lang: targetLang,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (data.translations) {
+      return data.translations.map((t: { text: string }) => t.text);
+    }
+
+    console.error('DeepL array response:', data);
+    return arr;
+  } catch (error) {
+    console.error('Array translation error:', error);
+    return arr;
+  }
 }
 
 /**
@@ -181,7 +139,6 @@ export async function POST(request: NextRequest) {
     const targetLang = sourceLang === 'fr' ? 'en' : 'fr';
 
     if (type === 'profile') {
-      // Translate profile data
       const profile = data;
 
       // Translate title
@@ -214,7 +171,6 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({ success: true, data: profile });
     } else if (type === 'project') {
-      // Translate a single project
       const project = data;
 
       // Translate title
