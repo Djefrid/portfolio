@@ -21,8 +21,7 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   User
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from './config';
@@ -47,16 +46,6 @@ export function useAuth() {
       setLoading(false);
       return;
     }
-
-    // Récupère le résultat après redirection Google (si applicable)
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          setUser(result.user);
-          setLoading(false);
-        }
-      })
-      .catch((err) => console.error('getRedirectResult error:', err));
 
     // onAuthStateChanged écoute les changements d'état de connexion en temps réel
     // (connexion, déconnexion, expiration de session, etc.)
@@ -95,8 +84,8 @@ export function useAuth() {
     }
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithRedirect(auth, provider);
-      return { user: null, error: null };
+      const result = await signInWithPopup(auth, provider);
+      return { user: result.user, error: null };
     } catch (error) {
       return { user: null, error: (error as Error).message };
     }
