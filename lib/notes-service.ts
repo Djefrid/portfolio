@@ -1,6 +1,6 @@
 import { db } from '@/lib/firebase/config';
 import {
-  collection, addDoc, updateDoc, deleteDoc, setDoc,
+  collection, addDoc, updateDoc, deleteDoc, setDoc, getDoc,
   doc, serverTimestamp, writeBatch, getDocs, query, where,
 } from 'firebase/firestore';
 
@@ -30,6 +30,7 @@ export interface Folder {
   id: string;
   name: string;
   order: number;
+  parentId: string | null;  // null = dossier racine
   isSmart?: boolean;
   filters?: SmartFolderFilter;
   createdAt: Date;
@@ -151,11 +152,16 @@ export async function deleteTag(name: string): Promise<void> {
 
 // ── Folders CRUD ─────────────────────────────────────────────────────────────
 
-export async function createFolder(name: string, order: number): Promise<string> {
+export async function createFolder(
+  name: string,
+  order: number,
+  parentId: string | null = null
+): Promise<string> {
   if (!db) throw new Error('Firebase non configuré');
   const ref = await addDoc(collection(db, 'adminFolders'), {
     name,
     order,
+    parentId,
     isSmart: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -207,13 +213,25 @@ export async function updateSmartFolderFilters(
 
 export async function deleteFolder(id: string): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
+  // Lire le parentId du dossier supprimé pour re-parenter ses sous-dossiers
+  const folderDoc = await getDoc(doc(db, 'adminFolders', id));
+  const grandParentId: string | null = folderDoc.exists()
+    ? (folderDoc.data().parentId ?? null)
+    : null;
   const batch = writeBatch(db);
-  // Remet les notes dans l'Inbox (seulement les dossiers normaux ont des notes physiques)
-  const snap = await getDocs(
+  // Notes directes → inbox
+  const noteSnap = await getDocs(
     query(collection(db, 'adminNotes'), where('folderId', '==', id))
   );
-  snap.docs.forEach((d) =>
+  noteSnap.docs.forEach((d) =>
     batch.update(d.ref, { folderId: null, updatedAt: serverTimestamp() })
+  );
+  // Sous-dossiers directs → grand-parent (ou racine si null)
+  const subSnap = await getDocs(
+    query(collection(db, 'adminFolders'), where('parentId', '==', id))
+  );
+  subSnap.docs.forEach((d) =>
+    batch.update(d.ref, { parentId: grandParentId, updatedAt: serverTimestamp() })
   );
   batch.delete(doc(db, 'adminFolders', id));
   await batch.commit();

@@ -58,6 +58,7 @@ export function useAdminNotes() {
             id:        d.id,
             name:      v.name     ?? '',
             order:     v.order    ?? 0,
+            parentId:  v.parentId ?? null,
             isSmart:   v.isSmart  ?? false,
             filters:   v.filters  ?? undefined,
             createdAt: (v.createdAt as Timestamp)?.toDate() ?? new Date(),
