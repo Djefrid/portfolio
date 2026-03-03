@@ -6,10 +6,11 @@ import AdminHeader from '@/components/admin/AdminHeader';
 import ProfileEditor from '@/components/admin/ProfileEditor';
 import ProjectsEditor from '@/components/admin/ProjectsEditor';
 import SkillsEditor from '@/components/admin/SkillsEditor';
+import NotesEditor from '@/components/admin/NotesEditor';
 
-type Tab = 'profile' | 'projects' | 'skills';
+type Tab = 'profile' | 'projects' | 'skills' | 'notes';
 
-const VALID_TABS: Tab[] = ['profile', 'projects', 'skills'];
+const VALID_TABS: Tab[] = ['profile', 'projects', 'skills', 'notes'];
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -27,6 +28,7 @@ export default function AdminDashboard() {
     { id: 'profile', label: 'Profil & À propos' },
     { id: 'projects', label: 'Projets' },
     { id: 'skills', label: 'Compétences' },
+    { id: 'notes', label: '🗒 Notes' },
   ];
 
   return (
@@ -46,6 +48,7 @@ export default function AdminDashboard() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 activeTab === tab.id
@@ -63,6 +66,7 @@ export default function AdminDashboard() {
           {activeTab === 'profile' && <ProfileEditor />}
           {activeTab === 'projects' && <ProjectsEditor />}
           {activeTab === 'skills' && <SkillsEditor />}
+          {activeTab === 'notes' && <NotesEditor />}
         </div>
       </main>
     </div>
