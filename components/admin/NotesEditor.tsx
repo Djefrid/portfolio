@@ -3,6 +3,7 @@
 import {
   useState, useEffect, useRef, useCallback, useMemo,
 } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Pin, Trash2, Search, StickyNote, FolderPlus,
   Hash, MoreHorizontal, FolderOpen, Folder, ArrowLeft,
@@ -228,7 +229,7 @@ function SmartFolderModal({
 function NotesSidebar({
   notes, deletedNotes, folders, manualTags, view, onSelectView,
   newFolderPendingId, onFolderCreated, onEditSmartFolder,
-  onCreateTag, onDeleteTag,
+  onCreateTag, onDeleteTag, trashBtnRef, trashShake,
 }: {
   notes:              Note[];
   deletedNotes:       Note[];
@@ -241,6 +242,8 @@ function NotesSidebar({
   onEditSmartFolder:  (id: string) => void;
   onCreateTag:        (name: string) => void;
   onDeleteTag:        (name: string) => void;
+  trashBtnRef:        React.RefObject<HTMLButtonElement>;
+  trashShake:         boolean;
 }) {
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [editingName,     setEditingName]     = useState('');
@@ -529,16 +532,21 @@ function NotesSidebar({
       {/* Corbeille — toujours visible */}
       <div className="mx-2 border-t border-dark-700 mt-auto" />
       <div className="px-2 py-2">
-        <button
+        <motion.button
+          ref={trashBtnRef}
           type="button"
           className={row('trash')}
           onClick={() => onSelectView('trash')}
+          animate={trashShake
+            ? { x: [-4, 4, -4, 4, 0], rotate: [-10, 10, -10, 10, 0] }
+            : { x: 0, rotate: 0 }}
+          transition={{ duration: 0.4 }}
         >
           <span className="flex items-center gap-2"><Trash2 size={13} />Corbeille</span>
           {deletedNotes.length > 0 && (
             <span className="text-xs opacity-50">{deletedNotes.length}</span>
           )}
-        </button>
+        </motion.button>
       </div>
     </div>
   );
@@ -569,11 +577,17 @@ export default function NotesEditor() {
   const [titleSuggs,      setTitleSuggs]      = useState<string[]>([]);
   const [titleSuggIdx,    setTitleSuggIdx]    = useState(-1);
   const [titleSuggType,   setTitleSuggType]   = useState<'tag' | 'word' | 'title'>('title');
-  const contentRef = useRef<HTMLTextAreaElement>(null);
-  const titleRef   = useRef<HTMLInputElement>(null);
-  const searchRef  = useRef<HTMLInputElement>(null);
+  const contentRef  = useRef<HTMLTextAreaElement>(null);
+  const titleRef    = useRef<HTMLInputElement>(null);
+  const searchRef   = useRef<HTMLInputElement>(null);
+  const trashBtnRef = useRef<HTMLButtonElement>(null);
 
-  const [search, setSearch] = useState('');
+  const [search,      setSearch]      = useState('');
+  const [trashShake,  setTrashShake]  = useState(false);
+  const [flyItem, setFlyItem] = useState<{
+    x: number; y: number; w: number; h: number;
+    tx: number; ty: number; label: string;
+  } | null>(null);
 
   // Ctrl+F / Cmd+F → focus barre de recherche
   useEffect(() => {
@@ -918,9 +932,29 @@ export default function NotesEditor() {
     await updateNote(selectedNote.id, { pinned: !selectedNote.pinned });
   };
 
+  const triggerFlyToTrash = useCallback((noteId: string, label: string) => {
+    const cardEl  = document.querySelector(`[data-note-id="${noteId}"]`);
+    const trashEl = trashBtnRef.current;
+    if (!cardEl || !trashEl) return;
+    const from = cardEl.getBoundingClientRect();
+    const to   = trashEl.getBoundingClientRect();
+    setFlyItem({
+      x: from.left, y: from.top, w: from.width, h: from.height,
+      tx: to.left + to.width  / 2 - from.width  / 4,
+      ty: to.top  + to.height / 2 - from.height / 4,
+      label,
+    });
+    // Corbeille tremble quand le fantôme arrive (~350ms)
+    setTimeout(() => {
+      setTrashShake(true);
+      setTimeout(() => { setTrashShake(false); setFlyItem(null); }, 460);
+    }, 340);
+  }, []);
+
   const handleDelete = async () => {
     if (!selectedId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
+    triggerFlyToTrash(selectedId, title || 'Sans titre');
     await deleteNote(selectedId);
     setSelectedId(null); setTitle(''); setContent('');
     setMobilePanel('list'); setConfirmDel(false);
@@ -1001,6 +1035,33 @@ export default function NotesEditor() {
         />
       )}
 
+      {/* ── Overlay fantôme "fly to trash" ──────────────────────────────────── */}
+      <AnimatePresence>
+        {flyItem && (
+          <motion.div
+            key="fly-ghost"
+            initial={{ x: flyItem.x, y: flyItem.y, opacity: 0.85, scale: 1 }}
+            animate={{
+              x: flyItem.tx, y: flyItem.ty,
+              opacity: 0, scale: 0.35,
+            }}
+            transition={{ duration: 0.38, ease: 'easeIn' }}
+            style={{
+              position: 'fixed',
+              width: flyItem.w,
+              height: Math.min(flyItem.h, 44),
+              zIndex: 9999,
+              pointerEvents: 'none',
+              top: 0, left: 0,
+            }}
+            className="bg-dark-800 border border-yellow-500/40 rounded-lg shadow-2xl flex items-center gap-2 px-3 py-1 overflow-hidden"
+          >
+            <StickyNote size={11} className="text-yellow-400 shrink-0" />
+            <span className="text-xs text-gray-300 truncate">{flyItem.label}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div
         className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
         onClick={() => {
@@ -1065,6 +1126,8 @@ export default function NotesEditor() {
             onEditSmartFolder={handleEditSmartFolder}
             onCreateTag={handleCreateTag}
             onDeleteTag={handleDeleteTag}
+            trashBtnRef={trashBtnRef}
+            trashShake={trashShake}
           />
         </div>
 
@@ -1156,22 +1219,22 @@ export default function NotesEditor() {
                 <p className="text-xs">{search ? 'Aucun résultat' : isTrash ? 'Corbeille vide' : 'Aucune note'}</p>
               </div>
             ) : (
-              <>
+              <AnimatePresence mode="popLayout">
                 {hasPinnedSection && (
-                  <>
-                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-0 z-10">Épinglées</div>
-                    {pinnedNotes.map(note => (
-                      <NoteCard key={note.id} note={note} selected={selectedId === note.id} onSelect={handleSelectNote} />
-                    ))}
-                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-6 z-10">Notes</div>
-                  </>
+                  <div key="pinned-header" className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-0 z-10">Épinglées</div>
+                )}
+                {hasPinnedSection && pinnedNotes.map(note => (
+                  <NoteCard key={note.id} note={note} selected={selectedId === note.id} onSelect={handleSelectNote} />
+                ))}
+                {hasPinnedSection && (
+                  <div key="unpinned-header" className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-6 z-10">Notes</div>
                 )}
                 {unpinnedNotes.map(note => (
                   <NoteCard key={note.id} note={note} selected={selectedId === note.id} onSelect={handleSelectNote}
                     trashInfo={isTrash && note.deletedAt ? daysUntilPurge(note.deletedAt) : undefined}
                   />
                 ))}
-              </>
+              </AnimatePresence>
             )}
           </div>
         </div>
@@ -1357,33 +1420,40 @@ function NoteCard({ note, selected, onSelect, trashInfo }: {
   trashInfo?: number;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(note)}
-      className={`w-full text-left px-3 py-2.5 border-b border-dark-800 transition-colors ${
-        selected ? 'bg-yellow-500/10 border-l-2 border-l-yellow-400' : 'hover:bg-dark-800'
-      }`}
+    <motion.div
+      data-note-id={note.id}
+      layout
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 0, x: -24, scale: 0.88, transition: { duration: 0.28, ease: 'easeIn' } }}
     >
-      <div className="flex items-center gap-1.5 mb-0.5">
-        {note.pinned && <Pin size={9} className="text-yellow-400 shrink-0" />}
-        <span className="text-xs font-semibold text-white truncate">{note.title || 'Sans titre'}</span>
-      </div>
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-gray-500 truncate flex-1">
-          {note.content.replace(/#\w+/g, '').trim() || 'Aucun contenu'}
-        </p>
-        <span className="text-[10px] text-gray-600 shrink-0">
-          {trashInfo !== undefined ? <span className="text-orange-500">{trashInfo}j</span> : fmtDate(note.updatedAt)}
-        </span>
-      </div>
-      {note.tags.length > 0 && (
-        <div className="flex gap-1 mt-1 flex-wrap">
-          {note.tags.slice(0, 3).map(t => (
-            <span key={t} className="text-[10px] text-yellow-600 bg-yellow-500/10 px-1 rounded">#{t}</span>
-          ))}
-          {note.tags.length > 3 && <span className="text-[10px] text-gray-600">+{note.tags.length - 3}</span>}
+      <button
+        type="button"
+        onClick={() => onSelect(note)}
+        className={`w-full text-left px-3 py-2.5 border-b border-dark-800 transition-colors ${
+          selected ? 'bg-yellow-500/10 border-l-2 border-l-yellow-400' : 'hover:bg-dark-800'
+        }`}
+      >
+        <div className="flex items-center gap-1.5 mb-0.5">
+          {note.pinned && <Pin size={9} className="text-yellow-400 shrink-0" />}
+          <span className="text-xs font-semibold text-white truncate">{note.title || 'Sans titre'}</span>
         </div>
-      )}
-    </button>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-gray-500 truncate flex-1">
+            {note.content.replace(/#\w+/g, '').trim() || 'Aucun contenu'}
+          </p>
+          <span className="text-[10px] text-gray-600 shrink-0">
+            {trashInfo !== undefined ? <span className="text-orange-500">{trashInfo}j</span> : fmtDate(note.updatedAt)}
+          </span>
+        </div>
+        {note.tags.length > 0 && (
+          <div className="flex gap-1 mt-1 flex-wrap">
+            {note.tags.slice(0, 3).map(t => (
+              <span key={t} className="text-[10px] text-yellow-600 bg-yellow-500/10 px-1 rounded">#{t}</span>
+            ))}
+            {note.tags.length > 3 && <span className="text-[10px] text-gray-600">+{note.tags.length - 3}</span>}
+          </div>
+        )}
+      </button>
+    </motion.div>
   );
 }

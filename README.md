@@ -520,6 +520,8 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Jours restants** | Affichés en orange dans la corbeille |
 | **Sync temps réel** | 3 `onSnapshot` Firestore — multi-appareils |
 | **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
+| **Animation suppression** | Ghost card vole vers la corbeille (framer-motion) · icône tremble à la réception · `AnimatePresence` sur la liste |
+| **Corbeille permanente** | Toujours visible dans la sidebar, même vide — compteur masqué si 0 |
 
 ### Dossiers intelligents (Smart Folders)
 
@@ -845,4 +847,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 3 mars 2026 — recherche temps réel (Ctrl+F) + autocomplete titre complet (tags, mots, titres)*
+*Documentation mise à jour le 3 mars 2026 — animation fly-to-trash + corbeille permanente + recherche Ctrl+F + autocomplete titre complet*
