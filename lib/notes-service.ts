@@ -18,10 +18,20 @@ export interface Note {
   updatedAt: Date;
 }
 
+export interface SmartFolderFilter {
+  tags?: string[];             // filtrer par tags
+  tagLogic?: 'and' | 'or';    // 'or' par défaut
+  pinned?: boolean;            // épinglées uniquement
+  createdWithinDays?: number;  // créées dans les N derniers jours
+  modifiedWithinDays?: number; // modifiées dans les N derniers jours
+}
+
 export interface Folder {
   id: string;
   name: string;
   order: number;
+  isSmart?: boolean;
+  filters?: SmartFolderFilter;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -114,6 +124,24 @@ export async function createFolder(name: string, order: number): Promise<string>
   const ref = await addDoc(collection(db, 'adminFolders'), {
     name,
     order,
+    isSmart: false,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function createSmartFolder(
+  name: string,
+  order: number,
+  filters: SmartFolderFilter
+): Promise<string> {
+  if (!db) throw new Error('Firebase non configuré');
+  const ref = await addDoc(collection(db, 'adminFolders'), {
+    name,
+    order,
+    isSmart: true,
+    filters,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -131,9 +159,24 @@ export async function updateFolder(
   });
 }
 
+// Met à jour le nom et les filtres d'un dossier intelligent
+export async function updateSmartFolderFilters(
+  id: string,
+  name: string,
+  filters: SmartFolderFilter
+): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await updateDoc(doc(db, 'adminFolders', id), {
+    name,
+    filters,
+    updatedAt: serverTimestamp(),
+  });
+}
+
 export async function deleteFolder(id: string): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
   const batch = writeBatch(db);
+  // Remet les notes dans l'Inbox (seulement les dossiers normaux ont des notes physiques)
   const snap = await getDocs(
     query(collection(db, 'adminNotes'), where('folderId', '==', id))
   );

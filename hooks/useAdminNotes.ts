@@ -52,8 +52,10 @@ export function useAdminNotes() {
           const v = d.data();
           return {
             id:        d.id,
-            name:      v.name  ?? '',
-            order:     v.order ?? 0,
+            name:      v.name     ?? '',
+            order:     v.order    ?? 0,
+            isSmart:   v.isSmart  ?? false,
+            filters:   v.filters  ?? undefined,
             createdAt: (v.createdAt as Timestamp)?.toDate() ?? new Date(),
             updatedAt: (v.updatedAt as Timestamp)?.toDate() ?? new Date(),
           } as Folder;

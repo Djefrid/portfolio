@@ -6,14 +6,14 @@ import {
 import {
   Plus, Pin, Trash2, Search, StickyNote, FolderPlus,
   Hash, MoreHorizontal, FolderOpen, Folder, ArrowLeft,
-  ChevronRight, X, RotateCcw, ArrowUpDown,
+  ChevronRight, X, RotateCcw, ArrowUpDown, Zap,
 } from 'lucide-react';
 import { useAdminNotes } from '@/hooks/useAdminNotes';
 import {
   createNote, updateNote, deleteNote, moveNote,
   permanentlyDeleteNote, recoverNote, silentlyDeleteNote,
-  createFolder, updateFolder, deleteFolder,
-  Note, Folder as FolderType,
+  createFolder, createSmartFolder, updateFolder, updateSmartFolderFilters, deleteFolder,
+  Note, Folder as FolderType, SmartFolderFilter,
 } from '@/lib/notes-service';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -26,8 +26,8 @@ type ViewFilter =
   | { type: 'folder'; id: string }
   | { type: 'tag';    tag: string };
 
-type SortBy = 'dateModified' | 'dateCreated' | 'title';
-type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
+type SortBy      = 'dateModified' | 'dateCreated' | 'title';
+type SaveStatus  = 'saved' | 'saving' | 'unsaved' | 'error';
 type MobilePanel = 'sidebar' | 'list' | 'editor';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -39,7 +39,7 @@ function viewEq(a: ViewFilter, b: ViewFilter) {
 function fmtDate(d: Date): string {
   const diff = Date.now() - d.getTime();
   const days = Math.floor(diff / 86400000);
-  if (days === 0) return "Auj.";
+  if (days === 0) return 'Auj.';
   if (days === 1) return 'Hier';
   if (days < 7)   return `${days}j`;
   return d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
@@ -62,10 +62,246 @@ function viewLabel(view: ViewFilter, folders: FolderType[]): string {
   return '';
 }
 
+function applySmartFilters(notes: Note[], filters: SmartFolderFilter): Note[] {
+  let result = [...notes];
+  if (filters.tags && filters.tags.length > 0) {
+    result = filters.tagLogic === 'and'
+      ? result.filter(n => filters.tags!.every(t => n.tags.includes(t)))
+      : result.filter(n => filters.tags!.some(t => n.tags.includes(t)));
+  }
+  if (filters.pinned !== undefined) {
+    result = result.filter(n => n.pinned === filters.pinned);
+  }
+  if (filters.createdWithinDays) {
+    const cutoff = new Date(Date.now() - filters.createdWithinDays * 86400000);
+    result = result.filter(n => n.createdAt >= cutoff);
+  }
+  if (filters.modifiedWithinDays) {
+    const cutoff = new Date(Date.now() - filters.modifiedWithinDays * 86400000);
+    result = result.filter(n => n.updatedAt >= cutoff);
+  }
+  return result;
+}
+
+// ── SmartFolderModal ──────────────────────────────────────────────────────────
+
+function SmartFolderModal({
+  allTags,
+  initial,
+  onConfirm,
+  onCancel,
+}: {
+  allTags:   string[];
+  initial?:  { name: string; filters: SmartFolderFilter };
+  onConfirm: (name: string, filters: SmartFolderFilter) => void;
+  onCancel:  () => void;
+}) {
+  const [name,            setName]            = useState(initial?.name ?? 'Dossier intelligent');
+  const [useTags,         setUseTags]         = useState(!!(initial?.filters?.tags?.length));
+  const [selectedTags,    setSelectedTags]    = useState<string[]>(initial?.filters?.tags ?? []);
+  const [tagLogic,        setTagLogic]        = useState<'and' | 'or'>(initial?.filters?.tagLogic ?? 'or');
+  const [usePinned,       setUsePinned]       = useState(initial?.filters?.pinned !== undefined);
+  const [useCreatedDays,  setUseCreatedDays]  = useState(!!(initial?.filters?.createdWithinDays));
+  const [createdDays,     setCreatedDays]     = useState(initial?.filters?.createdWithinDays ?? 7);
+  const [useModifiedDays, setUseModifiedDays] = useState(!!(initial?.filters?.modifiedWithinDays));
+  const [modifiedDays,    setModifiedDays]    = useState(initial?.filters?.modifiedWithinDays ?? 7);
+
+  const handleSubmit = () => {
+    const filters: SmartFolderFilter = {};
+    if (useTags && selectedTags.length > 0) {
+      filters.tags     = selectedTags;
+      filters.tagLogic = tagLogic;
+    }
+    if (usePinned) filters.pinned = true;
+    if (useCreatedDays  && createdDays  > 0) filters.createdWithinDays  = createdDays;
+    if (useModifiedDays && modifiedDays > 0) filters.modifiedWithinDays = modifiedDays;
+    onConfirm(name.trim() || 'Dossier intelligent', filters);
+  };
+
+  const toggleTag = (t: string) =>
+    setSelectedTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={onCancel}
+    >
+      <div
+        className="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-md mx-4 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-dark-700 flex items-center gap-2">
+          <Zap size={15} className="text-yellow-400" />
+          <h2 className="text-sm font-semibold text-white">
+            {initial ? 'Modifier le dossier intelligent' : 'Nouveau dossier intelligent'}
+          </h2>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+          {/* Nom */}
+          <div>
+            <label className="text-xs text-gray-400 mb-1.5 block">Nom</label>
+            <input
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              className="w-full px-3 py-2 bg-dark-800 border border-dark-700 rounded-lg text-sm text-white focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+              autoFocus
+            />
+          </div>
+
+          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest pt-1">
+            Filtres
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={useTags}
+                onChange={e => setUseTags(e.target.checked)}
+                className="accent-yellow-500 w-3.5 h-3.5"
+              />
+              Par tags
+            </label>
+            {useTags && (
+              <div className="ml-5 space-y-2">
+                {allTags.length === 0 ? (
+                  <p className="text-xs text-gray-500">Aucun tag existant dans tes notes</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1">
+                    {allTags.map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => toggleTag(t)}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                          selectedTags.includes(t)
+                            ? 'bg-yellow-500/25 text-yellow-300 border-yellow-500/50'
+                            : 'bg-dark-800 text-gray-400 border-dark-600 hover:border-yellow-500/30 hover:text-gray-300'
+                        }`}
+                      >
+                        #{t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-4 mt-1">
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tagLogic"
+                      checked={tagLogic === 'or'}
+                      onChange={() => setTagLogic('or')}
+                      className="accent-yellow-500"
+                    />
+                    Au moins un
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="tagLogic"
+                      checked={tagLogic === 'and'}
+                      onChange={() => setTagLogic('and')}
+                      className="accent-yellow-500"
+                    />
+                    Tous les tags
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Épinglées */}
+          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={usePinned}
+              onChange={e => setUsePinned(e.target.checked)}
+              className="accent-yellow-500 w-3.5 h-3.5"
+            />
+            Épinglées uniquement
+          </label>
+
+          {/* Créées dans les N jours */}
+          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none flex-wrap">
+            <input
+              type="checkbox"
+              checked={useCreatedDays}
+              onChange={e => setUseCreatedDays(e.target.checked)}
+              className="accent-yellow-500 w-3.5 h-3.5"
+            />
+            Créées dans les
+            {useCreatedDays && (
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={createdDays}
+                onChange={e => setCreatedDays(Math.max(1, Number(e.target.value)))}
+                onClick={e => e.stopPropagation()}
+                className="w-14 px-2 py-0.5 bg-dark-700 border border-dark-600 rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-yellow-500/50 text-center"
+              />
+            )}
+            derniers jours
+          </label>
+
+          {/* Modifiées dans les N jours */}
+          <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none flex-wrap">
+            <input
+              type="checkbox"
+              checked={useModifiedDays}
+              onChange={e => setUseModifiedDays(e.target.checked)}
+              className="accent-yellow-500 w-3.5 h-3.5"
+            />
+            Modifiées dans les
+            {useModifiedDays && (
+              <input
+                type="number"
+                min={1}
+                max={365}
+                value={modifiedDays}
+                onChange={e => setModifiedDays(Math.max(1, Number(e.target.value)))}
+                onClick={e => e.stopPropagation()}
+                className="w-14 px-2 py-0.5 bg-dark-700 border border-dark-600 rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-yellow-500/50 text-center"
+              />
+            )}
+            derniers jours
+          </label>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-dark-700 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
+          >
+            Annuler
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="px-4 py-1.5 text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg transition-colors flex items-center gap-1.5"
+          >
+            <Zap size={12} />
+            {initial ? 'Enregistrer' : 'Créer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 
 function NotesSidebar({
-  notes, deletedNotes, folders, view, onSelectView, newFolderPendingId, onFolderCreated,
+  notes, deletedNotes, folders, view, onSelectView,
+  newFolderPendingId, onFolderCreated, onEditSmartFolder,
 }: {
   notes:              Note[];
   deletedNotes:       Note[];
@@ -74,6 +310,7 @@ function NotesSidebar({
   onSelectView:       (v: ViewFilter) => void;
   newFolderPendingId: string | null;
   onFolderCreated:    () => void;
+  onEditSmartFolder:  (id: string) => void;
 }) {
   const [editingId,   setEditingId]   = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
@@ -119,7 +356,7 @@ function NotesSidebar({
 
   const handleDeleteFolder = async (id: string) => {
     await deleteFolder(id);
-    if (viewEq(view, { type: 'folder', id })) onSelectView('all');
+    if (viewEq(view, { type: 'folder', id })) onSelectView('inbox');
     setMenuId(null);
   };
 
@@ -130,7 +367,6 @@ function NotesSidebar({
     >
       {/* Smart views */}
       <div className="px-2 pt-3 pb-2 space-y-0.5">
-        {/* "Toutes" only when there are custom folders (Apple Notes rule) */}
         {folders.length > 0 && (
           <button type="button" className={row('all')} onClick={() => onSelectView('all')}>
             <span className="flex items-center gap-2"><StickyNote size={13} />Toutes</span>
@@ -169,7 +405,7 @@ function NotesSidebar({
                   onChange={e => setEditingName(e.target.value)}
                   onBlur={() => commitRename(f.id)}
                   onKeyDown={e => {
-                    if (e.key === 'Enter') commitRename(f.id);
+                    if (e.key === 'Enter')  commitRename(f.id);
                     if (e.key === 'Escape') setEditingId(null);
                   }}
                   className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none"
@@ -181,11 +417,16 @@ function NotesSidebar({
                   onClick={() => onSelectView({ type: 'folder', id: f.id })}
                 >
                   <span className="flex items-center gap-2 truncate min-w-0">
-                    <FolderOpen size={13} className="shrink-0" />
+                    {f.isSmart
+                      ? <Zap size={12} className="text-yellow-400 shrink-0" />
+                      : <FolderOpen size={13} className="shrink-0" />
+                    }
                     <span className="truncate">{f.name}</span>
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
-                    <span className="text-xs opacity-50">{counts.byFolder[f.id] ?? 0}</span>
+                    {!f.isSmart && (
+                      <span className="text-xs opacity-50">{counts.byFolder[f.id] ?? 0}</span>
+                    )}
                     <button
                       type="button"
                       title="Options du dossier"
@@ -199,16 +440,26 @@ function NotesSidebar({
               )}
               {menuId === f.id && (
                 <div
-                  className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-36"
+                  className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
                   onClick={e => e.stopPropagation()}
                 >
-                  <button
-                    type="button"
-                    onClick={() => { setEditingId(f.id); setEditingName(f.name); setMenuId(null); }}
-                    className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700"
-                  >
-                    Renommer
-                  </button>
+                  {f.isSmart ? (
+                    <button
+                      type="button"
+                      onClick={() => { onEditSmartFolder(f.id); setMenuId(null); }}
+                      className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700 flex items-center gap-2"
+                    >
+                      <Zap size={12} className="text-yellow-400" /> Modifier les filtres
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => { setEditingId(f.id); setEditingName(f.name); setMenuId(null); }}
+                      className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700"
+                    >
+                      Renommer
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleDeleteFolder(f.id)}
@@ -302,6 +553,9 @@ export default function NotesEditor() {
 
   // Folder creation
   const [newFolderPendingId, setNewFolderPendingId] = useState<string | null>(null);
+  const [showNewFolderMenu,  setShowNewFolderMenu]  = useState(false);
+  const [showSmartModal,     setShowSmartModal]     = useState(false);
+  const [editingSmartId,     setEditingSmartId]     = useState<string | null>(null);
 
   // Track previous selected note for empty-note cleanup
   const prevSelectedId = useRef<string | null>(null);
@@ -314,15 +568,31 @@ export default function NotesEditor() {
     ?? deletedNotes.find(n => n.id === selectedId)
     ?? null;
 
-  const isTrash      = view === 'trash';
-  const isReadOnly   = selectedNote ? !!selectedNote.deletedAt : false;
+  const isTrash    = view === 'trash';
+  const isReadOnly = selectedNote ? !!selectedNote.deletedAt : false;
 
-  // ── All tags (union across active notes) ──────────────────────────────────
+  // Dossier courant (null si vue non-dossier)
+  const currentFolder = useMemo(() =>
+    typeof view === 'object' && view.type === 'folder'
+      ? folders.find(f => f.id === view.id) ?? null
+      : null,
+    [view, folders]
+  );
+
+  // Tous les tags des notes actives
   const allTags = useMemo(() => {
     const set = new Set<string>();
     notes.forEach(n => n.tags.forEach(t => set.add(t)));
     return Array.from(set);
   }, [notes]);
+
+  // Valeurs initiales du modal (édition d'un dossier intelligent)
+  const smartModalInitial = useMemo(() => {
+    if (!editingSmartId) return undefined;
+    const f = folders.find(x => x.id === editingSmartId);
+    if (!f?.isSmart) return undefined;
+    return { name: f.name, filters: f.filters ?? {} };
+  }, [editingSmartId, folders]);
 
   // ── On note switch: cleanup empty notes (Apple Notes rule) ────────────────
   useEffect(() => {
@@ -349,7 +619,6 @@ export default function NotesEditor() {
 
   // ── Filtered & sorted notes ───────────────────────────────────────────────
   const filteredNotes = useMemo(() => {
-    // Source: active notes or trash
     let list = isTrash ? [...deletedNotes] : [...notes];
 
     if (!isTrash) {
@@ -358,7 +627,13 @@ export default function NotesEditor() {
       } else if (view === 'inbox') {
         list = list.filter(n => !n.folderId);
       } else if (typeof view === 'object' && view.type === 'folder') {
-        list = list.filter(n => n.folderId === view.id);
+        const folder = folders.find(f => f.id === view.id);
+        if (folder?.isSmart && folder.filters) {
+          // Dossier intelligent : filtre dynamique sur toutes les notes actives
+          list = applySmartFilters(list, folder.filters);
+        } else {
+          list = list.filter(n => n.folderId === view.id);
+        }
       } else if (typeof view === 'object' && view.type === 'tag') {
         list = list.filter(n => n.tags.includes(view.tag));
       }
@@ -371,7 +646,6 @@ export default function NotesEditor() {
       );
     }
 
-    // Sort (Apple Notes: pinned = manual order = kept at top, rest by sort criteria)
     if (!isTrash) {
       const pinned   = list.filter(n => n.pinned);
       const unpinned = list.filter(n => !n.pinned);
@@ -385,11 +659,10 @@ export default function NotesEditor() {
       return [...pinned, ...sort(unpinned)];
     }
 
-    // Trash: always by deletion date desc
     return list.sort((a, b) =>
       (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0)
     );
-  }, [notes, deletedNotes, view, search, sortBy, isTrash]);
+  }, [notes, deletedNotes, view, search, sortBy, isTrash, folders]);
 
   // ── Autosave ──────────────────────────────────────────────────────────────
   const scheduleAutoSave = useCallback((t: string, c: string) => {
@@ -429,11 +702,11 @@ export default function NotesEditor() {
   const applyTagSuggestion = (tag: string) => {
     const el = contentRef.current;
     if (!el) return;
-    const cursor      = el.selectionStart;
-    const textBefore  = content.slice(0, cursor);
-    const textAfter   = content.slice(cursor);
-    const newBefore   = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)$/, `#${tag} `);
-    const newContent  = newBefore + textAfter;
+    const cursor     = el.selectionStart;
+    const textBefore = content.slice(0, cursor);
+    const textAfter  = content.slice(cursor);
+    const newBefore  = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)$/, `#${tag} `);
+    const newContent = newBefore + textAfter;
     setContent(newContent);
     scheduleAutoSave(title, newContent);
     setTagSuggestions([]);
@@ -453,8 +726,8 @@ export default function NotesEditor() {
   };
 
   const handleNewNote = async () => {
-    const folderId =
-      typeof view === 'object' && view.type === 'folder' ? view.id : null;
+    // Les dossiers intelligents sont virtuels : la nouvelle note va dans l'Inbox
+    const folderId = (currentFolder && !currentFolder.isSmart) ? currentFolder.id : null;
     const id = await createNote(folderId);
     setSelectedId(id);
     setTitle('');
@@ -476,7 +749,6 @@ export default function NotesEditor() {
     await updateNote(selectedNote.id, { pinned: !selectedNote.pinned });
   };
 
-  // Delete → soft delete (corbeille)
   const handleDelete = async () => {
     if (!selectedId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
@@ -488,7 +760,6 @@ export default function NotesEditor() {
     setConfirmDel(false);
   };
 
-  // Recover from trash → Inbox
   const handleRecover = async () => {
     if (!selectedId) return;
     await recoverNote(selectedId);
@@ -499,7 +770,6 @@ export default function NotesEditor() {
     setMobilePanel('list');
   };
 
-  // Permanent delete
   const handlePermanentDelete = async () => {
     if (!selectedId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
@@ -517,10 +787,28 @@ export default function NotesEditor() {
     setShowMoveMenu(false);
   };
 
-  const handleCreateFolder = async () => {
+  const handleCreateRegularFolder = async () => {
     const id = await createFolder('Nouveau dossier', folders.length);
     setNewFolderPendingId(id);
     setMobilePanel('sidebar');
+  };
+
+  const handleCreateSmartFolder = async (name: string, filters: SmartFolderFilter) => {
+    const id = await createSmartFolder(name, folders.length, filters);
+    setView({ type: 'folder', id });
+    setShowSmartModal(false);
+  };
+
+  const handleUpdateSmartFolder = async (name: string, filters: SmartFolderFilter) => {
+    if (!editingSmartId) return;
+    await updateSmartFolderFilters(editingSmartId, name, filters);
+    setShowSmartModal(false);
+    setEditingSmartId(null);
+  };
+
+  const handleEditSmartFolder = (id: string) => {
+    setEditingSmartId(id);
+    setShowSmartModal(true);
   };
 
   // Save status label
@@ -538,7 +826,7 @@ export default function NotesEditor() {
     saveStatus === 'unsaved' ? 'text-yellow-400' :
     saveStatus === 'saving'  ? 'text-gray-400' : 'text-gray-500';
 
-  // Split for pinned section separator (Apple Notes rule)
+  // Split pour le séparateur Épinglées / Notes (Apple Notes rule)
   const hasPinnedSection =
     !isTrash &&
     view !== 'pinned' &&
@@ -548,340 +836,455 @@ export default function NotesEditor() {
   const pinnedNotes   = hasPinnedSection ? filteredNotes.filter(n => n.pinned)  : [];
   const unpinnedNotes = hasPinnedSection ? filteredNotes.filter(n => !n.pinned) : filteredNotes;
 
+  // Dossiers normaux uniquement (pour le menu Déplacer vers)
+  const regularFolders = folders.filter(f => !f.isSmart);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
-      onClick={() => { setShowMoveMenu(false); setShowSortMenu(false); setTagSuggestions([]); }}
-    >
-
-      {/* ══ SIDEBAR ══════════════════════════════════════════════════════════ */}
-      <div className={`
-        ${mobilePanel === 'sidebar' ? 'flex' : 'hidden'} md:flex
-        w-full md:w-48 shrink-0 flex-col bg-dark-950 border-r border-dark-700
-      `}>
-        <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-dark-700">
-          <span className="text-sm font-semibold text-white">Notes</span>
-          <button type="button" title="Voir la liste" onClick={() => setMobilePanel('list')} className="text-gray-400 hover:text-white">
-            <ChevronRight size={16} />
-          </button>
-        </div>
-        <div className="px-2 pt-3 pb-1 flex items-center justify-between">
-          <span className="text-xs font-semibold text-gray-400">Notes</span>
-          <button type="button" onClick={handleCreateFolder} title="Nouveau dossier" className="text-gray-500 hover:text-yellow-400 transition-colors p-1 rounded">
-            <FolderPlus size={13} />
-          </button>
-        </div>
-        <NotesSidebar
-          notes={notes}
-          deletedNotes={deletedNotes}
-          folders={folders}
-          view={view}
-          onSelectView={v => { setView(v); setMobilePanel('list'); }}
-          newFolderPendingId={newFolderPendingId}
-          onFolderCreated={() => setNewFolderPendingId(null)}
+    <>
+      {/* Modal dossier intelligent */}
+      {showSmartModal && (
+        <SmartFolderModal
+          allTags={allTags}
+          initial={smartModalInitial}
+          onConfirm={editingSmartId ? handleUpdateSmartFolder : handleCreateSmartFolder}
+          onCancel={() => { setShowSmartModal(false); setEditingSmartId(null); }}
         />
-      </div>
+      )}
 
-      {/* ══ NOTE LIST ════════════════════════════════════════════════════════ */}
-      <div className={`
-        ${mobilePanel === 'list' ? 'flex' : 'hidden'} md:flex
-        w-full md:w-64 shrink-0 flex-col bg-dark-900 border-r border-dark-700
-      `}>
-        <div className="px-3 pt-3 pb-2 border-b border-dark-700">
-          <div className="md:hidden flex items-center gap-2 mb-2">
-            <button type="button" onClick={() => setMobilePanel('sidebar')} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white">
-              <ArrowLeft size={13} />{viewLabel(view, folders)}
+      <div
+        className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
+        onClick={() => {
+          setShowMoveMenu(false);
+          setShowSortMenu(false);
+          setTagSuggestions([]);
+          setShowNewFolderMenu(false);
+        }}
+      >
+
+        {/* ══ SIDEBAR ══════════════════════════════════════════════════════════ */}
+        <div className={`
+          ${mobilePanel === 'sidebar' ? 'flex' : 'hidden'} md:flex
+          w-full md:w-48 shrink-0 flex-col bg-dark-950 border-r border-dark-700
+        `}>
+          <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-dark-700">
+            <span className="text-sm font-semibold text-white">Notes</span>
+            <button
+              type="button"
+              title="Voir la liste"
+              onClick={() => setMobilePanel('list')}
+              className="text-gray-400 hover:text-white"
+            >
+              <ChevronRight size={16} />
             </button>
           </div>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-semibold text-white truncate">{viewLabel(view, folders)}</span>
-            <div className="flex items-center gap-1">
-              {/* Sort menu */}
-              {!isTrash && (
-                <div className="relative">
+          <div className="px-2 pt-3 pb-1 flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-400">Notes</span>
+
+            {/* Menu type de nouveau dossier */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); setShowNewFolderMenu(!showNewFolderMenu); }}
+                title="Nouveau dossier"
+                className="text-gray-500 hover:text-yellow-400 transition-colors p-1 rounded"
+              >
+                <FolderPlus size={13} />
+              </button>
+              {showNewFolderMenu && (
+                <div
+                  className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-48"
+                  onClick={e => e.stopPropagation()}
+                >
                   <button
                     type="button"
-                    title="Trier"
-                    onClick={e => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
-                    className="p-1 rounded text-gray-500 hover:text-white hover:bg-dark-700 transition-colors"
+                    onClick={() => { handleCreateRegularFolder(); setShowNewFolderMenu(false); }}
+                    className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700 flex items-center gap-2"
                   >
-                    <ArrowUpDown size={12} />
+                    <FolderPlus size={13} /> Nouveau dossier
                   </button>
-                  {showSortMenu && (
-                    <div
-                      className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
-                      onClick={e => e.stopPropagation()}
-                    >
-                      <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Trier par</p>
-                      {([
-                        ['dateModified', 'Date de modification'],
-                        ['dateCreated',  'Date de création'],
-                        ['title',        'Titre'],
-                      ] as [SortBy, string][]).map(([val, label]) => (
-                        <button
-                          key={val}
-                          type="button"
-                          onClick={() => { setSortBy(val); setShowSortMenu(false); }}
-                          className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
-                            sortBy === val ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => { setEditingSmartId(null); setShowSmartModal(true); setShowNewFolderMenu(false); }}
+                    className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700 flex items-center gap-2"
+                  >
+                    <Zap size={13} className="text-yellow-400" /> Dossier intelligent
+                  </button>
                 </div>
               )}
-              {!isTrash && (
-                <button type="button" onClick={handleNewNote} title="Nouvelle note" className="p-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors">
-                  <Plus size={14} />
-                </button>
-              )}
-              {isTrash && deletedNotes.length > 0 && (
+            </div>
+          </div>
+          <NotesSidebar
+            notes={notes}
+            deletedNotes={deletedNotes}
+            folders={folders}
+            view={view}
+            onSelectView={v => { setView(v); setMobilePanel('list'); }}
+            newFolderPendingId={newFolderPendingId}
+            onFolderCreated={() => setNewFolderPendingId(null)}
+            onEditSmartFolder={handleEditSmartFolder}
+          />
+        </div>
+
+        {/* ══ NOTE LIST ════════════════════════════════════════════════════════ */}
+        <div className={`
+          ${mobilePanel === 'list' ? 'flex' : 'hidden'} md:flex
+          w-full md:w-64 shrink-0 flex-col bg-dark-900 border-r border-dark-700
+        `}>
+          <div className="px-3 pt-3 pb-2 border-b border-dark-700">
+            <div className="md:hidden flex items-center gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setMobilePanel('sidebar')}
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-white"
+              >
+                <ArrowLeft size={13} />{viewLabel(view, folders)}
+              </button>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="flex items-center gap-1.5 text-sm font-semibold text-white truncate">
+                {currentFolder?.isSmart && <Zap size={12} className="text-yellow-400 shrink-0" />}
+                {viewLabel(view, folders)}
+              </span>
+              <div className="flex items-center gap-1">
+                {!isTrash && (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      title="Trier"
+                      onClick={e => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
+                      className="p-1 rounded text-gray-500 hover:text-white hover:bg-dark-700 transition-colors"
+                    >
+                      <ArrowUpDown size={12} />
+                    </button>
+                    {showSortMenu && (
+                      <div
+                        className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Trier par</p>
+                        {([
+                          ['dateModified', 'Date de modification'],
+                          ['dateCreated',  'Date de création'],
+                          ['title',        'Titre'],
+                        ] as [SortBy, string][]).map(([val, label]) => (
+                          <button
+                            key={val}
+                            type="button"
+                            onClick={() => { setSortBy(val); setShowSortMenu(false); }}
+                            className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
+                              sortBy === val ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!isTrash && (
+                  <button
+                    type="button"
+                    onClick={handleNewNote}
+                    title="Nouvelle note"
+                    className="p-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors"
+                  >
+                    <Plus size={14} />
+                  </button>
+                )}
+                {isTrash && deletedNotes.length > 0 && (
+                  <button
+                    type="button"
+                    title="Vider la corbeille"
+                    onClick={() => {
+                      if (confirm('Supprimer définitivement toutes les notes ?'))
+                        deletedNotes.forEach(n => permanentlyDeleteNote(n.id));
+                    }}
+                    className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                  >
+                    Vider
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="relative">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                placeholder="Rechercher..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 bg-dark-800 border border-dark-700 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+              />
+              {search && (
                 <button
                   type="button"
-                  title="Vider la corbeille"
-                  onClick={() => { if (confirm('Supprimer définitivement toutes les notes ?')) deletedNotes.forEach(n => permanentlyDeleteNote(n.id)); }}
-                  className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                  title="Effacer"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
                 >
-                  Vider
+                  <X size={11} />
                 </button>
               )}
             </div>
           </div>
-          <div className="relative">
-            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Rechercher..."
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-7 pr-3 py-1.5 bg-dark-800 border border-dark-700 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
-            />
-            {search && (
-              <button type="button" title="Effacer" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
-                <X size={11} />
-              </button>
+
+          {/* Liste des notes avec séparateur Épinglées */}
+          <div className="flex-1 overflow-y-auto">
+            {loading ? (
+              <p className="text-center text-gray-500 text-xs mt-10">Chargement...</p>
+            ) : filteredNotes.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-gray-600">
+                <StickyNote size={28} className="mb-2 opacity-30" />
+                <p className="text-xs">{search ? 'Aucun résultat' : isTrash ? 'Corbeille vide' : 'Aucune note'}</p>
+              </div>
+            ) : (
+              <>
+                {hasPinnedSection && (
+                  <>
+                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-0 z-10">
+                      Épinglées
+                    </div>
+                    {pinnedNotes.map(note => (
+                      <NoteCard
+                        key={note.id}
+                        note={note}
+                        selected={selectedId === note.id}
+                        onSelect={handleSelectNote}
+                      />
+                    ))}
+                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-6 z-10">
+                      Notes
+                    </div>
+                  </>
+                )}
+                {unpinnedNotes.map(note => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    selected={selectedId === note.id}
+                    onSelect={handleSelectNote}
+                    trashInfo={isTrash && note.deletedAt ? daysUntilPurge(note.deletedAt) : undefined}
+                  />
+                ))}
+              </>
             )}
           </div>
         </div>
 
-        {/* Note list with pinned section separator */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <p className="text-center text-gray-500 text-xs mt-10">Chargement...</p>
-          ) : filteredNotes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-40 text-gray-600">
-              <StickyNote size={28} className="mb-2 opacity-30" />
-              <p className="text-xs">{search ? 'Aucun résultat' : isTrash ? 'Corbeille vide' : 'Aucune note'}</p>
+        {/* ══ EDITOR ═══════════════════════════════════════════════════════════ */}
+        <div
+          className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-dark-900 min-w-0`}
+          onClick={e => e.stopPropagation()}
+        >
+          {!selectedNote ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-3">
+              <StickyNote size={48} className="opacity-20" />
+              <p className="text-sm">{isTrash ? 'Sélectionne une note à récupérer' : 'Sélectionne une note ou'}</p>
+              {!isTrash && (
+                <button
+                  type="button"
+                  onClick={handleNewNote}
+                  className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-sm transition-colors"
+                >
+                  <Plus size={14} /> Nouvelle note
+                </button>
+              )}
             </div>
           ) : (
             <>
-              {/* Pinned section (Apple Notes: section separator) */}
-              {hasPinnedSection && (
-                <>
-                  <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-0 z-10">
-                    Épinglées
-                  </div>
-                  {pinnedNotes.map(note => (
-                    <NoteCard
-                      key={note.id}
-                      note={note}
-                      selected={selectedId === note.id}
-                      onSelect={handleSelectNote}
-                    />
-                  ))}
-                  <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-6 z-10">
-                    Notes
-                  </div>
-                </>
+              {/* Toolbar */}
+              <div className="flex items-center px-4 py-2 border-b border-dark-700 gap-2">
+                <button
+                  type="button"
+                  title="Retour à la liste"
+                  onClick={() => setMobilePanel('list')}
+                  className="md:hidden text-gray-400 hover:text-white mr-1"
+                >
+                  <ArrowLeft size={15} />
+                </button>
+
+                {isReadOnly && (
+                  <span className="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">
+                    Lecture seule
+                  </span>
+                )}
+
+                <span className={`text-xs ${saveColor} mr-auto`}>{!isReadOnly && saveLabel()}</span>
+
+                {/* Actions corbeille */}
+                {isReadOnly && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleRecover}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-xs transition-colors"
+                    >
+                      <RotateCcw size={12} /> Récupérer
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handlePermanentDelete}
+                        title="Supprimer définitivement"
+                        className={`p-1.5 rounded transition-colors ${confirmDel ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-red-400 hover:bg-dark-700'}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      {confirmDel && <span className="text-[10px] text-red-400">Cliquer encore</span>}
+                    </div>
+                    {selectedNote.deletedAt && (
+                      <span className="text-[10px] text-gray-500 ml-1">
+                        {daysUntilPurge(selectedNote.deletedAt)}j restants
+                      </span>
+                    )}
+                  </>
+                )}
+
+                {/* Actions note active */}
+                {!isReadOnly && (
+                  <>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
+                        title="Déplacer vers"
+                        className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-dark-700 transition-colors"
+                      >
+                        <FolderOpen size={14} />
+                      </button>
+                      {showMoveMenu && (
+                        <div
+                          className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Déplacer vers</p>
+                          <button
+                            type="button"
+                            onClick={() => handleMove(null)}
+                            className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${!selectedNote.folderId ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}
+                          >
+                            Inbox
+                          </button>
+                          {regularFolders.map(f => (
+                            <button
+                              key={f.id}
+                              type="button"
+                              onClick={() => handleMove(f.id)}
+                              className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${selectedNote.folderId === f.id ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}
+                            >
+                              {f.name}
+                            </button>
+                          ))}
+                          <div className="border-t border-dark-700 mt-1">
+                            <button
+                              type="button"
+                              onClick={async () => { setShowMoveMenu(false); await handleCreateRegularFolder(); }}
+                              className="w-full px-3 py-1.5 text-sm text-left text-gray-400 hover:text-white hover:bg-dark-700 flex items-center gap-2"
+                            >
+                              <Plus size={12} /> Nouveau dossier
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handlePin}
+                      title={selectedNote.pinned ? 'Désépingler' : 'Épingler'}
+                      className={`p-1.5 rounded transition-colors ${selectedNote.pinned ? 'text-yellow-400 bg-yellow-500/15' : 'text-gray-500 hover:text-white hover:bg-dark-700'}`}
+                    >
+                      <Pin size={14} />
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        title="Mettre à la corbeille"
+                        className={`p-1.5 rounded transition-colors ${confirmDel ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-red-400 hover:bg-dark-700'}`}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      {confirmDel && <span className="text-[10px] text-red-400 whitespace-nowrap">Cliquer encore</span>}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Titre */}
+              <input
+                type="text"
+                value={title}
+                onChange={e => handleTitleChange(e.target.value)}
+                placeholder="Titre"
+                readOnly={isReadOnly}
+                aria-label="Titre de la note"
+                className={`w-full px-6 pt-5 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
+              />
+
+              {/* Fil d'Ariane dossier */}
+              {selectedNote.folderId && (
+                <div className="px-6 pb-1">
+                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                    <FolderOpen size={11} />
+                    {folders.find(f => f.id === selectedNote.folderId)?.name ?? 'Dossier'}
+                  </span>
+                </div>
               )}
-              {unpinnedNotes.map(note => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  selected={selectedId === note.id}
-                  onSelect={handleSelectNote}
-                  trashInfo={isTrash && note.deletedAt ? daysUntilPurge(note.deletedAt) : undefined}
+
+              {/* Contenu + autocomplétion hashtags */}
+              <div className="relative flex-1 flex flex-col">
+                <textarea
+                  ref={contentRef}
+                  value={content}
+                  onChange={e => handleContentChange(e.target.value)}
+                  onKeyUp={detectTagAtCursor}
+                  onClick={detectTagAtCursor}
+                  placeholder={isReadOnly ? '' : "Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement."}
+                  readOnly={isReadOnly}
+                  aria-label="Contenu de la note"
+                  className={`flex-1 w-full px-6 py-2 bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed text-sm ${isReadOnly ? 'cursor-default' : ''}`}
                 />
-              ))}
+                {tagSuggestions.length > 0 && (
+                  <div
+                    className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {tagSuggestions.map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => applyTagSuggestion(tag)}
+                        className="w-full px-3 py-1.5 text-sm text-left text-yellow-400 hover:bg-dark-700 flex items-center gap-2"
+                      >
+                        <Hash size={11} />#{tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer tags */}
+              {selectedNote.tags.length > 0 && (
+                <div className="px-6 py-2.5 border-t border-dark-800 flex items-center gap-1.5 flex-wrap">
+                  <Hash size={11} className="text-gray-600" />
+                  {selectedNote.tags.map(t => (
+                    <span
+                      key={t}
+                      onClick={() => { if (!isTrash) setView({ type: 'tag', tag: t }); }}
+                      className={`text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full transition-colors ${!isTrash ? 'cursor-pointer hover:bg-yellow-500/20' : ''}`}
+                    >
+                      #{t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>
       </div>
-
-      {/* ══ EDITOR ═══════════════════════════════════════════════════════════ */}
-      <div
-        className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-dark-900 min-w-0`}
-        onClick={e => e.stopPropagation()}
-      >
-        {!selectedNote ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-3">
-            <StickyNote size={48} className="opacity-20" />
-            <p className="text-sm">{isTrash ? 'Sélectionne une note à récupérer' : 'Sélectionne une note ou'}</p>
-            {!isTrash && (
-              <button type="button" onClick={handleNewNote} className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-sm transition-colors">
-                <Plus size={14} /> Nouvelle note
-              </button>
-            )}
-          </div>
-        ) : (
-          <>
-            {/* Toolbar */}
-            <div className="flex items-center px-4 py-2 border-b border-dark-700 gap-2">
-              <button type="button" title="Retour à la liste" onClick={() => setMobilePanel('list')} className="md:hidden text-gray-400 hover:text-white mr-1">
-                <ArrowLeft size={15} />
-              </button>
-
-              {/* Read-only badge */}
-              {isReadOnly && (
-                <span className="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">
-                  Lecture seule
-                </span>
-              )}
-
-              <span className={`text-xs ${saveColor} mr-auto`}>{!isReadOnly && saveLabel()}</span>
-
-              {/* Trash actions */}
-              {isReadOnly && (
-                <>
-                  <button type="button" onClick={handleRecover} className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-xs transition-colors">
-                    <RotateCcw size={12} /> Récupérer
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={handlePermanentDelete}
-                      title="Supprimer définitivement"
-                      className={`p-1.5 rounded transition-colors ${confirmDel ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-red-400 hover:bg-dark-700'}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                    {confirmDel && <span className="text-[10px] text-red-400">Cliquer encore</span>}
-                  </div>
-                  {selectedNote.deletedAt && (
-                    <span className="text-[10px] text-gray-500 ml-1">
-                      {daysUntilPurge(selectedNote.deletedAt)}j restants
-                    </span>
-                  )}
-                </>
-              )}
-
-              {/* Active note actions */}
-              {!isReadOnly && (
-                <>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={e => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
-                      title="Déplacer vers"
-                      className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-dark-700 transition-colors"
-                    >
-                      <FolderOpen size={14} />
-                    </button>
-                    {showMoveMenu && (
-                      <div className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44" onClick={e => e.stopPropagation()}>
-                        <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Déplacer vers</p>
-                        <button type="button" onClick={() => handleMove(null)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${!selectedNote.folderId ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>Inbox</button>
-                        {folders.map(f => (
-                          <button key={f.id} type="button" onClick={() => handleMove(f.id)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${selectedNote.folderId === f.id ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>{f.name}</button>
-                        ))}
-                        <div className="border-t border-dark-700 mt-1">
-                          <button type="button" onClick={async () => { setShowMoveMenu(false); await handleCreateFolder(); }} className="w-full px-3 py-1.5 text-sm text-left text-gray-400 hover:text-white hover:bg-dark-700 flex items-center gap-2">
-                            <Plus size={12} /> Nouveau dossier
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <button type="button" onClick={handlePin} title={selectedNote.pinned ? 'Désépingler' : 'Épingler'} className={`p-1.5 rounded transition-colors ${selectedNote.pinned ? 'text-yellow-400 bg-yellow-500/15' : 'text-gray-500 hover:text-white hover:bg-dark-700'}`}>
-                    <Pin size={14} />
-                  </button>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={handleDelete} title="Mettre à la corbeille" className={`p-1.5 rounded transition-colors ${confirmDel ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-red-400 hover:bg-dark-700'}`}>
-                      <Trash2 size={14} />
-                    </button>
-                    {confirmDel && <span className="text-[10px] text-red-400 whitespace-nowrap">Cliquer encore</span>}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Title */}
-            <input
-              type="text"
-              value={title}
-              onChange={e => handleTitleChange(e.target.value)}
-              placeholder="Titre"
-              readOnly={isReadOnly}
-              aria-label="Titre de la note"
-              className={`w-full px-6 pt-5 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
-            />
-
-            {/* Folder breadcrumb */}
-            {selectedNote.folderId && (
-              <div className="px-6 pb-1">
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <FolderOpen size={11} />
-                  {folders.find(f => f.id === selectedNote.folderId)?.name ?? 'Dossier'}
-                </span>
-              </div>
-            )}
-
-            {/* Content + tag autocomplete */}
-            <div className="relative flex-1 flex flex-col">
-              <textarea
-                ref={contentRef}
-                value={content}
-                onChange={e => handleContentChange(e.target.value)}
-                onKeyUp={detectTagAtCursor}
-                onClick={detectTagAtCursor}
-                placeholder={isReadOnly ? '' : "Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement."}
-                readOnly={isReadOnly}
-                aria-label="Contenu de la note"
-                className={`flex-1 w-full px-6 py-2 bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed text-sm ${isReadOnly ? 'cursor-default' : ''}`}
-              />
-              {/* Tag autocomplete dropdown */}
-              {tagSuggestions.length > 0 && (
-                <div
-                  className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {tagSuggestions.map(tag => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => applyTagSuggestion(tag)}
-                      className="w-full px-3 py-1.5 text-sm text-left text-yellow-400 hover:bg-dark-700 flex items-center gap-2"
-                    >
-                      <Hash size={11} />#{tag}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Tags footer */}
-            {selectedNote.tags.length > 0 && (
-              <div className="px-6 py-2.5 border-t border-dark-800 flex items-center gap-1.5 flex-wrap">
-                <Hash size={11} className="text-gray-600" />
-                {selectedNote.tags.map(t => (
-                  <span
-                    key={t}
-                    onClick={() => { if (!isTrash) setView({ type: 'tag', tag: t }); }}
-                    className={`text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full transition-colors ${!isTrash ? 'cursor-pointer hover:bg-yellow-500/20' : ''}`}
-                  >
-                    #{t}
-                  </span>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
+    </>
   );
 }
 
@@ -890,10 +1293,10 @@ export default function NotesEditor() {
 function NoteCard({
   note, selected, onSelect, trashInfo,
 }: {
-  note:      Note;
-  selected:  boolean;
-  onSelect:  (n: Note) => void;
-  trashInfo?: number; // days until purge
+  note:       Note;
+  selected:   boolean;
+  onSelect:   (n: Note) => void;
+  trashInfo?: number; // jours avant suppression définitive
 }) {
   return (
     <button
