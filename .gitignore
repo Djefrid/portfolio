@@ -7,6 +7,9 @@ node_modules/
 out/
 dist/
 
+# Claude Code
+.claude/
+
 # ========================
 # Environnement
 # ========================
