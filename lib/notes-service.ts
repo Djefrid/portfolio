@@ -1,24 +1,55 @@
 import { db } from '@/lib/firebase/config';
 import {
   collection, addDoc, updateDoc, deleteDoc,
-  doc, serverTimestamp,
+  doc, serverTimestamp, writeBatch, getDocs, query, where,
 } from 'firebase/firestore';
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 export interface Note {
   id: string;
   title: string;
   content: string;
   pinned: boolean;
+  folderId: string | null; // null = Inbox
+  tags: string[];          // auto-extraits du contenu (#tag)
+  deletedAt: Date | null;  // null = active, Date = dans la corbeille
   createdAt: Date;
   updatedAt: Date;
 }
 
-export async function createNote(): Promise<string> {
+export interface Folder {
+  id: string;
+  name: string;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ── Extraction automatique des hashtags ──────────────────────────────────────
+
+export function extractHashtags(content: string): string[] {
+  // Match #tag — exclut les titres markdown (# Titre) et les URLs
+  const regex = /(?<![/#\w])#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)/g;
+  const tags = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(content)) !== null) {
+    tags.add(match[1].toLowerCase());
+  }
+  return Array.from(tags);
+}
+
+// ── Notes CRUD ───────────────────────────────────────────────────────────────
+
+export async function createNote(folderId: string | null = null): Promise<string> {
   if (!db) throw new Error('Firebase non configuré');
   const ref = await addDoc(collection(db, 'adminNotes'), {
-    title: 'Nouvelle note',
+    title: '',
     content: '',
     pinned: false,
+    folderId,
+    tags: [],
+    deletedAt: null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
@@ -27,16 +58,88 @@ export async function createNote(): Promise<string> {
 
 export async function updateNote(
   id: string,
-  data: Partial<Pick<Note, 'title' | 'content' | 'pinned'>>
+  data: Partial<Pick<Note, 'title' | 'content' | 'pinned' | 'folderId'>>
 ): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
+  const payload: Record<string, unknown> = { ...data, updatedAt: serverTimestamp() };
+  if (typeof data.content === 'string') {
+    payload.tags = extractHashtags(data.content);
+  }
+  await updateDoc(doc(db, 'adminNotes', id), payload);
+}
+
+// Soft delete — va dans la Corbeille (récupérable 30 jours)
+export async function deleteNote(id: string): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
   await updateDoc(doc(db, 'adminNotes', id), {
+    deletedAt: serverTimestamp(),
+    pinned: false,
+  });
+}
+
+// Suppression définitive — irréversible
+export async function permanentlyDeleteNote(id: string): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await deleteDoc(doc(db, 'adminNotes', id));
+}
+
+// Récupération depuis la Corbeille → retour dans l'Inbox (Apple Notes behavior)
+export async function recoverNote(id: string): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await updateDoc(doc(db, 'adminNotes', id), {
+    deletedAt: null,
+    folderId: null,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// Suppression silencieuse d'une note vide (pas de corbeille, Apple Notes behavior)
+export async function silentlyDeleteNote(id: string): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await deleteDoc(doc(db, 'adminNotes', id));
+}
+
+export async function moveNote(noteId: string, folderId: string | null): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await updateDoc(doc(db, 'adminNotes', noteId), {
+    folderId,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+// ── Folders CRUD ─────────────────────────────────────────────────────────────
+
+export async function createFolder(name: string, order: number): Promise<string> {
+  if (!db) throw new Error('Firebase non configuré');
+  const ref = await addDoc(collection(db, 'adminFolders'), {
+    name,
+    order,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+  return ref.id;
+}
+
+export async function updateFolder(
+  id: string,
+  data: Partial<Pick<Folder, 'name' | 'order'>>
+): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await updateDoc(doc(db, 'adminFolders', id), {
     ...data,
     updatedAt: serverTimestamp(),
   });
 }
 
-export async function deleteNote(id: string): Promise<void> {
+export async function deleteFolder(id: string): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
-  await deleteDoc(doc(db, 'adminNotes', id));
+  const batch = writeBatch(db);
+  const snap = await getDocs(
+    query(collection(db, 'adminNotes'), where('folderId', '==', id))
+  );
+  snap.docs.forEach((d) =>
+    batch.update(d.ref, { folderId: null, updatedAt: serverTimestamp() })
+  );
+  batch.delete(doc(db, 'adminFolders', id));
+  await batch.commit();
 }
