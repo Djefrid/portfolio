@@ -54,7 +54,7 @@ function daysUntilPurge(deletedAt: Date): number {
 function viewLabel(view: ViewFilter, folders: FolderType[]): string {
   if (view === 'all')    return 'Toutes les notes';
   if (view === 'pinned') return 'Épinglées';
-  if (view === 'inbox')  return 'Inbox';
+  if (view === 'inbox')  return 'Toutes mes notes';
   if (view === 'trash')  return 'Corbeille';
   if (typeof view === 'object' && view.type === 'folder')
     return folders.find(f => f.id === view.id)?.name ?? 'Dossier';
@@ -325,7 +325,7 @@ function NotesSidebar({
           </button>
         )}
         <button type="button" className={row('inbox')} onClick={() => onSelectView('inbox')}>
-          <span className="flex items-center gap-2"><Folder size={13} />Inbox</span>
+          <span className="flex items-center gap-2"><Folder size={13} />Toutes mes notes</span>
           <span className="text-xs opacity-50">{counts.inbox}</span>
         </button>
       </div>
@@ -1017,7 +1017,7 @@ export default function NotesEditor() {
                       {showMoveMenu && (
                         <div className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44" onClick={e => e.stopPropagation()}>
                           <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Déplacer vers</p>
-                          <button type="button" onClick={() => handleMove(null)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${!selectedNote.folderId ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>Inbox</button>
+                          <button type="button" onClick={() => handleMove(null)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${!selectedNote.folderId ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>Toutes mes notes</button>
                           {regularFolders.map(f => (
                             <button key={f.id} type="button" onClick={() => handleMove(f.id)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${selectedNote.folderId === f.id ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>{f.name}</button>
                           ))}
