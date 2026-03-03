@@ -11,15 +11,19 @@ export function useAdminNotes() {
   const [notes,        setNotes]        = useState<Note[]>([]);   // notes actives
   const [deletedNotes, setDeletedNotes] = useState<Note[]>([]);   // corbeille
   const [folders,      setFolders]      = useState<Folder[]>([]);
+  const [manualTags,   setManualTags]   = useState<string[]>([]);  // bibliothèque de tags
   const [loading,      setLoading]      = useState(true);
 
   // ── Écoute Firestore ────────────────────────────────────────────────────
   useEffect(() => {
     if (!db) { setLoading(false); return; }
 
-    let notesReady = false, foldersReady = false;
-    const checkReady = () => { if (notesReady && foldersReady) setLoading(false); };
+    let notesReady = false, foldersReady = false, tagsReady = false;
+    const checkReady = () => {
+      if (notesReady && foldersReady && tagsReady) setLoading(false);
+    };
 
+    // Notes actives + corbeille
     const unsub1 = onSnapshot(
       query(collection(db, 'adminNotes'), orderBy('updatedAt', 'desc')),
       (snap) => {
@@ -37,7 +41,6 @@ export function useAdminNotes() {
             updatedAt: (v.updatedAt as Timestamp)?.toDate() ?? new Date(),
           } as Note;
         });
-
         setNotes(all.filter(n => !n.deletedAt));
         setDeletedNotes(all.filter(n => !!n.deletedAt));
         notesReady = true;
@@ -45,6 +48,7 @@ export function useAdminNotes() {
       }
     );
 
+    // Dossiers normaux + intelligents
     const unsub2 = onSnapshot(
       query(collection(db, 'adminFolders'), orderBy('order', 'asc')),
       (snap) => {
@@ -65,7 +69,21 @@ export function useAdminNotes() {
       }
     );
 
-    return () => { unsub1(); unsub2(); };
+    // Bibliothèque de tags (créés manuellement ou auto-sync depuis les notes)
+    const unsub3 = onSnapshot(
+      collection(db, 'adminTags'),
+      (snap) => {
+        const names = snap.docs
+          .map(d => (d.data().name as string) ?? d.id)
+          .filter(Boolean)
+          .sort((a, b) => a.localeCompare(b, 'fr'));
+        setManualTags(names);
+        tagsReady = true;
+        checkReady();
+      }
+    );
+
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
 
   // ── Auto-purge : supprime définitivement les notes > 30 jours ───────────
@@ -76,5 +94,5 @@ export function useAdminNotes() {
       .forEach(n => permanentlyDeleteNote(n.id));
   }, [deletedNotes]);
 
-  return { notes, deletedNotes, folders, loading };
+  return { notes, deletedNotes, folders, manualTags, loading };
 }

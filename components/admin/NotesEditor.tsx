@@ -13,6 +13,7 @@ import {
   createNote, updateNote, deleteNote, moveNote,
   permanentlyDeleteNote, recoverNote, silentlyDeleteNote,
   createFolder, createSmartFolder, updateFolder, updateSmartFolderFilters, deleteFolder,
+  createTag, deleteTag,
   Note, Folder as FolderType, SmartFolderFilter,
 } from '@/lib/notes-service';
 
@@ -130,17 +131,13 @@ function SmartFolderModal({
         className="bg-dark-900 border border-dark-700 rounded-xl w-full max-w-md mx-4 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
         <div className="px-5 py-4 border-b border-dark-700 flex items-center gap-2">
           <Zap size={15} className="text-yellow-400" />
           <h2 className="text-sm font-semibold text-white">
             {initial ? 'Modifier le dossier intelligent' : 'Nouveau dossier intelligent'}
           </h2>
         </div>
-
-        {/* Body */}
         <div className="px-5 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-          {/* Nom */}
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">Nom</label>
             <input
@@ -152,20 +149,10 @@ function SmartFolderModal({
               autoFocus
             />
           </div>
-
-          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest pt-1">
-            Filtres
-          </div>
-
-          {/* Tags */}
+          <div className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest pt-1">Filtres</div>
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={useTags}
-                onChange={e => setUseTags(e.target.checked)}
-                className="accent-yellow-500 w-3.5 h-3.5"
-              />
+              <input type="checkbox" checked={useTags} onChange={e => setUseTags(e.target.checked)} className="accent-yellow-500 w-3.5 h-3.5" />
               Par tags
             </label>
             {useTags && (
@@ -175,73 +162,36 @@ function SmartFolderModal({
                 ) : (
                   <div className="flex flex-wrap gap-1">
                     {allTags.map(t => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => toggleTag(t)}
+                      <button key={t} type="button" onClick={() => toggleTag(t)}
                         className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                           selectedTags.includes(t)
                             ? 'bg-yellow-500/25 text-yellow-300 border-yellow-500/50'
                             : 'bg-dark-800 text-gray-400 border-dark-600 hover:border-yellow-500/30 hover:text-gray-300'
                         }`}
-                      >
-                        #{t}
-                      </button>
+                      >#{t}</button>
                     ))}
                   </div>
                 )}
                 <div className="flex gap-4 mt-1">
                   <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="tagLogic"
-                      checked={tagLogic === 'or'}
-                      onChange={() => setTagLogic('or')}
-                      className="accent-yellow-500"
-                    />
-                    Au moins un
+                    <input type="radio" name="tagLogic" checked={tagLogic === 'or'}  onChange={() => setTagLogic('or')}  className="accent-yellow-500" />Au moins un
                   </label>
                   <label className="flex items-center gap-1.5 text-xs text-gray-400 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="tagLogic"
-                      checked={tagLogic === 'and'}
-                      onChange={() => setTagLogic('and')}
-                      className="accent-yellow-500"
-                    />
-                    Tous les tags
+                    <input type="radio" name="tagLogic" checked={tagLogic === 'and'} onChange={() => setTagLogic('and')} className="accent-yellow-500" />Tous les tags
                   </label>
                 </div>
               </div>
             )}
           </div>
-
-          {/* Épinglées */}
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={usePinned}
-              onChange={e => setUsePinned(e.target.checked)}
-              className="accent-yellow-500 w-3.5 h-3.5"
-            />
+            <input type="checkbox" checked={usePinned} onChange={e => setUsePinned(e.target.checked)} className="accent-yellow-500 w-3.5 h-3.5" />
             Épinglées uniquement
           </label>
-
-          {/* Créées dans les N jours */}
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none flex-wrap">
-            <input
-              type="checkbox"
-              checked={useCreatedDays}
-              onChange={e => setUseCreatedDays(e.target.checked)}
-              className="accent-yellow-500 w-3.5 h-3.5"
-            />
+            <input type="checkbox" checked={useCreatedDays} onChange={e => setUseCreatedDays(e.target.checked)} className="accent-yellow-500 w-3.5 h-3.5" />
             Créées dans les
             {useCreatedDays && (
-              <input
-                type="number"
-                min={1}
-                max={365}
-                value={createdDays}
+              <input type="number" min={1} max={365} value={createdDays}
                 onChange={e => setCreatedDays(Math.max(1, Number(e.target.value)))}
                 onClick={e => e.stopPropagation()}
                 className="w-14 px-2 py-0.5 bg-dark-700 border border-dark-600 rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-yellow-500/50 text-center"
@@ -249,22 +199,11 @@ function SmartFolderModal({
             )}
             derniers jours
           </label>
-
-          {/* Modifiées dans les N jours */}
           <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer select-none flex-wrap">
-            <input
-              type="checkbox"
-              checked={useModifiedDays}
-              onChange={e => setUseModifiedDays(e.target.checked)}
-              className="accent-yellow-500 w-3.5 h-3.5"
-            />
+            <input type="checkbox" checked={useModifiedDays} onChange={e => setUseModifiedDays(e.target.checked)} className="accent-yellow-500 w-3.5 h-3.5" />
             Modifiées dans les
             {useModifiedDays && (
-              <input
-                type="number"
-                min={1}
-                max={365}
-                value={modifiedDays}
+              <input type="number" min={1} max={365} value={modifiedDays}
                 onChange={e => setModifiedDays(Math.max(1, Number(e.target.value)))}
                 onClick={e => e.stopPropagation()}
                 className="w-14 px-2 py-0.5 bg-dark-700 border border-dark-600 rounded text-xs text-white focus:outline-none focus:ring-1 focus:ring-yellow-500/50 text-center"
@@ -273,23 +212,10 @@ function SmartFolderModal({
             derniers jours
           </label>
         </div>
-
-        {/* Footer */}
         <div className="px-5 py-3 border-t border-dark-700 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors"
-          >
-            Annuler
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="px-4 py-1.5 text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg transition-colors flex items-center gap-1.5"
-          >
-            <Zap size={12} />
-            {initial ? 'Enregistrer' : 'Créer'}
+          <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-gray-400 hover:text-white transition-colors">Annuler</button>
+          <button type="button" onClick={handleSubmit} className="px-4 py-1.5 text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg transition-colors flex items-center gap-1.5">
+            <Zap size={12} />{initial ? 'Enregistrer' : 'Créer'}
           </button>
         </div>
       </div>
@@ -300,21 +226,27 @@ function SmartFolderModal({
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 
 function NotesSidebar({
-  notes, deletedNotes, folders, view, onSelectView,
+  notes, deletedNotes, folders, manualTags, view, onSelectView,
   newFolderPendingId, onFolderCreated, onEditSmartFolder,
+  onCreateTag, onDeleteTag,
 }: {
   notes:              Note[];
   deletedNotes:       Note[];
   folders:            FolderType[];
+  manualTags:         string[];
   view:               ViewFilter;
   onSelectView:       (v: ViewFilter) => void;
   newFolderPendingId: string | null;
   onFolderCreated:    () => void;
   onEditSmartFolder:  (id: string) => void;
+  onCreateTag:        (name: string) => void;
+  onDeleteTag:        (name: string) => void;
 }) {
-  const [editingId,   setEditingId]   = useState<string | null>(null);
-  const [editingName, setEditingName] = useState('');
-  const [menuId,      setMenuId]      = useState<string | null>(null);
+  const [editingId,    setEditingId]    = useState<string | null>(null);
+  const [editingName,  setEditingName]  = useState('');
+  const [menuId,       setMenuId]       = useState<string | null>(null);
+  const [showNewTag,   setShowNewTag]   = useState(false);
+  const [newTagInput,  setNewTagInput]  = useState('');
 
   useEffect(() => {
     if (newFolderPendingId && folders.find(f => f.id === newFolderPendingId)) {
@@ -337,10 +269,16 @@ function NotesSidebar({
     return { all: notes.length, inbox, pinned, byFolder, byTag };
   }, [notes]);
 
-  const allTags = useMemo(() =>
-    Object.entries(counts.byTag).sort((a, b) => b[1] - a[1]).map(([t]) => t),
-    [counts.byTag]
-  );
+  // Union tags manuels + tags extraits des notes, triés par count desc puis alpha
+  const allDisplayTags = useMemo(() => {
+    const all = new Set([...manualTags, ...Object.keys(counts.byTag)]);
+    return Array.from(all).sort((a, b) => {
+      const ca = counts.byTag[a] ?? 0;
+      const cb = counts.byTag[b] ?? 0;
+      if (cb !== ca) return cb - ca;
+      return a.localeCompare(b, 'fr');
+    });
+  }, [manualTags, counts.byTag]);
 
   const row = (v: ViewFilter) =>
     `w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-sm transition-colors ${
@@ -358,6 +296,13 @@ function NotesSidebar({
     await deleteFolder(id);
     if (viewEq(view, { type: 'folder', id })) onSelectView('inbox');
     setMenuId(null);
+  };
+
+  const commitNewTag = () => {
+    const v = newTagInput.trim();
+    if (v) onCreateTag(v);
+    setNewTagInput('');
+    setShowNewTag(false);
   };
 
   return (
@@ -387,12 +332,10 @@ function NotesSidebar({
 
       <div className="mx-2 border-t border-dark-700" />
 
-      {/* Folders */}
+      {/* Dossiers */}
       <div className="px-2 pt-2 pb-1">
         <div className="px-1 mb-1">
-          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
-            Dossiers
-          </span>
+          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Dossiers</span>
         </div>
         <div className="space-y-0.5">
           {folders.map(f => (
@@ -424,9 +367,7 @@ function NotesSidebar({
                     <span className="truncate">{f.name}</span>
                   </span>
                   <span className="flex items-center gap-1 shrink-0">
-                    {!f.isSmart && (
-                      <span className="text-xs opacity-50">{counts.byFolder[f.id] ?? 0}</span>
-                    )}
+                    {!f.isSmart && <span className="text-xs opacity-50">{counts.byFolder[f.id] ?? 0}</span>}
                     <button
                       type="button"
                       title="Options du dossier"
@@ -474,32 +415,78 @@ function NotesSidebar({
         </div>
       </div>
 
-      {/* Tags */}
-      {allTags.length > 0 && (
-        <>
-          <div className="mx-2 border-t border-dark-700" />
-          <div className="px-2 pt-2 pb-2">
-            <div className="px-1 mb-1">
-              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tags</span>
-            </div>
-            <div className="space-y-0.5">
-              {allTags.map(tag => (
-                <button
-                  key={tag}
-                  type="button"
-                  className={row({ type: 'tag', tag })}
-                  onClick={() => onSelectView({ type: 'tag', tag })}
-                >
-                  <span className="flex items-center gap-2">
-                    <Hash size={12} /><span className="truncate">{tag}</span>
-                  </span>
-                  <span className="text-xs opacity-50">{counts.byTag[tag]}</span>
-                </button>
-              ))}
-            </div>
+      <div className="mx-2 border-t border-dark-700" />
+
+      {/* Tags — toujours visible avec bouton "+" pour créer */}
+      <div className="px-2 pt-2 pb-2">
+        <div className="px-1 mb-1 flex items-center justify-between">
+          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tags</span>
+          <button
+            type="button"
+            title="Nouveau tag"
+            onClick={e => { e.stopPropagation(); setShowNewTag(true); }}
+            className="text-gray-500 hover:text-yellow-400 transition-colors p-0.5 rounded"
+          >
+            <Plus size={11} />
+          </button>
+        </div>
+
+        {/* Champ de création inline */}
+        {showNewTag && (
+          <div className="mb-1">
+            <input
+              aria-label="Nouveau tag"
+              type="text"
+              autoFocus
+              placeholder="mon-tag"
+              value={newTagInput}
+              onChange={e => setNewTagInput(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter')  commitNewTag();
+                if (e.key === 'Escape') { setNewTagInput(''); setShowNewTag(false); }
+              }}
+              onBlur={commitNewTag}
+              className="w-full px-2 py-1 text-xs bg-dark-700 border border-yellow-500/50 rounded text-white focus:outline-none placeholder-gray-600"
+            />
           </div>
-        </>
-      )}
+        )}
+
+        {allDisplayTags.length === 0 && !showNewTag && (
+          <p className="text-[11px] text-gray-600 px-1 py-1">
+            Aucun tag — utilise #tag dans tes notes ou crée-en un avec +
+          </p>
+        )}
+
+        <div className="space-y-0.5">
+          {allDisplayTags.map(tag => (
+            <div key={tag} className="group relative">
+              <button
+                type="button"
+                className={row({ type: 'tag', tag })}
+                onClick={() => onSelectView({ type: 'tag', tag })}
+              >
+                <span className="flex items-center gap-2">
+                  <Hash size={12} /><span className="truncate">{tag}</span>
+                </span>
+                <span className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs opacity-50">{counts.byTag[tag] ?? 0}</span>
+                  {/* Bouton supprimer uniquement sur les tags manuels */}
+                  {manualTags.includes(tag) && (
+                    <button
+                      type="button"
+                      title="Supprimer le tag"
+                      onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-red-400 transition-opacity"
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </span>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
 
       {/* Corbeille — uniquement si des notes s'y trouvent (Apple Notes rule) */}
       {deletedNotes.length > 0 && (
@@ -511,9 +498,7 @@ function NotesSidebar({
               className={row('trash')}
               onClick={() => onSelectView('trash')}
             >
-              <span className="flex items-center gap-2">
-                <Trash2 size={13} />Corbeille
-              </span>
+              <span className="flex items-center gap-2"><Trash2 size={13} />Corbeille</span>
               <span className="text-xs opacity-50">{deletedNotes.length}</span>
             </button>
           </div>
@@ -526,13 +511,12 @@ function NotesSidebar({
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export default function NotesEditor() {
-  const { notes, deletedNotes, folders, loading } = useAdminNotes();
+  const { notes, deletedNotes, folders, manualTags, loading } = useAdminNotes();
 
   const [view,        setView]        = useState<ViewFilter>('inbox');
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('list');
 
-  // Editor state
   const [title,        setTitle]        = useState('');
   const [content,      setContent]      = useState('');
   const [saveStatus,   setSaveStatus]   = useState<SaveStatus>('saved');
@@ -541,28 +525,22 @@ export default function NotesEditor() {
   const [showMoveMenu, setShowMoveMenu] = useState(false);
   const [showSortMenu, setShowSortMenu] = useState(false);
 
-  // Sort (Apple Notes: date modifiée par défaut)
   const [sortBy, setSortBy] = useState<SortBy>('dateModified');
 
-  // Tag autocomplete
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
-  // Search
   const [search, setSearch] = useState('');
 
-  // Folder creation
   const [newFolderPendingId, setNewFolderPendingId] = useState<string | null>(null);
   const [showNewFolderMenu,  setShowNewFolderMenu]  = useState(false);
   const [showSmartModal,     setShowSmartModal]     = useState(false);
   const [editingSmartId,     setEditingSmartId]     = useState<string | null>(null);
 
-  // Track previous selected note for empty-note cleanup
   const prevSelectedId = useRef<string | null>(null);
   const prevTitle      = useRef('');
   const prevContent    = useRef('');
-
-  const saveTimer = useRef<ReturnType<typeof setTimeout>>();
+  const saveTimer      = useRef<ReturnType<typeof setTimeout>>();
 
   const selectedNote = notes.find(n => n.id === selectedId)
     ?? deletedNotes.find(n => n.id === selectedId)
@@ -571,7 +549,6 @@ export default function NotesEditor() {
   const isTrash    = view === 'trash';
   const isReadOnly = selectedNote ? !!selectedNote.deletedAt : false;
 
-  // Dossier courant (null si vue non-dossier)
   const currentFolder = useMemo(() =>
     typeof view === 'object' && view.type === 'folder'
       ? folders.find(f => f.id === view.id) ?? null
@@ -579,14 +556,13 @@ export default function NotesEditor() {
     [view, folders]
   );
 
-  // Tous les tags des notes actives
+  // Tous les tags connus (union notes + manuels) pour l'autocomplétion
   const allTags = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>([...manualTags]);
     notes.forEach(n => n.tags.forEach(t => set.add(t)));
     return Array.from(set);
-  }, [notes]);
+  }, [notes, manualTags]);
 
-  // Valeurs initiales du modal (édition d'un dossier intelligent)
   const smartModalInitial = useMemo(() => {
     if (!editingSmartId) return undefined;
     const f = folders.find(x => x.id === editingSmartId);
@@ -594,21 +570,17 @@ export default function NotesEditor() {
     return { name: f.name, filters: f.filters ?? {} };
   }, [editingSmartId, folders]);
 
-  // ── On note switch: cleanup empty notes (Apple Notes rule) ────────────────
+  // ── Nettoyage notes vides au changement de sélection ─────────────────────
   useEffect(() => {
     const oldId      = prevSelectedId.current;
     const oldTitle   = prevTitle.current;
     const oldContent = prevContent.current;
-
     if (oldId && oldId !== selectedId) {
-      const isEmpty = !oldTitle.trim() && !oldContent.trim();
-      if (isEmpty) silentlyDeleteNote(oldId); // no trash, silent (Apple rule)
+      if (!oldTitle.trim() && !oldContent.trim()) silentlyDeleteNote(oldId);
     }
-
     prevSelectedId.current = selectedId;
     prevTitle.current      = title;
     prevContent.current    = content;
-
     clearTimeout(saveTimer.current);
     setConfirmDel(false);
     setShowMoveMenu(false);
@@ -617,10 +589,24 @@ export default function NotesEditor() {
     setTagSuggestions([]);
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Filtered & sorted notes ───────────────────────────────────────────────
+  // ── Sync temps réel multi-appareil ───────────────────────────────────────
+  // Si la note ouverte est modifiée depuis un autre appareil et qu'on n'est
+  // pas en train d'éditer, on met à jour l'éditeur automatiquement.
+  useEffect(() => {
+    if (!selectedId || saveStatus !== 'saved') return;
+    const note = notes.find(n => n.id === selectedId);
+    if (!note) return;
+    if (note.title !== title || note.content !== content) {
+      setTitle(note.title);
+      setContent(note.content);
+      prevTitle.current   = note.title;
+      prevContent.current = note.content;
+    }
+  }, [notes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Notes filtrées et triées ──────────────────────────────────────────────
   const filteredNotes = useMemo(() => {
     let list = isTrash ? [...deletedNotes] : [...notes];
-
     if (!isTrash) {
       if (view === 'pinned') {
         list = list.filter(n => n.pinned);
@@ -629,7 +615,6 @@ export default function NotesEditor() {
       } else if (typeof view === 'object' && view.type === 'folder') {
         const folder = folders.find(f => f.id === view.id);
         if (folder?.isSmart && folder.filters) {
-          // Dossier intelligent : filtre dynamique sur toutes les notes actives
           list = applySmartFilters(list, folder.filters);
         } else {
           list = list.filter(n => n.folderId === view.id);
@@ -638,27 +623,22 @@ export default function NotesEditor() {
         list = list.filter(n => n.tags.includes(view.tag));
       }
     }
-
     if (search.trim()) {
       const s = search.toLowerCase();
       list = list.filter(n =>
         n.title.toLowerCase().includes(s) || n.content.toLowerCase().includes(s)
       );
     }
-
     if (!isTrash) {
       const pinned   = list.filter(n => n.pinned);
       const unpinned = list.filter(n => !n.pinned);
-
       const sort = (arr: Note[]) => arr.sort((a, b) => {
         if (sortBy === 'dateModified') return b.updatedAt.getTime() - a.updatedAt.getTime();
         if (sortBy === 'dateCreated')  return b.createdAt.getTime() - a.createdAt.getTime();
         return a.title.localeCompare(b.title, 'fr');
       });
-
       return [...pinned, ...sort(unpinned)];
     }
-
     return list.sort((a, b) =>
       (b.deletedAt?.getTime() ?? 0) - (a.deletedAt?.getTime() ?? 0)
     );
@@ -683,7 +663,7 @@ export default function NotesEditor() {
     }, 1000);
   }, [selectedId, isReadOnly]);
 
-  // ── Tag autocomplete ──────────────────────────────────────────────────────
+  // ── Autocomplétion hashtags ───────────────────────────────────────────────
   const detectTagAtCursor = useCallback(() => {
     const el = contentRef.current;
     if (!el) return;
@@ -691,9 +671,7 @@ export default function NotesEditor() {
     const match = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)$/);
     if (match) {
       const partial = match[1].toLowerCase();
-      setTagSuggestions(
-        allTags.filter(t => t.startsWith(partial) && t !== partial).slice(0, 6)
-      );
+      setTagSuggestions(allTags.filter(t => t.startsWith(partial) && t !== partial).slice(0, 6));
     } else {
       setTagSuggestions([]);
     }
@@ -713,12 +691,8 @@ export default function NotesEditor() {
     setTimeout(() => { el.focus(); el.setSelectionRange(newBefore.length, newBefore.length); }, 0);
   };
 
-  // ── Editor handlers ───────────────────────────────────────────────────────
-  const handleTitleChange = (v: string) => {
-    setTitle(v);
-    scheduleAutoSave(v, content);
-  };
-
+  // ── Handlers éditeur ─────────────────────────────────────────────────────
+  const handleTitleChange = (v: string) => { setTitle(v); scheduleAutoSave(v, content); };
   const handleContentChange = (v: string) => {
     setContent(v);
     scheduleAutoSave(title, v);
@@ -726,22 +700,15 @@ export default function NotesEditor() {
   };
 
   const handleNewNote = async () => {
-    // Les dossiers intelligents sont virtuels : la nouvelle note va dans l'Inbox
     const folderId = (currentFolder && !currentFolder.isSmart) ? currentFolder.id : null;
     const id = await createNote(folderId);
-    setSelectedId(id);
-    setTitle('');
-    setContent('');
-    setSaveStatus('saved');
+    setSelectedId(id); setTitle(''); setContent(''); setSaveStatus('saved');
     setMobilePanel('editor');
   };
 
   const handleSelectNote = (note: Note) => {
-    setSelectedId(note.id);
-    setTitle(note.title);
-    setContent(note.content);
-    setSaveStatus('saved');
-    setMobilePanel('editor');
+    setSelectedId(note.id); setTitle(note.title); setContent(note.content);
+    setSaveStatus('saved'); setMobilePanel('editor');
   };
 
   const handlePin = async () => {
@@ -753,32 +720,23 @@ export default function NotesEditor() {
     if (!selectedId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
     await deleteNote(selectedId);
-    setSelectedId(null);
-    setTitle('');
-    setContent('');
-    setMobilePanel('list');
-    setConfirmDel(false);
+    setSelectedId(null); setTitle(''); setContent('');
+    setMobilePanel('list'); setConfirmDel(false);
   };
 
   const handleRecover = async () => {
     if (!selectedId) return;
     await recoverNote(selectedId);
-    setSelectedId(null);
-    setTitle('');
-    setContent('');
-    setView('inbox');
-    setMobilePanel('list');
+    setSelectedId(null); setTitle(''); setContent('');
+    setView('inbox'); setMobilePanel('list');
   };
 
   const handlePermanentDelete = async () => {
     if (!selectedId) return;
     if (!confirmDel) { setConfirmDel(true); return; }
     await permanentlyDeleteNote(selectedId);
-    setSelectedId(null);
-    setTitle('');
-    setContent('');
-    setMobilePanel('list');
-    setConfirmDel(false);
+    setSelectedId(null); setTitle(''); setContent('');
+    setMobilePanel('list'); setConfirmDel(false);
   };
 
   const handleMove = async (folderId: string | null) => {
@@ -789,35 +747,30 @@ export default function NotesEditor() {
 
   const handleCreateRegularFolder = async () => {
     const id = await createFolder('Nouveau dossier', folders.length);
-    setNewFolderPendingId(id);
-    setMobilePanel('sidebar');
+    setNewFolderPendingId(id); setMobilePanel('sidebar');
   };
 
   const handleCreateSmartFolder = async (name: string, filters: SmartFolderFilter) => {
     const id = await createSmartFolder(name, folders.length, filters);
-    setView({ type: 'folder', id });
-    setShowSmartModal(false);
+    setView({ type: 'folder', id }); setShowSmartModal(false);
   };
 
   const handleUpdateSmartFolder = async (name: string, filters: SmartFolderFilter) => {
     if (!editingSmartId) return;
     await updateSmartFolderFilters(editingSmartId, name, filters);
-    setShowSmartModal(false);
-    setEditingSmartId(null);
+    setShowSmartModal(false); setEditingSmartId(null);
   };
 
-  const handleEditSmartFolder = (id: string) => {
-    setEditingSmartId(id);
-    setShowSmartModal(true);
-  };
+  const handleEditSmartFolder = (id: string) => { setEditingSmartId(id); setShowSmartModal(true); };
 
-  // Save status label
+  const handleCreateTag = async (name: string) => { await createTag(name); };
+  const handleDeleteTag = async (name: string) => { await deleteTag(name); };
+
   const saveLabel = () => {
     if (saveStatus === 'saving')  return 'Sauvegarde...';
     if (saveStatus === 'unsaved') return 'Non sauvegardé';
     if (saveStatus === 'error')   return 'Erreur';
-    if (lastSaved)
-      return `Sauvegardé ${lastSaved.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`;
+    if (lastSaved) return `Sauvegardé ${lastSaved.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' })}`;
     return '';
   };
 
@@ -826,23 +779,17 @@ export default function NotesEditor() {
     saveStatus === 'unsaved' ? 'text-yellow-400' :
     saveStatus === 'saving'  ? 'text-gray-400' : 'text-gray-500';
 
-  // Split pour le séparateur Épinglées / Notes (Apple Notes rule)
   const hasPinnedSection =
-    !isTrash &&
-    view !== 'pinned' &&
-    filteredNotes.some(n => n.pinned) &&
-    filteredNotes.some(n => !n.pinned);
+    !isTrash && view !== 'pinned' &&
+    filteredNotes.some(n => n.pinned) && filteredNotes.some(n => !n.pinned);
 
   const pinnedNotes   = hasPinnedSection ? filteredNotes.filter(n => n.pinned)  : [];
   const unpinnedNotes = hasPinnedSection ? filteredNotes.filter(n => !n.pinned) : filteredNotes;
-
-  // Dossiers normaux uniquement (pour le menu Déplacer vers)
   const regularFolders = folders.filter(f => !f.isSmart);
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Modal dossier intelligent */}
       {showSmartModal && (
         <SmartFolderModal
           allTags={allTags}
@@ -855,13 +802,10 @@ export default function NotesEditor() {
       <div
         className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
         onClick={() => {
-          setShowMoveMenu(false);
-          setShowSortMenu(false);
-          setTagSuggestions([]);
-          setShowNewFolderMenu(false);
+          setShowMoveMenu(false); setShowSortMenu(false);
+          setTagSuggestions([]); setShowNewFolderMenu(false);
         }}
       >
-
         {/* ══ SIDEBAR ══════════════════════════════════════════════════════════ */}
         <div className={`
           ${mobilePanel === 'sidebar' ? 'flex' : 'hidden'} md:flex
@@ -869,19 +813,12 @@ export default function NotesEditor() {
         `}>
           <div className="md:hidden flex items-center justify-between px-3 py-2 border-b border-dark-700">
             <span className="text-sm font-semibold text-white">Notes</span>
-            <button
-              type="button"
-              title="Voir la liste"
-              onClick={() => setMobilePanel('list')}
-              className="text-gray-400 hover:text-white"
-            >
+            <button type="button" title="Voir la liste" onClick={() => setMobilePanel('list')} className="text-gray-400 hover:text-white">
               <ChevronRight size={16} />
             </button>
           </div>
           <div className="px-2 pt-3 pb-1 flex items-center justify-between">
             <span className="text-xs font-semibold text-gray-400">Notes</span>
-
-            {/* Menu type de nouveau dossier */}
             <div className="relative">
               <button
                 type="button"
@@ -918,11 +855,14 @@ export default function NotesEditor() {
             notes={notes}
             deletedNotes={deletedNotes}
             folders={folders}
+            manualTags={manualTags}
             view={view}
             onSelectView={v => { setView(v); setMobilePanel('list'); }}
             newFolderPendingId={newFolderPendingId}
             onFolderCreated={() => setNewFolderPendingId(null)}
             onEditSmartFolder={handleEditSmartFolder}
+            onCreateTag={handleCreateTag}
+            onDeleteTag={handleDeleteTag}
           />
         </div>
 
@@ -933,11 +873,7 @@ export default function NotesEditor() {
         `}>
           <div className="px-3 pt-3 pb-2 border-b border-dark-700">
             <div className="md:hidden flex items-center gap-2 mb-2">
-              <button
-                type="button"
-                onClick={() => setMobilePanel('sidebar')}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-white"
-              >
+              <button type="button" onClick={() => setMobilePanel('sidebar')} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white">
                 <ArrowLeft size={13} />{viewLabel(view, folders)}
               </button>
             </div>
@@ -949,88 +885,56 @@ export default function NotesEditor() {
               <div className="flex items-center gap-1">
                 {!isTrash && (
                   <div className="relative">
-                    <button
-                      type="button"
-                      title="Trier"
+                    <button type="button" title="Trier"
                       onClick={e => { e.stopPropagation(); setShowSortMenu(!showSortMenu); }}
                       className="p-1 rounded text-gray-500 hover:text-white hover:bg-dark-700 transition-colors"
                     >
                       <ArrowUpDown size={12} />
                     </button>
                     {showSortMenu && (
-                      <div
-                        className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
-                        onClick={e => e.stopPropagation()}
-                      >
+                      <div className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44" onClick={e => e.stopPropagation()}>
                         <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Trier par</p>
                         {([
                           ['dateModified', 'Date de modification'],
                           ['dateCreated',  'Date de création'],
                           ['title',        'Titre'],
                         ] as [SortBy, string][]).map(([val, label]) => (
-                          <button
-                            key={val}
-                            type="button"
+                          <button key={val} type="button"
                             onClick={() => { setSortBy(val); setShowSortMenu(false); }}
-                            className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${
-                              sortBy === val ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'
-                            }`}
-                          >
-                            {label}
-                          </button>
+                            className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${sortBy === val ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}
+                          >{label}</button>
                         ))}
                       </div>
                     )}
                   </div>
                 )}
                 {!isTrash && (
-                  <button
-                    type="button"
-                    onClick={handleNewNote}
-                    title="Nouvelle note"
-                    className="p-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors"
-                  >
+                  <button type="button" onClick={handleNewNote} title="Nouvelle note" className="p-1.5 rounded-lg bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors">
                     <Plus size={14} />
                   </button>
                 )}
                 {isTrash && deletedNotes.length > 0 && (
-                  <button
-                    type="button"
-                    title="Vider la corbeille"
-                    onClick={() => {
-                      if (confirm('Supprimer définitivement toutes les notes ?'))
-                        deletedNotes.forEach(n => permanentlyDeleteNote(n.id));
-                    }}
+                  <button type="button" title="Vider la corbeille"
+                    onClick={() => { if (confirm('Supprimer définitivement toutes les notes ?')) deletedNotes.forEach(n => permanentlyDeleteNote(n.id)); }}
                     className="text-xs text-red-400 hover:text-red-300 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
-                  >
-                    Vider
-                  </button>
+                  >Vider</button>
                 )}
               </div>
             </div>
             <div className="relative">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Rechercher..."
-                value={search}
+              <input type="text" placeholder="Rechercher..." value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="w-full pl-7 pr-3 py-1.5 bg-dark-800 border border-dark-700 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
               />
               {search && (
-                <button
-                  type="button"
-                  title="Effacer"
-                  onClick={() => setSearch('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-                >
+                <button type="button" title="Effacer" onClick={() => setSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
                   <X size={11} />
                 </button>
               )}
             </div>
           </div>
 
-          {/* Liste des notes avec séparateur Épinglées */}
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <p className="text-center text-gray-500 text-xs mt-10">Chargement...</p>
@@ -1043,28 +947,15 @@ export default function NotesEditor() {
               <>
                 {hasPinnedSection && (
                   <>
-                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-0 z-10">
-                      Épinglées
-                    </div>
+                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-0 z-10">Épinglées</div>
                     {pinnedNotes.map(note => (
-                      <NoteCard
-                        key={note.id}
-                        note={note}
-                        selected={selectedId === note.id}
-                        onSelect={handleSelectNote}
-                      />
+                      <NoteCard key={note.id} note={note} selected={selectedId === note.id} onSelect={handleSelectNote} />
                     ))}
-                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-6 z-10">
-                      Notes
-                    </div>
+                    <div className="px-3 py-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest bg-dark-900 sticky top-6 z-10">Notes</div>
                   </>
                 )}
                 {unpinnedNotes.map(note => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    selected={selectedId === note.id}
-                    onSelect={handleSelectNote}
+                  <NoteCard key={note.id} note={note} selected={selectedId === note.id} onSelect={handleSelectNote}
                     trashInfo={isTrash && note.deletedAt ? daysUntilPurge(note.deletedAt) : undefined}
                   />
                 ))}
@@ -1083,11 +974,7 @@ export default function NotesEditor() {
               <StickyNote size={48} className="opacity-20" />
               <p className="text-sm">{isTrash ? 'Sélectionne une note à récupérer' : 'Sélectionne une note ou'}</p>
               {!isTrash && (
-                <button
-                  type="button"
-                  onClick={handleNewNote}
-                  className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-sm transition-colors"
-                >
+                <button type="button" onClick={handleNewNote} className="flex items-center gap-2 px-4 py-2 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-sm transition-colors">
                   <Plus size={14} /> Nouvelle note
                 </button>
               )}
@@ -1096,116 +983,59 @@ export default function NotesEditor() {
             <>
               {/* Toolbar */}
               <div className="flex items-center px-4 py-2 border-b border-dark-700 gap-2">
-                <button
-                  type="button"
-                  title="Retour à la liste"
-                  onClick={() => setMobilePanel('list')}
-                  className="md:hidden text-gray-400 hover:text-white mr-1"
-                >
+                <button type="button" title="Retour à la liste" onClick={() => setMobilePanel('list')} className="md:hidden text-gray-400 hover:text-white mr-1">
                   <ArrowLeft size={15} />
                 </button>
-
                 {isReadOnly && (
-                  <span className="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">
-                    Lecture seule
-                  </span>
+                  <span className="text-[10px] text-orange-400 bg-orange-500/10 px-2 py-0.5 rounded-full">Lecture seule</span>
                 )}
-
                 <span className={`text-xs ${saveColor} mr-auto`}>{!isReadOnly && saveLabel()}</span>
 
-                {/* Actions corbeille */}
                 {isReadOnly && (
                   <>
-                    <button
-                      type="button"
-                      onClick={handleRecover}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-xs transition-colors"
-                    >
+                    <button type="button" onClick={handleRecover} className="flex items-center gap-1.5 px-3 py-1.5 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded-lg text-xs transition-colors">
                       <RotateCcw size={12} /> Récupérer
                     </button>
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={handlePermanentDelete}
-                        title="Supprimer définitivement"
+                      <button type="button" onClick={handlePermanentDelete} title="Supprimer définitivement"
                         className={`p-1.5 rounded transition-colors ${confirmDel ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-red-400 hover:bg-dark-700'}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      ><Trash2 size={14} /></button>
                       {confirmDel && <span className="text-[10px] text-red-400">Cliquer encore</span>}
                     </div>
                     {selectedNote.deletedAt && (
-                      <span className="text-[10px] text-gray-500 ml-1">
-                        {daysUntilPurge(selectedNote.deletedAt)}j restants
-                      </span>
+                      <span className="text-[10px] text-gray-500 ml-1">{daysUntilPurge(selectedNote.deletedAt)}j restants</span>
                     )}
                   </>
                 )}
 
-                {/* Actions note active */}
                 {!isReadOnly && (
                   <>
                     <div className="relative">
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }}
-                        title="Déplacer vers"
+                      <button type="button" onClick={e => { e.stopPropagation(); setShowMoveMenu(!showMoveMenu); }} title="Déplacer vers"
                         className="p-1.5 rounded text-gray-500 hover:text-white hover:bg-dark-700 transition-colors"
-                      >
-                        <FolderOpen size={14} />
-                      </button>
+                      ><FolderOpen size={14} /></button>
                       {showMoveMenu && (
-                        <div
-                          className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
-                          onClick={e => e.stopPropagation()}
-                        >
+                        <div className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44" onClick={e => e.stopPropagation()}>
                           <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Déplacer vers</p>
-                          <button
-                            type="button"
-                            onClick={() => handleMove(null)}
-                            className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${!selectedNote.folderId ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}
-                          >
-                            Inbox
-                          </button>
+                          <button type="button" onClick={() => handleMove(null)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${!selectedNote.folderId ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>Inbox</button>
                           {regularFolders.map(f => (
-                            <button
-                              key={f.id}
-                              type="button"
-                              onClick={() => handleMove(f.id)}
-                              className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${selectedNote.folderId === f.id ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}
-                            >
-                              {f.name}
-                            </button>
+                            <button key={f.id} type="button" onClick={() => handleMove(f.id)} className={`w-full px-3 py-1.5 text-sm text-left transition-colors ${selectedNote.folderId === f.id ? 'text-yellow-400 bg-yellow-500/10' : 'text-gray-300 hover:bg-dark-700'}`}>{f.name}</button>
                           ))}
                           <div className="border-t border-dark-700 mt-1">
-                            <button
-                              type="button"
-                              onClick={async () => { setShowMoveMenu(false); await handleCreateRegularFolder(); }}
-                              className="w-full px-3 py-1.5 text-sm text-left text-gray-400 hover:text-white hover:bg-dark-700 flex items-center gap-2"
-                            >
+                            <button type="button" onClick={async () => { setShowMoveMenu(false); await handleCreateRegularFolder(); }} className="w-full px-3 py-1.5 text-sm text-left text-gray-400 hover:text-white hover:bg-dark-700 flex items-center gap-2">
                               <Plus size={12} /> Nouveau dossier
                             </button>
                           </div>
                         </div>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={handlePin}
-                      title={selectedNote.pinned ? 'Désépingler' : 'Épingler'}
+                    <button type="button" onClick={handlePin} title={selectedNote.pinned ? 'Désépingler' : 'Épingler'}
                       className={`p-1.5 rounded transition-colors ${selectedNote.pinned ? 'text-yellow-400 bg-yellow-500/15' : 'text-gray-500 hover:text-white hover:bg-dark-700'}`}
-                    >
-                      <Pin size={14} />
-                    </button>
+                    ><Pin size={14} /></button>
                     <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={handleDelete}
-                        title="Mettre à la corbeille"
+                      <button type="button" onClick={handleDelete} title="Mettre à la corbeille"
                         className={`p-1.5 rounded transition-colors ${confirmDel ? 'bg-red-500/20 text-red-400' : 'text-gray-500 hover:text-red-400 hover:bg-dark-700'}`}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      ><Trash2 size={14} /></button>
                       {confirmDel && <span className="text-[10px] text-red-400 whitespace-nowrap">Cliquer encore</span>}
                     </div>
                   </>
@@ -1213,27 +1043,20 @@ export default function NotesEditor() {
               </div>
 
               {/* Titre */}
-              <input
-                type="text"
-                value={title}
-                onChange={e => handleTitleChange(e.target.value)}
-                placeholder="Titre"
-                readOnly={isReadOnly}
-                aria-label="Titre de la note"
+              <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
+                placeholder="Titre" readOnly={isReadOnly} aria-label="Titre de la note"
                 className={`w-full px-6 pt-5 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
               />
 
-              {/* Fil d'Ariane dossier */}
               {selectedNote.folderId && (
                 <div className="px-6 pb-1">
                   <span className="flex items-center gap-1 text-xs text-gray-500">
-                    <FolderOpen size={11} />
-                    {folders.find(f => f.id === selectedNote.folderId)?.name ?? 'Dossier'}
+                    <FolderOpen size={11} />{folders.find(f => f.id === selectedNote.folderId)?.name ?? 'Dossier'}
                   </span>
                 </div>
               )}
 
-              {/* Contenu + autocomplétion hashtags */}
+              {/* Contenu + autocomplétion */}
               <div className="relative flex-1 flex flex-col">
                 <textarea
                   ref={contentRef}
@@ -1247,36 +1070,24 @@ export default function NotesEditor() {
                   className={`flex-1 w-full px-6 py-2 bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed text-sm ${isReadOnly ? 'cursor-default' : ''}`}
                 />
                 {tagSuggestions.length > 0 && (
-                  <div
-                    className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden"
-                    onClick={e => e.stopPropagation()}
-                  >
+                  <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
                     {tagSuggestions.map(tag => (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => applyTagSuggestion(tag)}
+                      <button key={tag} type="button" onClick={() => applyTagSuggestion(tag)}
                         className="w-full px-3 py-1.5 text-sm text-left text-yellow-400 hover:bg-dark-700 flex items-center gap-2"
-                      >
-                        <Hash size={11} />#{tag}
-                      </button>
+                      ><Hash size={11} />#{tag}</button>
                     ))}
                   </div>
                 )}
               </div>
 
-              {/* Footer tags */}
               {selectedNote.tags.length > 0 && (
                 <div className="px-6 py-2.5 border-t border-dark-800 flex items-center gap-1.5 flex-wrap">
                   <Hash size={11} className="text-gray-600" />
                   {selectedNote.tags.map(t => (
-                    <span
-                      key={t}
+                    <span key={t}
                       onClick={() => { if (!isTrash) setView({ type: 'tag', tag: t }); }}
                       className={`text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full transition-colors ${!isTrash ? 'cursor-pointer hover:bg-yellow-500/20' : ''}`}
-                    >
-                      #{t}
-                    </span>
+                    >#{t}</span>
                   ))}
                 </div>
               )}
@@ -1288,15 +1099,13 @@ export default function NotesEditor() {
   );
 }
 
-// ── NoteCard sub-component ───────────────────────────────────────────────────
+// ── NoteCard ─────────────────────────────────────────────────────────────────
 
-function NoteCard({
-  note, selected, onSelect, trashInfo,
-}: {
+function NoteCard({ note, selected, onSelect, trashInfo }: {
   note:       Note;
   selected:   boolean;
   onSelect:   (n: Note) => void;
-  trashInfo?: number; // jours avant suppression définitive
+  trashInfo?: number;
 }) {
   return (
     <button
@@ -1308,19 +1117,14 @@ function NoteCard({
     >
       <div className="flex items-center gap-1.5 mb-0.5">
         {note.pinned && <Pin size={9} className="text-yellow-400 shrink-0" />}
-        <span className="text-xs font-semibold text-white truncate">
-          {note.title || 'Sans titre'}
-        </span>
+        <span className="text-xs font-semibold text-white truncate">{note.title || 'Sans titre'}</span>
       </div>
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-gray-500 truncate flex-1">
           {note.content.replace(/#\w+/g, '').trim() || 'Aucun contenu'}
         </p>
         <span className="text-[10px] text-gray-600 shrink-0">
-          {trashInfo !== undefined
-            ? <span className="text-orange-500">{trashInfo}j</span>
-            : fmtDate(note.updatedAt)
-          }
+          {trashInfo !== undefined ? <span className="text-orange-500">{trashInfo}j</span> : fmtDate(note.updatedAt)}
         </span>
       </div>
       {note.tags.length > 0 && (

@@ -1,6 +1,6 @@
 import { db } from '@/lib/firebase/config';
 import {
-  collection, addDoc, updateDoc, deleteDoc,
+  collection, addDoc, updateDoc, deleteDoc, setDoc,
   doc, serverTimestamp, writeBatch, getDocs, query, where,
 } from 'firebase/firestore';
 
@@ -34,6 +34,11 @@ export interface Folder {
   filters?: SmartFolderFilter;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface Tag {
+  name: string;    // = doc ID dans adminTags
+  createdAt: Date;
 }
 
 // ── Extraction automatique des hashtags ──────────────────────────────────────
@@ -71,11 +76,21 @@ export async function updateNote(
   data: Partial<Pick<Note, 'title' | 'content' | 'pinned' | 'folderId'>>
 ): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
+  const _db = db; // capture référence non-null pour les callbacks
   const payload: Record<string, unknown> = { ...data, updatedAt: serverTimestamp() };
   if (typeof data.content === 'string') {
-    payload.tags = extractHashtags(data.content);
+    const newTags = extractHashtags(data.content);
+    payload.tags = newTags;
+    // Sync automatique des nouveaux tags vers la bibliothèque adminTags
+    if (newTags.length > 0) {
+      const batch = writeBatch(_db);
+      newTags.forEach(tag => {
+        batch.set(doc(_db, 'adminTags', tag), { name: tag, createdAt: serverTimestamp() }, { merge: true });
+      });
+      await batch.commit();
+    }
   }
-  await updateDoc(doc(db, 'adminNotes', id), payload);
+  await updateDoc(doc(_db, 'adminNotes', id), payload);
 }
 
 // Soft delete — va dans la Corbeille (récupérable 30 jours)
@@ -115,6 +130,24 @@ export async function moveNote(noteId: string, folderId: string | null): Promise
     folderId,
     updatedAt: serverTimestamp(),
   });
+}
+
+// ── Tags CRUD ─────────────────────────────────────────────────────────────────
+// Le nom du tag sert de doc ID → upsert idempotent, pas de doublons possibles
+
+export async function createTag(name: string): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  const normalized = name.toLowerCase().trim().replace(/[^a-zA-Z0-9\u00C0-\u024F_-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+  if (!normalized) return;
+  await setDoc(doc(db, 'adminTags', normalized), {
+    name: normalized,
+    createdAt: serverTimestamp(),
+  }, { merge: true });
+}
+
+export async function deleteTag(name: string): Promise<void> {
+  if (!db) throw new Error('Firebase non configuré');
+  await deleteDoc(doc(db, 'adminTags', name));
 }
 
 // ── Folders CRUD ─────────────────────────────────────────────────────────────
