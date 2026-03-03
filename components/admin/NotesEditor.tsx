@@ -7,8 +7,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Pin, Trash2, Search, StickyNote, FolderPlus,
   Hash, MoreHorizontal, FolderOpen, Folder, ArrowLeft,
-  ChevronRight, X, RotateCcw, ArrowUpDown, Zap,
+  ChevronRight, X, RotateCcw, ArrowUpDown, Zap, Image as ImageIcon,
 } from 'lucide-react';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import ImageExtension from '@tiptap/extension-image';
+import Placeholder from '@tiptap/extension-placeholder';
+import { uploadNoteImage } from '@/lib/upload-image';
 import { useAdminNotes } from '@/hooks/useAdminNotes';
 import {
   createNote, updateNote, deleteNote, moveNote,
@@ -50,6 +55,19 @@ function fmtDate(d: Date): string {
 function daysUntilPurge(deletedAt: Date): number {
   const diff = 30 - Math.floor((Date.now() - deletedAt.getTime()) / 86400000);
   return Math.max(0, diff);
+}
+
+/** Retire les balises HTML — compatible plain text ET contenu HTML de TipTap. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<\/?(p|div|br|h[1-6]|li|ul|ol)[^>]*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function viewLabel(view: ViewFilter, folders: FolderType[]): string {
@@ -758,10 +776,12 @@ export default function NotesEditor() {
   const [titleSuggs,      setTitleSuggs]      = useState<string[]>([]);
   const [titleSuggIdx,    setTitleSuggIdx]    = useState(-1);
   const [titleSuggType,   setTitleSuggType]   = useState<'tag' | 'word' | 'title'>('title');
-  const contentRef  = useRef<HTMLTextAreaElement>(null);
-  const titleRef    = useRef<HTMLInputElement>(null);
-  const searchRef   = useRef<HTMLInputElement>(null);
-  const trashBtnRef = useRef<HTMLButtonElement>(null);
+  const titleRef        = useRef<HTMLInputElement>(null);
+  const searchRef       = useRef<HTMLInputElement>(null);
+  const trashBtnRef     = useRef<HTMLButtonElement>(null);
+  const imageInputRef   = useRef<HTMLInputElement>(null);
+  const detectAtCursorRef = useRef<() => void>(() => {});
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const [search,      setSearch]      = useState('');
   const [trashShake,  setTrashShake]  = useState(false);
@@ -818,7 +838,7 @@ export default function NotesEditor() {
   const wordIndex = useMemo(() => {
     const words = new Set<string>();
     notes.forEach(n => {
-      const text = `${n.title} ${n.content}`;
+      const text = `${n.title} ${stripHtml(n.content)}`;
       const matches = text.match(/[a-zA-Z\u00C0-\u024F]{4,}/g);
       matches?.forEach(w => words.add(w.toLowerCase()));
     });
@@ -838,7 +858,7 @@ export default function NotesEditor() {
     const oldTitle   = prevTitle.current;
     const oldContent = prevContent.current;
     if (oldId && oldId !== selectedId) {
-      if (!oldTitle.trim() && !oldContent.trim()) silentlyDeleteNote(oldId);
+      if (!oldTitle.trim() && !stripHtml(oldContent).trim()) silentlyDeleteNote(oldId);
     }
     prevSelectedId.current = selectedId;
     prevTitle.current      = title;
@@ -863,6 +883,9 @@ export default function NotesEditor() {
       setContent(note.content);
       prevTitle.current   = note.title;
       prevContent.current = note.content;
+      if (editor && !editor.isDestroyed) {
+        editor.commands.setContent(note.content);
+      }
     }
   }, [notes]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -888,7 +911,7 @@ export default function NotesEditor() {
     if (search.trim()) {
       const s = search.toLowerCase();
       list = list.filter(n =>
-        n.title.toLowerCase().includes(s) || n.content.toLowerCase().includes(s)
+        n.title.toLowerCase().includes(s) || stripHtml(n.content).toLowerCase().includes(s)
       );
     }
     if (!isTrash) {
@@ -930,9 +953,9 @@ export default function NotesEditor() {
 
   // ── Autocomplétion contenu (tags + mots) ─────────────────────────────────
   const detectAtCursor = useCallback(() => {
-    const el = contentRef.current;
-    if (!el) return;
-    const textBefore = content.slice(0, el.selectionStart);
+    if (!editor || editor.isDestroyed) return;
+    const { $from } = editor.state.selection;
+    const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
 
     // Priorité 1 : hashtag (#tag ou # seul)
     const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
@@ -961,46 +984,128 @@ export default function NotesEditor() {
     }
 
     setSuggestions([]);
-  }, [content, allTags, wordIndex]);
+  }, [allTags, wordIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Garde la ref à jour pour éviter les dépendances circulaires avec useEditor
+  useEffect(() => { detectAtCursorRef.current = detectAtCursor; }, [detectAtCursor]);
 
   const applySuggestion = (item: string) => {
-    const el = contentRef.current;
-    if (!el) return;
-    const cursor     = el.selectionStart;
-    const textBefore = content.slice(0, cursor);
-    const textAfter  = content.slice(cursor);
-    let newBefore: string;
+    if (!editor) return;
+    const { state } = editor;
+    const { from }  = state.selection;
+    const textBefore = state.selection.$from.parent.textContent.slice(0, state.selection.$from.parentOffset);
     if (suggestionType === 'tag') {
-      newBefore = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/, `#${item} `);
+      const m = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
+      if (m) editor.chain().focus().deleteRange({ from: from - m[0].length, to: from }).insertContent(`#${item} `).run();
     } else {
-      newBefore = textBefore.replace(/[a-zA-Z\u00C0-\u024F]{3,}$/, item);
+      const m = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
+      if (m) editor.chain().focus().deleteRange({ from: from - m[0].length, to: from }).insertContent(item).run();
     }
-    const newContent = newBefore + textAfter;
-    setContent(newContent);
-    scheduleAutoSave(title, newContent);
     setSuggestions([]);
-    setTimeout(() => { el.focus(); el.setSelectionRange(newBefore.length, newBefore.length); }, 0);
   };
 
-  // ── Navigation clavier autocomplete contenu ───────────────────────────────
-  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (suggestions.length === 0) return;
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setSuggestionIdx(i => Math.min(i + 1, suggestions.length - 1));
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setSuggestionIdx(i => Math.max(i - 1, -1));
-    } else if ((e.key === 'Enter' || e.key === 'Tab') && suggestionIdx >= 0) {
-      e.preventDefault();
-      applySuggestion(suggestions[suggestionIdx]);
-    } else if (e.key === 'Tab' && suggestionIdx === -1 && suggestions.length > 0) {
-      e.preventDefault();
-      applySuggestion(suggestions[0]);
-    } else if (e.key === 'Escape') {
-      setSuggestions([]);
+  // ── TipTap editor ─────────────────────────────────────────────────────────
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      ImageExtension.configure({ inline: false, allowBase64: false }),
+      Placeholder.configure({
+        placeholder: 'Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement.',
+      }),
+    ],
+    editorProps: {
+      attributes: { class: 'tiptap-editor' },
+      handlePaste(_, event) {
+        // Intercepte les images collées depuis le presse-papier
+        const items = Array.from(event.clipboardData?.items ?? []);
+        const imgItem = items.find(i => i.type.startsWith('image/'));
+        if (imgItem && selectedId) {
+          event.preventDefault();
+          const file = imgItem.getAsFile();
+          if (file) handleImageInsertRef.current(file);
+          return true;
+        }
+        return false; // TipTap gère le reste (texte, HTML formaté, etc.)
+      },
+      handleDrop(_, event) {
+        // Intercepte les images glissées-déposées
+        const files = Array.from(event.dataTransfer?.files ?? []);
+        const img = files.find(f => f.type.startsWith('image/'));
+        if (img && selectedId) {
+          event.preventDefault();
+          handleImageInsertRef.current(img);
+          return true;
+        }
+        return false;
+      },
+      handleKeyDown(_, event) {
+        // Navigation dans les suggestions d'autocomplétion
+        if (suggestionsRef.current.length === 0) return false;
+        if (event.key === 'ArrowDown') {
+          setSuggestionIdx(i => Math.min(i + 1, suggestionsRef.current.length - 1));
+          return true;
+        }
+        if (event.key === 'ArrowUp') {
+          setSuggestionIdx(i => Math.max(i - 1, -1));
+          return true;
+        }
+        if ((event.key === 'Enter' || event.key === 'Tab') && suggestionIdxRef.current >= 0) {
+          applySuggestionRef.current(suggestionsRef.current[suggestionIdxRef.current]);
+          return true;
+        }
+        if (event.key === 'Tab' && suggestionIdxRef.current === -1 && suggestionsRef.current.length > 0) {
+          applySuggestionRef.current(suggestionsRef.current[0]);
+          return true;
+        }
+        if (event.key === 'Escape') { setSuggestions([]); return true; }
+        return false;
+      },
+    },
+    onUpdate: ({ editor }) => {
+      const html = editor.getHTML();
+      setContent(html);
+      scheduleAutoSaveRef.current(titleRef.current?.value ?? '', html);
+      setTimeout(() => detectAtCursorRef.current(), 0);
+    },
+    onSelectionUpdate: () => setTimeout(() => detectAtCursorRef.current(), 0),
+    editable: true,
+  });
+
+  // Refs anti-stale-closure (valeurs utilisées dans les editorProps de useEditor)
+  const suggestionsRef       = useRef<string[]>([]);
+  const suggestionIdxRef     = useRef(-1);
+  const applySuggestionRef   = useRef<(item: string) => void>(() => {});
+  const handleImageInsertRef = useRef<(file: File) => void>(() => {});
+  const scheduleAutoSaveRef  = useRef<(t: string, c: string) => void>(() => {});
+  useEffect(() => { suggestionsRef.current    = suggestions;    }, [suggestions]);
+  useEffect(() => { suggestionIdxRef.current  = suggestionIdx;  }, [suggestionIdx]);
+  useEffect(() => { scheduleAutoSaveRef.current = scheduleAutoSave; }, [scheduleAutoSave]);
+
+  // Sync editor ↔ isReadOnly
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!isReadOnly);
+  }, [editor, isReadOnly]);
+
+  // ── Upload image (paste / drag-drop / bouton) ─────────────────────────────
+  const handleImageInsert = useCallback(async (file: File) => {
+    if (!editor || !selectedId) return;
+    try {
+      setUploadProgress(0);
+      const url = await uploadNoteImage(file, selectedId, pct => setUploadProgress(pct));
+      editor.chain().focus().setImage({ src: url, alt: file.name }).run();
+      // Force autosave immédiat après l'insertion
+      const html = editor.getHTML();
+      setContent(html);
+      scheduleAutoSave(title, html);
+    } catch (err) {
+      console.error('Upload image:', err);
+    } finally {
+      setUploadProgress(null);
     }
-  };
+  }, [editor, selectedId, title, scheduleAutoSave]);
+  useEffect(() => { handleImageInsertRef.current = handleImageInsert; }, [handleImageInsert]);
+  useEffect(() => { applySuggestionRef.current   = applySuggestion;   }, [applySuggestion]);
 
   // ── Autocomplétion titre ──────────────────────────────────────────────────
   const applyTitleSugg = useCallback((item: string) => {
@@ -1090,21 +1195,17 @@ export default function NotesEditor() {
 
     setTitleSuggs([]);
   };
-  const handleContentChange = (v: string) => {
-    setContent(v);
-    scheduleAutoSave(title, v);
-    setTimeout(detectAtCursor, 0);
-  };
-
   const handleNewNote = async () => {
     const folderId = (currentFolder && !currentFolder.isSmart) ? currentFolder.id : null;
     const id = await createNote(folderId);
     setSelectedId(id); setTitle(''); setContent(''); setSaveStatus('saved');
+    editor?.commands.setContent('');
     setMobilePanel('editor');
   };
 
   const handleSelectNote = (note: Note) => {
     setSelectedId(note.id); setTitle(note.title); setContent(note.content);
+    editor?.commands.setContent(note.content);
     setSaveStatus('saved'); setMobilePanel('editor');
   };
 
@@ -1544,19 +1645,42 @@ export default function NotesEditor() {
                 </div>
               )}
 
-              {/* Contenu + autocomplétion */}
-              <div className="relative flex-1 flex flex-col">
-                <textarea
-                  ref={contentRef}
-                  value={content}
-                  onChange={e => handleContentChange(e.target.value)}
-                  onKeyDown={handleContentKeyDown}
-                  onKeyUp={detectAtCursor}
-                  onClick={detectAtCursor}
-                  placeholder={isReadOnly ? '' : "Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement."}
-                  readOnly={isReadOnly}
-                  aria-label="Contenu de la note"
-                  className={`flex-1 w-full px-6 py-2 bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed text-sm ${isReadOnly ? 'cursor-default' : ''}`}
+              {/* Barre image + éditeur TipTap */}
+              <div className="relative flex-1 flex flex-col overflow-y-auto">
+                {!isReadOnly && (
+                  <div className="px-6 py-1.5 border-b border-dark-800 flex items-center gap-3 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => imageInputRef.current?.click()}
+                      title="Insérer une image"
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-yellow-400 transition-colors px-1 py-0.5 rounded"
+                    >
+                      <ImageIcon size={13} /> Image
+                    </button>
+                    {uploadProgress !== null && (
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <div className="w-20 h-1 bg-dark-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                        </div>
+                        <span>{uploadProgress}%</span>
+                      </div>
+                    )}
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleImageInsert(file);
+                        e.target.value = '';
+                      }}
+                    />
+                  </div>
+                )}
+                <EditorContent
+                  editor={editor}
+                  className="flex-1 px-6 py-2 overflow-y-auto"
                 />
                 {suggestions.length > 0 && (
                   <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[160px]" onClick={e => e.stopPropagation()}>
@@ -1626,7 +1750,7 @@ function NoteCard({ note, selected, onSelect, trashInfo }: {
         </div>
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-gray-500 truncate flex-1">
-            {note.content.replace(/#\w+/g, '').trim() || 'Aucun contenu'}
+            {stripHtml(note.content).replace(/#\w+/g, '').trim() || 'Aucun contenu'}
           </p>
           <span className="text-[10px] text-gray-600 shrink-0">
             {trashInfo !== undefined ? <span className="text-orange-500">{trashInfo}j</span> : fmtDate(note.updatedAt)}

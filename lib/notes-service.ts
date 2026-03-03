@@ -44,12 +44,25 @@ export interface Tag {
 
 // ── Extraction automatique des hashtags ──────────────────────────────────────
 
+/** Supprime les balises HTML — compatible plain text ET HTML TipTap. */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<\/?(p|div|br|h[1-6]|li|ul|ol)[^>]*>/gi, ' ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
 export function extractHashtags(content: string): string[] {
+  // Travaille sur le texte pur (compatible plain text ET HTML TipTap)
+  const text  = stripHtml(content);
   // Match #tag — exclut les titres markdown (# Titre) et les URLs
   const regex = /(?<![/#\w])#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)/g;
   const tags = new Set<string>();
   let match: RegExpExecArray | null;
-  while ((match = regex.exec(content)) !== null) {
+  while ((match = regex.exec(text)) !== null) {
     tags.add(match[1].toLowerCase());
   }
   return Array.from(tags);

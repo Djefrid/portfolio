@@ -22,6 +22,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 /**
  * Configuration Firebase lue depuis les variables d'environnement.
@@ -49,8 +50,9 @@ export const isFirebaseConfigured = Boolean(
 
 // Instances Firebase (null si Firebase n'est pas configuré)
 let app: FirebaseApp | null = null;
-let auth: Auth | null = null;   // Pour l'authentification admin
-let db: Firestore | null = null; // Pour la base de données Firestore
+let auth: Auth | null = null;            // Pour l'authentification admin
+let db: Firestore | null = null;         // Pour la base de données Firestore
+let storage: FirebaseStorage | null = null; // Pour le stockage des fichiers (images)
 
 /**
  * Initialise Firebase seulement si les variables d'environnement sont définies.
@@ -60,7 +62,8 @@ if (isFirebaseConfigured) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
 }
 
-export { app, auth, db };
+export { app, auth, db, storage };
 export default app;

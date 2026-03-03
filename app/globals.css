@@ -70,6 +70,58 @@
   }
 }
 
+/* ── TipTap Notes Editor ──────────────────────────────────────────────────── */
+.tiptap-editor {
+  outline: none;
+  min-height: 100%;
+  color: #d1d5db; /* text-gray-300 */
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.tiptap-editor p {
+  margin: 0;
+}
+.tiptap-editor p + p {
+  margin-top: 0.375rem;
+}
+.tiptap-editor p.is-empty::before {
+  content: attr(data-placeholder);
+  color: #4b5563; /* gray-600 */
+  pointer-events: none;
+  float: left;
+  height: 0;
+  white-space: pre-line;
+}
+.tiptap-editor img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 10px 0;
+  display: block;
+  max-height: 480px;
+  object-fit: contain;
+  cursor: default;
+}
+.tiptap-editor img.ProseMirror-selectednode {
+  outline: 2px solid rgba(234, 179, 8, 0.6);
+  border-radius: 8px;
+}
+.tiptap-editor ul,
+.tiptap-editor ol {
+  padding-left: 1.25rem;
+  margin: 0.25rem 0;
+}
+.tiptap-editor li {
+  margin: 0.1rem 0;
+}
+.tiptap-editor strong { color: #f9fafb; }
+.tiptap-editor em    { color: #d1d5db; }
+.tiptap-editor code  {
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 0.8em;
+}
+
 @layer components {
   .section-container {
     @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
