@@ -565,8 +565,11 @@ export default function NotesEditor() {
 
   const [sortBy, setSortBy] = useState<SortBy>('dateModified');
 
-  const [tagSuggestions,    setTagSuggestions]    = useState<string[]>([]);
-  const [tagSuggestionIdx,  setTagSuggestionIdx]  = useState(-1);
+  const [suggestions,     setSuggestions]     = useState<string[]>([]);
+  const [suggestionIdx,   setSuggestionIdx]   = useState(-1);
+  const [suggestionType,  setSuggestionType]  = useState<'tag' | 'word'>('tag');
+  const [titleSuggs,      setTitleSuggs]      = useState<string[]>([]);
+  const [titleSuggIdx,    setTitleSuggIdx]    = useState(-1);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const [search, setSearch] = useState('');
@@ -602,6 +605,17 @@ export default function NotesEditor() {
     return Array.from(set);
   }, [notes, manualTags]);
 
+  // Index de tous les mots (≥ 4 lettres) présents dans toutes les notes
+  const wordIndex = useMemo(() => {
+    const words = new Set<string>();
+    notes.forEach(n => {
+      const text = `${n.title} ${n.content}`;
+      const matches = text.match(/[a-zA-Z\u00C0-\u024F]{4,}/g);
+      matches?.forEach(w => words.add(w.toLowerCase()));
+    });
+    return Array.from(words);
+  }, [notes]);
+
   const smartModalInitial = useMemo(() => {
     if (!editingSmartId) return undefined;
     const f = folders.find(x => x.id === editingSmartId);
@@ -625,7 +639,7 @@ export default function NotesEditor() {
     setShowMoveMenu(false);
     setSaveStatus('saved');
     setLastSaved(null);
-    setTagSuggestions([]);
+    setSuggestions([]);
   }, [selectedId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Sync temps réel multi-appareil ───────────────────────────────────────
@@ -703,66 +717,114 @@ export default function NotesEditor() {
   }, [selectedId, isReadOnly]);
 
   // Reset de l'index de sélection quand les suggestions changent
-  useEffect(() => { setTagSuggestionIdx(-1); }, [tagSuggestions]);
+  useEffect(() => { setSuggestionIdx(-1); }, [suggestions]);
 
-  // ── Autocomplétion hashtags ───────────────────────────────────────────────
-  const detectTagAtCursor = useCallback(() => {
+  // ── Autocomplétion contenu (tags + mots) ─────────────────────────────────
+  const detectAtCursor = useCallback(() => {
     const el = contentRef.current;
     if (!el) return;
     const textBefore = content.slice(0, el.selectionStart);
-    // Matche `#` seul ou `#partial` (groupe 1 optionnel)
-    const match = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
-    if (match) {
-      const partial = (match[1] ?? '').toLowerCase();
-      const filtered = partial
-        ? allTags.filter(t => t.startsWith(partial) && t !== partial)
-        : allTags; // affiche tous les tags si juste `#`
-      setTagSuggestions(filtered.slice(0, 6));
-    } else {
-      setTagSuggestions([]);
-    }
-  }, [content, allTags]);
 
-  const applyTagSuggestion = (tag: string) => {
+    // Priorité 1 : hashtag (#tag ou # seul)
+    const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
+    if (tagMatch) {
+      const partial = (tagMatch[1] ?? '').toLowerCase();
+      const filtered = partial
+        ? allTags.filter(t => t.includes(partial) && t !== partial) // fuzzy
+        : allTags;
+      setSuggestions(filtered.slice(0, 6));
+      setSuggestionType('tag');
+      return;
+    }
+
+    // Priorité 2 : mot ordinaire (≥ 3 lettres)
+    const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
+    if (wordMatch) {
+      const partial = wordMatch[0].toLowerCase();
+      const matches = wordIndex
+        .filter(w => w.startsWith(partial) && w !== partial)
+        .slice(0, 6);
+      if (matches.length > 0) {
+        setSuggestions(matches);
+        setSuggestionType('word');
+        return;
+      }
+    }
+
+    setSuggestions([]);
+  }, [content, allTags, wordIndex]);
+
+  const applySuggestion = (item: string) => {
     const el = contentRef.current;
     if (!el) return;
     const cursor     = el.selectionStart;
     const textBefore = content.slice(0, cursor);
     const textAfter  = content.slice(cursor);
-    const newBefore  = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/, `#${tag} `);
+    let newBefore: string;
+    if (suggestionType === 'tag') {
+      newBefore = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/, `#${item} `);
+    } else {
+      newBefore = textBefore.replace(/[a-zA-Z\u00C0-\u024F]{3,}$/, item);
+    }
     const newContent = newBefore + textAfter;
     setContent(newContent);
     scheduleAutoSave(title, newContent);
-    setTagSuggestions([]);
+    setSuggestions([]);
     setTimeout(() => { el.focus(); el.setSelectionRange(newBefore.length, newBefore.length); }, 0);
   };
 
-  // ── Navigation clavier dans l'autocomplete ────────────────────────────────
+  // ── Navigation clavier autocomplete contenu ───────────────────────────────
   const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (tagSuggestions.length === 0) return;
+    if (suggestions.length === 0) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setTagSuggestionIdx(i => Math.min(i + 1, tagSuggestions.length - 1));
+      setSuggestionIdx(i => Math.min(i + 1, suggestions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setTagSuggestionIdx(i => Math.max(i - 1, -1));
-    } else if ((e.key === 'Enter' || e.key === 'Tab') && tagSuggestionIdx >= 0) {
+      setSuggestionIdx(i => Math.max(i - 1, -1));
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && suggestionIdx >= 0) {
       e.preventDefault();
-      applyTagSuggestion(tagSuggestions[tagSuggestionIdx]);
-    } else if (e.key === 'Tab' && tagSuggestionIdx === -1 && tagSuggestions.length > 0) {
+      applySuggestion(suggestions[suggestionIdx]);
+    } else if (e.key === 'Tab' && suggestionIdx === -1 && suggestions.length > 0) {
       e.preventDefault();
-      applyTagSuggestion(tagSuggestions[0]);
+      applySuggestion(suggestions[0]);
     } else if (e.key === 'Escape') {
-      setTagSuggestions([]);
+      setSuggestions([]);
     }
   };
 
+  // ── Autocomplétion titre ──────────────────────────────────────────────────
+  const handleTitleSuggKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (titleSuggs.length === 0) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setTitleSuggIdx(i => Math.min(i + 1, titleSuggs.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setTitleSuggIdx(i => Math.max(i - 1, -1)); }
+    else if ((e.key === 'Tab' || e.key === 'Enter') && titleSuggIdx >= 0) {
+      e.preventDefault();
+      setTitle(titleSuggs[titleSuggIdx]); scheduleAutoSave(titleSuggs[titleSuggIdx], content);
+      setTitleSuggs([]); setTitleSuggIdx(-1);
+    } else if (e.key === 'Escape') { setTitleSuggs([]); }
+  };
+
   // ── Handlers éditeur ─────────────────────────────────────────────────────
-  const handleTitleChange = (v: string) => { setTitle(v); scheduleAutoSave(v, content); };
+  const handleTitleChange = (v: string) => {
+    setTitle(v);
+    scheduleAutoSave(v, content);
+    // Suggestions de titres similaires existants
+    if (v.trim().length >= 2) {
+      const lower = v.toLowerCase();
+      const matches = notes
+        .filter(n => n.id !== selectedId && n.title.toLowerCase().includes(lower))
+        .map(n => n.title)
+        .slice(0, 5);
+      setTitleSuggs(matches);
+    } else {
+      setTitleSuggs([]);
+    }
+  };
   const handleContentChange = (v: string) => {
     setContent(v);
     scheduleAutoSave(title, v);
-    setTimeout(detectTagAtCursor, 0);
+    setTimeout(detectAtCursor, 0);
   };
 
   const handleNewNote = async () => {
@@ -869,7 +931,7 @@ export default function NotesEditor() {
         className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
         onClick={() => {
           setShowMoveMenu(false); setShowSortMenu(false);
-          setTagSuggestions([]); setShowNewFolderMenu(false);
+          setSuggestions([]); setShowNewFolderMenu(false);
         }}
       >
         {/* ══ SIDEBAR ══════════════════════════════════════════════════════════ */}
@@ -1108,11 +1170,28 @@ export default function NotesEditor() {
                 )}
               </div>
 
-              {/* Titre */}
-              <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
-                placeholder="Titre" readOnly={isReadOnly} aria-label="Titre de la note"
-                className={`w-full px-6 pt-5 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
-              />
+              {/* Titre + autocomplete */}
+              <div className="relative">
+                <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
+                  onKeyDown={handleTitleSuggKey}
+                  onBlur={() => setTimeout(() => setTitleSuggs([]), 150)}
+                  placeholder="Titre" readOnly={isReadOnly} aria-label="Titre de la note"
+                  className={`w-full px-6 pt-5 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
+                />
+                {titleSuggs.length > 0 && (
+                  <div className="absolute left-6 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[220px]" onClick={e => e.stopPropagation()}>
+                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Titres similaires</p>
+                    {titleSuggs.map((t, i) => (
+                      <button key={t} type="button"
+                        onMouseDown={e => { e.preventDefault(); setTitle(t); scheduleAutoSave(t, content); setTitleSuggs([]); }}
+                        className={`w-full px-3 py-1.5 text-sm text-left transition-colors truncate ${
+                          i === titleSuggIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-300 hover:bg-dark-700'
+                        }`}
+                      >{t}</button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {selectedNote.folderId && (
                 <div className="px-6 pb-1">
@@ -1129,26 +1208,30 @@ export default function NotesEditor() {
                   value={content}
                   onChange={e => handleContentChange(e.target.value)}
                   onKeyDown={handleContentKeyDown}
-                  onKeyUp={detectTagAtCursor}
-                  onClick={detectTagAtCursor}
+                  onKeyUp={detectAtCursor}
+                  onClick={detectAtCursor}
                   placeholder={isReadOnly ? '' : "Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement."}
                   readOnly={isReadOnly}
                   aria-label="Contenu de la note"
                   className={`flex-1 w-full px-6 py-2 bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed text-sm ${isReadOnly ? 'cursor-default' : ''}`}
                 />
-                {tagSuggestions.length > 0 && (
-                  <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[140px]" onClick={e => e.stopPropagation()}>
-                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tags</p>
-                    {tagSuggestions.map((tag, i) => (
-                      <button key={tag} type="button" onClick={() => applyTagSuggestion(tag)}
+                {suggestions.length > 0 && (
+                  <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[160px]" onClick={e => e.stopPropagation()}>
+                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                      {suggestionType === 'tag' ? 'Tags' : 'Mots'}
+                    </p>
+                    {suggestions.map((item, i) => (
+                      <button key={item} type="button" onClick={() => applySuggestion(item)}
                         className={`w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 transition-colors ${
-                          i === tagSuggestionIdx
+                          i === suggestionIdx
                             ? 'bg-yellow-500/20 text-yellow-300'
-                            : 'text-yellow-400 hover:bg-dark-700'
+                            : suggestionType === 'tag' ? 'text-yellow-400 hover:bg-dark-700' : 'text-gray-300 hover:bg-dark-700'
                         }`}
-                      ><Hash size={11} />#{tag}</button>
+                      >
+                        {suggestionType === 'tag' ? <><Hash size={11} />#{item}</> : item}
+                      </button>
                     ))}
-                    <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ naviguer · Tab/Enter appliquer · Esc fermer</p>
+                    <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
                   </div>
                 )}
               </div>
