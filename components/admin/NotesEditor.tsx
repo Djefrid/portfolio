@@ -242,11 +242,13 @@ function NotesSidebar({
   onCreateTag:        (name: string) => void;
   onDeleteTag:        (name: string) => void;
 }) {
-  const [editingId,    setEditingId]    = useState<string | null>(null);
-  const [editingName,  setEditingName]  = useState('');
-  const [menuId,       setMenuId]       = useState<string | null>(null);
-  const [showNewTag,   setShowNewTag]   = useState(false);
-  const [newTagInput,  setNewTagInput]  = useState('');
+  const [editingId,       setEditingId]       = useState<string | null>(null);
+  const [editingName,     setEditingName]     = useState('');
+  const [menuId,          setMenuId]          = useState<string | null>(null);
+  const [showNewTag,      setShowNewTag]      = useState(false);
+  const [newTagInput,     setNewTagInput]     = useState('');
+  const [tagInputSuggs,   setTagInputSuggs]   = useState<string[]>([]);
+  const [tagInputSuggIdx, setTagInputSuggIdx] = useState(-1);
 
   useEffect(() => {
     if (newFolderPendingId && folders.find(f => f.id === newFolderPendingId)) {
@@ -298,11 +300,37 @@ function NotesSidebar({
     setMenuId(null);
   };
 
+  const handleTagInputChange = (v: string) => {
+    setNewTagInput(v);
+    setTagInputSuggIdx(-1);
+    if (v.trim()) {
+      const lower = v.toLowerCase();
+      setTagInputSuggs(allDisplayTags.filter(t => t.includes(lower) && t !== lower).slice(0, 5));
+    } else {
+      setTagInputSuggs(allDisplayTags.slice(0, 5)); // montre les tags existants quand vide
+    }
+  };
+
+  const applyTagInputSugg = (tag: string) => {
+    onCreateTag(tag);
+    setNewTagInput(''); setShowNewTag(false); setTagInputSuggs([]); setTagInputSuggIdx(-1);
+  };
+
   const commitNewTag = () => {
     const v = newTagInput.trim();
     if (v) onCreateTag(v);
-    setNewTagInput('');
-    setShowNewTag(false);
+    setNewTagInput(''); setShowNewTag(false); setTagInputSuggs([]); setTagInputSuggIdx(-1);
+  };
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (tagInputSuggs.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setTagInputSuggIdx(i => Math.min(i + 1, tagInputSuggs.length - 1)); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); setTagInputSuggIdx(i => Math.max(i - 1, -1)); return; }
+      if (e.key === 'Tab')       { e.preventDefault(); applyTagInputSugg(tagInputSuggs[tagInputSuggIdx >= 0 ? tagInputSuggIdx : 0]); return; }
+      if (e.key === 'Enter' && tagInputSuggIdx >= 0) { e.preventDefault(); applyTagInputSugg(tagInputSuggs[tagInputSuggIdx]); return; }
+    }
+    if (e.key === 'Enter')  commitNewTag();
+    if (e.key === 'Escape') { setNewTagInput(''); setShowNewTag(false); setTagInputSuggs([]); }
   };
 
   return (
@@ -431,23 +459,33 @@ function NotesSidebar({
           </button>
         </div>
 
-        {/* Champ de création inline */}
+        {/* Champ de création inline + suggestions */}
         {showNewTag && (
-          <div className="mb-1">
+          <div className="mb-1 relative">
             <input
               aria-label="Nouveau tag"
               type="text"
               autoFocus
               placeholder="mon-tag"
               value={newTagInput}
-              onChange={e => setNewTagInput(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter')  commitNewTag();
-                if (e.key === 'Escape') { setNewTagInput(''); setShowNewTag(false); }
-              }}
-              onBlur={commitNewTag}
+              onChange={e => handleTagInputChange(e.target.value)}
+              onKeyDown={handleTagInputKeyDown}
+              onBlur={() => setTimeout(commitNewTag, 150)}
+              onFocus={() => handleTagInputChange(newTagInput)}
               className="w-full px-2 py-1 text-xs bg-dark-700 border border-yellow-500/50 rounded text-white focus:outline-none placeholder-gray-600"
             />
+            {tagInputSuggs.length > 0 && (
+              <div className="absolute left-0 top-full z-50 w-full mt-0.5 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden">
+                {tagInputSuggs.map((t, i) => (
+                  <button key={t} type="button"
+                    onMouseDown={e => { e.preventDefault(); applyTagInputSugg(t); }}
+                    className={`w-full px-2 py-1 text-xs text-left flex items-center gap-1.5 transition-colors ${
+                      i === tagInputSuggIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-300 hover:bg-dark-700'
+                    }`}
+                  ><Hash size={10} />#{t}</button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -527,7 +565,8 @@ export default function NotesEditor() {
 
   const [sortBy, setSortBy] = useState<SortBy>('dateModified');
 
-  const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
+  const [tagSuggestions,    setTagSuggestions]    = useState<string[]>([]);
+  const [tagSuggestionIdx,  setTagSuggestionIdx]  = useState(-1);
   const contentRef = useRef<HTMLTextAreaElement>(null);
 
   const [search, setSearch] = useState('');
@@ -663,15 +702,22 @@ export default function NotesEditor() {
     }, 1000);
   }, [selectedId, isReadOnly]);
 
+  // Reset de l'index de sélection quand les suggestions changent
+  useEffect(() => { setTagSuggestionIdx(-1); }, [tagSuggestions]);
+
   // ── Autocomplétion hashtags ───────────────────────────────────────────────
   const detectTagAtCursor = useCallback(() => {
     const el = contentRef.current;
     if (!el) return;
     const textBefore = content.slice(0, el.selectionStart);
-    const match = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)$/);
+    // Matche `#` seul ou `#partial` (groupe 1 optionnel)
+    const match = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
     if (match) {
-      const partial = match[1].toLowerCase();
-      setTagSuggestions(allTags.filter(t => t.startsWith(partial) && t !== partial).slice(0, 6));
+      const partial = (match[1] ?? '').toLowerCase();
+      const filtered = partial
+        ? allTags.filter(t => t.startsWith(partial) && t !== partial)
+        : allTags; // affiche tous les tags si juste `#`
+      setTagSuggestions(filtered.slice(0, 6));
     } else {
       setTagSuggestions([]);
     }
@@ -683,12 +729,32 @@ export default function NotesEditor() {
     const cursor     = el.selectionStart;
     const textBefore = content.slice(0, cursor);
     const textAfter  = content.slice(cursor);
-    const newBefore  = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)$/, `#${tag} `);
+    const newBefore  = textBefore.replace(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/, `#${tag} `);
     const newContent = newBefore + textAfter;
     setContent(newContent);
     scheduleAutoSave(title, newContent);
     setTagSuggestions([]);
     setTimeout(() => { el.focus(); el.setSelectionRange(newBefore.length, newBefore.length); }, 0);
+  };
+
+  // ── Navigation clavier dans l'autocomplete ────────────────────────────────
+  const handleContentKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (tagSuggestions.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setTagSuggestionIdx(i => Math.min(i + 1, tagSuggestions.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setTagSuggestionIdx(i => Math.max(i - 1, -1));
+    } else if ((e.key === 'Enter' || e.key === 'Tab') && tagSuggestionIdx >= 0) {
+      e.preventDefault();
+      applyTagSuggestion(tagSuggestions[tagSuggestionIdx]);
+    } else if (e.key === 'Tab' && tagSuggestionIdx === -1 && tagSuggestions.length > 0) {
+      e.preventDefault();
+      applyTagSuggestion(tagSuggestions[0]);
+    } else if (e.key === 'Escape') {
+      setTagSuggestions([]);
+    }
   };
 
   // ── Handlers éditeur ─────────────────────────────────────────────────────
@@ -1062,6 +1128,7 @@ export default function NotesEditor() {
                   ref={contentRef}
                   value={content}
                   onChange={e => handleContentChange(e.target.value)}
+                  onKeyDown={handleContentKeyDown}
                   onKeyUp={detectTagAtCursor}
                   onClick={detectTagAtCursor}
                   placeholder={isReadOnly ? '' : "Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement."}
@@ -1070,12 +1137,18 @@ export default function NotesEditor() {
                   className={`flex-1 w-full px-6 py-2 bg-transparent text-gray-300 placeholder-gray-600 focus:outline-none resize-none leading-relaxed text-sm ${isReadOnly ? 'cursor-default' : ''}`}
                 />
                 {tagSuggestions.length > 0 && (
-                  <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                    {tagSuggestions.map(tag => (
+                  <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[140px]" onClick={e => e.stopPropagation()}>
+                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tags</p>
+                    {tagSuggestions.map((tag, i) => (
                       <button key={tag} type="button" onClick={() => applyTagSuggestion(tag)}
-                        className="w-full px-3 py-1.5 text-sm text-left text-yellow-400 hover:bg-dark-700 flex items-center gap-2"
+                        className={`w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 transition-colors ${
+                          i === tagSuggestionIdx
+                            ? 'bg-yellow-500/20 text-yellow-300'
+                            : 'text-yellow-400 hover:bg-dark-700'
+                        }`}
                       ><Hash size={11} />#{tag}</button>
                     ))}
+                    <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ naviguer · Tab/Enter appliquer · Esc fermer</p>
                   </div>
                 )}
               </div>
