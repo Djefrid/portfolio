@@ -489,12 +489,13 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 ┌─────────────────┬──────────────────┬───────────────────────────────────┐
 │    SIDEBAR      │   LISTE NOTES    │           ÉDITEUR                 │
 │                 │                  │                                   │
-│ • Toutes mes    │ • Tri par date   │ • Titre (avec autocomplete)       │
-│   notes         │   modifiée       │ • Contenu (avec autocomplete)     │
-│ • Dossiers      │ • Épinglées /    │ • Autosave 1s après frappe        │
-│ • Smart Folders │   Non épinglées  │ • Tags en bas de l'éditeur        │
-│ • Tags          │ • Jours restants │ • Mode lecture seule (corbeille)  │
-│ • Corbeille     │   (corbeille)    │                                   │
+│ • Toutes mes    │ • Recherche      │ • Titre (avec autocomplete)       │
+│   notes         │   temps réel     │ • Contenu (avec autocomplete)     │
+│ • Dossiers      │   (Ctrl+F)       │ • Autosave 1s après frappe        │
+│ • Smart Folders │ • Épinglées /    │ • Tags en bas de l'éditeur        │
+│ • Tags          │   Non épinglées  │ • Mode lecture seule (corbeille)  │
+│ • Corbeille     │ • Jours restants │                                   │
+│                 │   (corbeille)    │                                   │
 └─────────────────┴──────────────────┴───────────────────────────────────┘
 ```
 
@@ -518,6 +519,7 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
 | **Jours restants** | Affichés en orange dans la corbeille |
 | **Sync temps réel** | 3 `onSnapshot` Firestore — multi-appareils |
+| **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
 
 ### Dossiers intelligents (Smart Folders)
 
@@ -843,4 +845,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 3 mars 2026 — autocomplete titre complet (tags, mots, titres)*
+*Documentation mise à jour le 3 mars 2026 — recherche temps réel (Ctrl+F) + autocomplete titre complet (tags, mots, titres)*
