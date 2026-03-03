@@ -1,6 +1,6 @@
 # Portfolio — Développeur Web Full-Stack
 
-Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, Firebase et Tailwind CSS. Inclut un panneau d'administration complet pour gérer le contenu dynamiquement, un mode clair/sombre animé, et des animations au défilement.
+Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, Firebase et Tailwind CSS. Inclut un panneau d'administration complet pour gérer le contenu dynamiquement, un système de notes privées (style Apple Notes), un mode clair/sombre animé, et des animations au défilement.
 
 ---
 
@@ -16,12 +16,13 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 8. [Structure du projet](#structure-du-projet)
 9. [Fonctionnalités](#fonctionnalités)
 10. [Panneau Admin](#panneau-admin)
-11. [API Routes](#api-routes)
-12. [SEO et Référencement](#seo-et-référencement)
-13. [Déploiement sur Vercel](#déploiement-sur-vercel)
-14. [Sécurité](#sécurité)
-15. [Dépannage](#dépannage)
-16. [Commandes disponibles](#commandes-disponibles)
+11. [Système de Notes](#système-de-notes)
+12. [API Routes](#api-routes)
+13. [SEO et Référencement](#seo-et-référencement)
+14. [Déploiement sur Vercel](#déploiement-sur-vercel)
+15. [Sécurité](#sécurité)
+16. [Dépannage](#dépannage)
+17. [Commandes disponibles](#commandes-disponibles)
 
 ---
 
@@ -30,10 +31,11 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 | Site Public | Panneau Admin |
 |-------------|---------------|
 | Portfolio bilingue FR/EN | Interface d'édition sécurisée |
-| Sections : Hero, À propos, Projets, Compétences, Contact | Éditeurs : Profil, Projets, Compétences |
+| Sections : Hero, À propos, Projets, Compétences, Contact | Éditeurs : Profil, Projets, Compétences, Notes |
 | Mode clair / sombre animé (next-themes) | Traduction automatique FR→EN |
 | Animations scroll bidirectionnelles (framer-motion) | Formulaire de contact (Resend) |
 | Design responsive mobile/tablette/desktop | Données Firebase ou fallback statique |
+| — | Notes privées style Apple Notes (dossiers, tags, smart folders) |
 
 ---
 
@@ -148,7 +150,16 @@ Ouvrir : [http://localhost:3000](http://localhost:3000)
 3. Activer **"E-mail/Mot de passe"**
 4. Cliquer sur **"Enregistrer"**
 
-### Étape 3 : Ajouter les domaines autorisés
+### Étape 3 : Activer l'authentification Google (optionnel)
+
+Permet de se connecter à l'admin avec un compte Google.
+
+1. **Authentication → Sign-in method**
+2. Activer **"Google"**
+3. Saisir un email de support projet
+4. Cliquer sur **"Enregistrer"**
+
+### Étape 4 : Ajouter les domaines autorisés
 
 > **Critique pour Vercel** : Sans cette étape, la connexion admin échouera en production.
 
@@ -156,18 +167,18 @@ Ouvrir : [http://localhost:3000](http://localhost:3000)
 2. Cliquer sur **"Add domain"** et ajouter votre domaine Vercel :
    - `votre-projet.vercel.app`
 
-### Étape 4 : Créer un utilisateur admin
+### Étape 5 : Créer un utilisateur admin
 
 1. **Authentication → Users → Add user**
 2. Entrer votre email et un mot de passe sécurisé (min 6 caractères)
 
-### Étape 5 : Créer la base de données Firestore
+### Étape 6 : Créer la base de données Firestore
 
 1. **Build → Firestore Database → Créer une base de données**
 2. Choisir **"Start in production mode"**
 3. Sélectionner une région (ex: `nam5 (us-central)` pour le Canada)
 
-### Étape 6 : Configurer les règles de sécurité Firestore
+### Étape 7 : Configurer les règles de sécurité Firestore
 
 1. **Firestore → Règles**
 2. Remplacer par :
@@ -193,6 +204,22 @@ service cloud.firestore {
       allow write: if request.auth != null
         && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
     }
+
+    // Notes privées (admin uniquement)
+    match /adminNotes/{document} {
+      allow write: if request.auth != null
+        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
+    }
+
+    match /adminFolders/{document} {
+      allow write: if request.auth != null
+        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
+    }
+
+    match /adminTags/{document} {
+      allow write: if request.auth != null
+        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
+    }
   }
 }
 ```
@@ -200,7 +227,7 @@ service cloud.firestore {
 3. Remplacer `VOTRE_EMAIL_ADMIN` par votre email
 4. Cliquer sur **"Publier"**
 
-### Étape 7 : Récupérer les clés Firebase
+### Étape 8 : Récupérer les clés Firebase
 
 1. **Paramètres du projet (⚙️) → Vos applications → Web (`</>`)**
 2. Nommer l'app `portfolio-web`
@@ -301,9 +328,9 @@ portfolio/
 │   │
 │   ├── admin/                        # Routes administration (protégées)
 │   │   ├── layout.tsx                # Guard d'authentification Firebase
-│   │   ├── page.tsx                  # Dashboard admin (onglets profil/projets/compétences)
+│   │   ├── page.tsx                  # Dashboard admin (4 onglets: profil/projets/compétences/notes)
 │   │   └── login/
-│   │       └── page.tsx              # Connexion admin (/admin/login)
+│   │       └── page.tsx              # Connexion admin — email/mdp + Google OAuth
 │   │
 │   ├── sitemap.ts                    # Génère /sitemap.xml dynamique (SEO)
 │   ├── robots.ts                     # Génère /robots.txt (bloque /admin, /api/)
@@ -331,7 +358,8 @@ portfolio/
 │   │   ├── AdminHeader.tsx           # Header admin (navigation + déconnexion)
 │   │   ├── ProfileEditor.tsx         # Éditeur profil bilingue
 │   │   ├── ProjectsEditor.tsx        # Éditeur projets CRUD bilingue
-│   │   └── SkillsEditor.tsx          # Éditeur catégories de compétences
+│   │   ├── SkillsEditor.tsx          # Éditeur catégories de compétences
+│   │   └── NotesEditor.tsx           # Notes privées style Apple Notes (3 panneaux)
 │   │
 │   ├── ui/                           # Composants UI réutilisables
 │   │   ├── badge.tsx                 # Badge (CVA variants)
@@ -352,14 +380,16 @@ portfolio/
 │
 ├── hooks/                            # Hooks personnalisés
 │   ├── index.ts                      # Barrel export
-│   └── usePortfolioData.ts           # Chargement données + conversion bilingual
+│   ├── usePortfolioData.ts           # Chargement données + conversion bilingual
+│   └── useAdminNotes.ts              # 3 subscriptions Firestore realtime (notes, dossiers, tags)
 │
 ├── lib/                              # Bibliothèques et utilitaires
 │   ├── utils.ts                      # cn() — clsx + tailwind-merge
+│   ├── notes-service.ts              # CRUD Firestore : Note, Folder, SmartFolder, Tags
 │   └── firebase/
 │       ├── index.ts                  # Barrel exports
 │       ├── config.ts                 # Init Firebase, isFirebaseConfigured
-│       ├── hooks.ts                  # useAuth() — signIn, signOut, isAdmin
+│       ├── hooks.ts                  # useAuth() — signIn, signOut, signInWithGoogle, isAdmin
 │       ├── context.tsx               # AuthProvider, useAuthContext()
 │       └── firestore.ts              # CRUD Firestore (profil, projets, compétences)
 │
@@ -408,11 +438,13 @@ portfolio/
 
 | Fonctionnalité | Description |
 |----------------|-------------|
-| **Auth sécurisée** | Connexion Firebase (email/password) |
+| **Auth Email/Mot de passe** | Connexion Firebase classique |
+| **Auth Google OAuth** | Connexion en 1 clic via compte Google (signInWithPopup) |
 | **Guard de route** | Redirection automatique si non connecté |
 | **Éditeur Profil** | Nom, titre, bio, points clés, liens sociaux, "Open to Work" |
 | **Éditeur Projets** | CRUD complet (ajouter, modifier, supprimer) |
 | **Éditeur Compétences** | Gestion par catégories (créer, réordonner, supprimer) |
+| **Éditeur Notes** | Notes privées style Apple Notes (voir section dédiée) |
 | **Traduction auto** | FR → EN automatique via MyMemory API |
 | **Temps réel** | Modifications visibles immédiatement (Firestore listeners) |
 
@@ -424,6 +456,7 @@ portfolio/
 
 1. Aller sur `/admin/login`
 2. Entrer l'email et mot de passe créés dans Firebase Auth
+   **OU** cliquer sur "Continuer avec Google" (si Google Auth est activé dans Firebase)
 3. Vous êtes redirigé vers le dashboard
 
 ### Sections d'édition
@@ -433,8 +466,9 @@ portfolio/
 | **Profil** | Nom, titre, paragraphes "À propos", points clés, stack, liens sociaux |
 | **Projets** | Titre, description, description longue, stack, fonctionnalités, défis, liens GitHub/démo |
 | **Compétences** | Catégories et technologies par catégorie |
+| **Notes** | Notes privées avec dossiers, tags, dossiers intelligents, autocomplete |
 
-### Processus de sauvegarde
+### Processus de sauvegarde (Profil / Projets / Compétences)
 
 Quand vous cliquez sur **"Enregistrer"** :
 
@@ -442,6 +476,87 @@ Quand vous cliquez sur **"Enregistrer"** :
 2. 🔄 L'API `/api/translate` traduit automatiquement en anglais (MyMemory)
 3. 💾 Les données bilingues sont enregistrées dans Firebase Firestore
 4. 🌐 Le site public est mis à jour en temps réel
+
+---
+
+## Système de Notes
+
+L'onglet **Notes** est un système de prise de notes privées réservé à l'admin, inspiré d'Apple Notes. Il fonctionne en temps réel via Firestore.
+
+### Interface 3 panneaux
+
+```
+┌─────────────────┬──────────────────┬───────────────────────────────────┐
+│    SIDEBAR      │   LISTE NOTES    │           ÉDITEUR                 │
+│                 │                  │                                   │
+│ • Toutes mes    │ • Tri par date   │ • Titre (avec autocomplete)       │
+│   notes         │   modifiée       │ • Contenu (avec autocomplete)     │
+│ • Dossiers      │ • Épinglées /    │ • Autosave 1s après frappe        │
+│ • Smart Folders │   Non épinglées  │ • Tags en bas de l'éditeur        │
+│ • Tags          │ • Jours restants │ • Mode lecture seule (corbeille)  │
+│ • Corbeille     │   (corbeille)    │                                   │
+└─────────────────┴──────────────────┴───────────────────────────────────┘
+```
+
+### Collections Firestore
+
+| Collection | Champs |
+|------------|--------|
+| `adminNotes` | `title`, `content`, `pinned`, `folderId`, `tags[]`, `deletedAt`, `createdAt`, `updatedAt` |
+| `adminFolders` | `name`, `order`, `isSmart`, `filters?`, `createdAt`, `updatedAt` |
+| `adminTags` | `name`, `createdAt` (ID = nom du tag, upsert-safe) |
+
+### Fonctionnalités clés
+
+| Fonctionnalité | Détail |
+|----------------|--------|
+| **Autosave** | Sauvegarde automatique 1 seconde après la dernière frappe |
+| **Corbeille** | Soft delete → `deletedAt`, auto-purge après 30 jours |
+| **Récupération** | Restauration depuis la corbeille vers "Toutes mes notes" |
+| **Notes épinglées** | Séparateur visuel épinglées / non épinglées dans la liste |
+| **Tri** | Par date de modification, date de création, ou titre |
+| **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
+| **Jours restants** | Affichés en orange dans la corbeille |
+| **Sync temps réel** | 3 `onSnapshot` Firestore — multi-appareils |
+
+### Dossiers intelligents (Smart Folders)
+
+Les **Smart Folders** (icône ⚡) filtrent dynamiquement les notes selon des critères :
+
+- **Tags** : filtre par tag(s) avec logique AND ou OR
+- **Épinglées** : affiche uniquement les notes épinglées
+- **Créées dans** : notes créées dans les N derniers jours
+- **Modifiées dans** : notes modifiées dans les N derniers jours
+
+> Les notes ne bougent pas — le filtre est appliqué côté client en temps réel.
+
+### Tags
+
+- **Auto-extraction** : les `#hashtags` dans le contenu sont extraits automatiquement à chaque save
+- **Création manuelle** : bouton `+` dans la sidebar
+- **Suppression** : bouton `×` (hover) — uniquement les tags manuels
+- **Vue filtrée** : clic sur un tag dans la sidebar → filtre la liste
+- **Fréquence** : tags triés par nombre d'utilisations
+
+### Autocomplete moderne
+
+L'éditeur propose une autocomplétion intelligente en temps réel :
+
+**Dans le contenu (textarea) :**
+| Déclencheur | Comportement |
+|-------------|--------------|
+| `#` seul | Affiche tous les tags disponibles |
+| `#abc` | Fuzzy matching (`includes`) sur les tags existants |
+| Mot ≥ 3 lettres | `startsWith` sur l'index de tous les mots de toutes les notes |
+
+**Dans le titre :**
+- ≥ 2 lettres → suggestions basées sur les titres des notes existantes
+
+**Dans la sidebar (nouveau tag) :**
+- Dès la 1ère lettre → suggestions parmi les tags existants
+- Focus sur champ vide → affiche les 5 premiers tags
+
+**Navigation popup :** ↑↓ · Tab (1er item) · Enter (item sélectionné) · Escape
 
 ---
 
@@ -554,8 +669,9 @@ Cliquer sur **"Deploy"**. Chaque `git push` sur `main` déclenche un redéploiem
 
 - ✅ **Next.js 14.2.35** — CVE-2025-29927 corrigée (bypass d'autorisation middleware critique)
 - ✅ **Headers HTTP** : HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
-- ✅ **Authentification Firebase** (email/password)
-- ✅ **Règles Firestore** restrictives — écriture réservée à l'admin authentifié
+- ✅ **Authentification Firebase** — Email/password + Google OAuth (signInWithPopup)
+- ✅ **Vérification admin stricte** — `user.email === NEXT_PUBLIC_ADMIN_EMAIL` pour toute méthode d'auth
+- ✅ **Règles Firestore** restrictives — écriture réservée à l'admin authentifié (profil, projets, notes, dossiers, tags)
 - ✅ **Variables d'environnement** non commitées (`.gitignore`)
 - ✅ **`RESEND_API_KEY`** côté serveur uniquement (jamais exposé au navigateur)
 - ✅ **Domaines Firebase** autorisés explicitement
@@ -596,6 +712,16 @@ Domaine Vercel non autorisé dans Firebase Auth.
 
 1. Firebase Console → Authentication → Settings → Authorized domains
 2. Ajouter : `votre-projet.vercel.app`
+
+---
+
+### ❌ Connexion Google bloquée
+
+La popup Google est bloquée par le navigateur ou le domaine n'est pas autorisé dans Firebase.
+
+1. Vérifier que Google est activé dans Firebase → Authentication → Sign-in method
+2. Vérifier les domaines autorisés (localhost + votre domaine Vercel)
+3. Autoriser les popups dans le navigateur pour votre domaine
 
 ---
 
@@ -645,12 +771,15 @@ npm run dev -- -p 3001
 │   SITE PUBLIC (/)              │    ADMIN (/admin)           │
 │   ─────────────────            │    ──────────────           │
 │   • Header (navigation,        │    • Guard Firebase Auth    │
-│     langue, thème)             │    • Éditeurs bilingues     │
-│   • Hero, About, Projects,     │      Profil / Projets /     │
-│     Skills, Contact            │      Compétences            │
-│   • Mode clair/sombre          │    • Traduction auto FR→EN  │
-│   • Animations framer-motion   │    • CRUD Firestore         │
-│   • Bilingue FR/EN             │                             │
+│     langue, thème)             │    • Login Email/Google     │
+│   • Hero, About, Projects,     │    • Éditeurs bilingues     │
+│     Skills, Contact            │      Profil / Projets /     │
+│   • Mode clair/sombre          │      Compétences / Notes    │
+│   • Animations framer-motion   │    • Traduction auto FR→EN  │
+│   • Bilingue FR/EN             │    • CRUD Firestore         │
+│                                │    • Notes : dossiers,      │
+│                                │      smart folders, tags,   │
+│                                │      autocomplete           │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
                               │
@@ -676,8 +805,11 @@ npm run dev -- -p 3001
 │   AUTHENTICATION              │    FIRESTORE DATABASE        │
 │   ──────────────              │    ──────────────────        │
 │   • Email/Password            │    • settings/profile        │
-│   • 1 admin autorisé          │    • settings/skills         │
-│   • Domaines autorisés        │    • projects/{id}           │
+│   • Google OAuth              │    • settings/skills         │
+│   • 1 admin autorisé          │    • projects/{id}           │
+│   • Domaines autorisés        │    • adminNotes/{id}         │
+│                               │    • adminFolders/{id}       │
+│                               │    • adminTags/{name}        │
 │                               │    • Données FR/EN           │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
@@ -708,4 +840,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 26 février 2026*
+*Documentation mise à jour le 3 mars 2026*
