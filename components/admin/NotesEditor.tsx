@@ -85,6 +85,28 @@ function applySmartFilters(notes: Note[], filters: SmartFolderFilter): Note[] {
   return result;
 }
 
+// ── Arbre de dossiers ─────────────────────────────────────────────────────────
+
+interface FolderNode extends FolderType { children: FolderNode[]; }
+
+function buildFolderTree(folders: FolderType[]): FolderNode[] {
+  const regular = folders.filter(f => !f.isSmart);
+  const map = new Map<string, FolderNode>();
+  regular.forEach(f => map.set(f.id, { ...f, children: [] }));
+  const roots: FolderNode[] = [];
+  regular.forEach(f => {
+    const node = map.get(f.id)!;
+    if (f.parentId && map.has(f.parentId)) map.get(f.parentId)!.children.push(node);
+    else roots.push(node);
+  });
+  const sort = (nodes: FolderNode[]) => {
+    nodes.sort((a, b) => a.order - b.order);
+    nodes.forEach(n => sort(n.children));
+  };
+  sort(roots);
+  return roots;
+}
+
 // ── SmartFolderModal ──────────────────────────────────────────────────────────
 
 function SmartFolderModal({
@@ -224,12 +246,146 @@ function SmartFolderModal({
   );
 }
 
+// ── FolderTreeItem ────────────────────────────────────────────────────────────
+
+function FolderTreeItem({
+  node, depth, view, onSelectView,
+  editingId, editingName, setEditingId, setEditingName, commitRename,
+  menuId, setMenuId, counts,
+  onDeleteFolder, onCreateSubfolder,
+  expandedIds, toggleExpand,
+}: {
+  node:              FolderNode;
+  depth:             number;
+  view:              ViewFilter;
+  onSelectView:      (v: ViewFilter) => void;
+  editingId:         string | null;
+  editingName:       string;
+  setEditingId:      (id: string | null) => void;
+  setEditingName:    (name: string) => void;
+  commitRename:      (id: string) => void;
+  menuId:            string | null;
+  setMenuId:         (id: string | null) => void;
+  counts:            { byFolder: Record<string, number> };
+  onDeleteFolder:    (id: string) => void;
+  onCreateSubfolder: (parentId: string) => void;
+  expandedIds:       Record<string, boolean>;
+  toggleExpand:      (id: string) => void;
+}) {
+  const isActive    = viewEq(view, { type: 'folder', id: node.id });
+  const hasChildren = node.children.length > 0;
+  const isExpanded  = expandedIds[node.id] ?? true;
+
+  const rowCls = `w-full flex items-center justify-between rounded-lg text-sm transition-colors ${
+    isActive
+      ? 'bg-yellow-500/15 text-yellow-300 font-medium'
+      : 'text-gray-400 hover:text-white hover:bg-dark-700'
+  }`;
+
+  return (
+    <div>
+      <div className="relative group px-2" style={{ paddingLeft: 8 + depth * 12 }}>
+        {editingId === node.id ? (
+          <input
+            aria-label="Nom du dossier"
+            autoFocus
+            value={editingName}
+            onChange={e => setEditingName(e.target.value)}
+            onBlur={() => commitRename(node.id)}
+            onKeyDown={e => {
+              if (e.key === 'Enter')  commitRename(node.id);
+              if (e.key === 'Escape') setEditingId(null);
+            }}
+            className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none my-0.5"
+          />
+        ) : (
+          <button
+            type="button"
+            className={`${rowCls} px-1.5 py-1.5`}
+            onClick={() => onSelectView({ type: 'folder', id: node.id })}
+          >
+            <span className="flex items-center gap-1 truncate min-w-0">
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); if (hasChildren) toggleExpand(node.id); }}
+                className={`shrink-0 transition-transform ${hasChildren ? 'opacity-60 hover:opacity-100' : 'opacity-0 pointer-events-none'}`}
+                style={{ width: 12 }}
+              >
+                <ChevronRight size={10} className={`transition-transform duration-150 ${isExpanded ? 'rotate-90' : ''}`} />
+              </button>
+              <FolderOpen size={13} className="shrink-0" />
+              <span className="truncate">{node.name}</span>
+            </span>
+            <span className="flex items-center gap-1 shrink-0">
+              <span className="text-xs opacity-50">{counts.byFolder[node.id] ?? 0}</span>
+              <button
+                type="button"
+                title="Options"
+                onClick={e => { e.stopPropagation(); setMenuId(menuId === node.id ? null : node.id); }}
+                className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-dark-600 transition-opacity"
+              >
+                <MoreHorizontal size={11} />
+              </button>
+            </span>
+          </button>
+        )}
+
+        {menuId === node.id && (
+          <div
+            className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-48"
+            onClick={e => e.stopPropagation()}
+          >
+            <button type="button" onClick={() => { setEditingId(node.id); setEditingName(node.name); setMenuId(null); }}
+              className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700">
+              Renommer
+            </button>
+            <button type="button" onClick={() => { onCreateSubfolder(node.id); setMenuId(null); }}
+              className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700 flex items-center gap-2">
+              <FolderPlus size={12} /> Nouveau sous-dossier
+            </button>
+            <button type="button" onClick={() => { onDeleteFolder(node.id); setMenuId(null); }}
+              className="w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-dark-700">
+              Supprimer
+            </button>
+          </div>
+        )}
+      </div>
+
+      {hasChildren && isExpanded && (
+        <div>
+          {node.children.map(child => (
+            <FolderTreeItem
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              view={view}
+              onSelectView={onSelectView}
+              editingId={editingId}
+              editingName={editingName}
+              setEditingId={setEditingId}
+              setEditingName={setEditingName}
+              commitRename={commitRename}
+              menuId={menuId}
+              setMenuId={setMenuId}
+              counts={counts}
+              onDeleteFolder={onDeleteFolder}
+              onCreateSubfolder={onCreateSubfolder}
+              expandedIds={expandedIds}
+              toggleExpand={toggleExpand}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 
 function NotesSidebar({
   notes, deletedNotes, folders, manualTags, view, onSelectView,
   newFolderPendingId, onFolderCreated, onEditSmartFolder,
-  onCreateTag, onDeleteTag, trashBtnRef, trashShake,
+  onCreateTag, onDeleteTag, trashBtnRef, trashShake, onCreateSubfolder,
 }: {
   notes:              Note[];
   deletedNotes:       Note[];
@@ -244,6 +400,7 @@ function NotesSidebar({
   onDeleteTag:        (name: string) => void;
   trashBtnRef:        React.RefObject<HTMLButtonElement>;
   trashShake:         boolean;
+  onCreateSubfolder:  (parentId: string) => void;
 }) {
   const [editingId,       setEditingId]       = useState<string | null>(null);
   const [editingName,     setEditingName]     = useState('');
@@ -252,6 +409,12 @@ function NotesSidebar({
   const [newTagInput,     setNewTagInput]     = useState('');
   const [tagInputSuggs,   setTagInputSuggs]   = useState<string[]>([]);
   const [tagInputSuggIdx, setTagInputSuggIdx] = useState(-1);
+  const [expandedIds,     setExpandedIds]     = useState<Record<string, boolean>>({});
+  const toggleExpand = useCallback((id: string) => {
+    setExpandedIds(prev => ({ ...prev, [id]: !(prev[id] ?? true) }));
+  }, []);
+  const folderTree   = useMemo(() => buildFolderTree(folders), [folders]);
+  const smartFolders = useMemo(() => folders.filter(f => f.isSmart), [folders]);
 
   useEffect(() => {
     if (newFolderPendingId && folders.find(f => f.id === newFolderPendingId)) {
@@ -363,59 +526,85 @@ function NotesSidebar({
 
       <div className="mx-2 border-t border-dark-700" />
 
-      {/* Dossiers */}
-      <div className="px-2 pt-2 pb-1">
-        <div className="px-1 mb-1">
-          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Dossiers</span>
+      {/* Dossiers normaux — arbre récursif */}
+      {folderTree.length > 0 && (
+        <div className="pt-1 pb-1">
+          <div className="px-3 mb-1">
+            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Dossiers</span>
+          </div>
+          {folderTree.map(node => (
+            <FolderTreeItem
+              key={node.id}
+              node={node}
+              depth={0}
+              view={view}
+              onSelectView={onSelectView}
+              editingId={editingId}
+              editingName={editingName}
+              setEditingId={setEditingId}
+              setEditingName={setEditingName}
+              commitRename={commitRename}
+              menuId={menuId}
+              setMenuId={setMenuId}
+              counts={counts}
+              onDeleteFolder={handleDeleteFolder}
+              onCreateSubfolder={onCreateSubfolder}
+              expandedIds={expandedIds}
+              toggleExpand={toggleExpand}
+            />
+          ))}
         </div>
-        <div className="space-y-0.5">
-          {folders.map(f => (
-            <div key={f.id} className="relative group">
-              {editingId === f.id ? (
-                <input
-                  aria-label="Nom du dossier"
-                  autoFocus
-                  value={editingName}
-                  onChange={e => setEditingName(e.target.value)}
-                  onBlur={() => commitRename(f.id)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter')  commitRename(f.id);
-                    if (e.key === 'Escape') setEditingId(null);
-                  }}
-                  className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none"
-                />
-              ) : (
-                <button
-                  type="button"
-                  className={row({ type: 'folder', id: f.id })}
-                  onClick={() => onSelectView({ type: 'folder', id: f.id })}
-                >
-                  <span className="flex items-center gap-2 truncate min-w-0">
-                    {f.isSmart
-                      ? <Zap size={12} className="text-yellow-400 shrink-0" />
-                      : <FolderOpen size={13} className="shrink-0" />
-                    }
-                    <span className="truncate">{f.name}</span>
-                  </span>
-                  <span className="flex items-center gap-1 shrink-0">
-                    {!f.isSmart && <span className="text-xs opacity-50">{counts.byFolder[f.id] ?? 0}</span>}
-                    <button
-                      type="button"
-                      title="Options du dossier"
-                      onClick={e => { e.stopPropagation(); setMenuId(menuId === f.id ? null : f.id); }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-dark-600 transition-opacity"
-                    >
-                      <MoreHorizontal size={11} />
-                    </button>
-                  </span>
-                </button>
-              )}
-              {menuId === f.id && (
-                <div
-                  className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {f.isSmart ? (
+      )}
+
+      {/* Dossiers intelligents — liste plate */}
+      {smartFolders.length > 0 && (
+        <div className="pt-1 pb-1">
+          <div className="px-3 mb-1">
+            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Intelligents</span>
+          </div>
+          <div className="space-y-0.5 px-2">
+            {smartFolders.map(f => (
+              <div key={f.id} className="relative group">
+                {editingId === f.id ? (
+                  <input
+                    aria-label="Nom du dossier"
+                    autoFocus
+                    value={editingName}
+                    onChange={e => setEditingName(e.target.value)}
+                    onBlur={() => commitRename(f.id)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter')  commitRename(f.id);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className={row({ type: 'folder', id: f.id })}
+                    onClick={() => onSelectView({ type: 'folder', id: f.id })}
+                  >
+                    <span className="flex items-center gap-2 truncate min-w-0">
+                      <Zap size={12} className="text-yellow-400 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title="Options du dossier"
+                        onClick={e => { e.stopPropagation(); setMenuId(menuId === f.id ? null : f.id); }}
+                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-dark-600 transition-opacity"
+                      >
+                        <MoreHorizontal size={11} />
+                      </button>
+                    </span>
+                  </button>
+                )}
+                {menuId === f.id && (
+                  <div
+                    className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
+                    onClick={e => e.stopPropagation()}
+                  >
                     <button
                       type="button"
                       onClick={() => { onEditSmartFolder(f.id); setMenuId(null); }}
@@ -423,28 +612,20 @@ function NotesSidebar({
                     >
                       <Zap size={12} className="text-yellow-400" /> Modifier les filtres
                     </button>
-                  ) : (
                     <button
                       type="button"
-                      onClick={() => { setEditingId(f.id); setEditingName(f.name); setMenuId(null); }}
-                      className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700"
+                      onClick={() => handleDeleteFolder(f.id)}
+                      className="w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-dark-700"
                     >
-                      Renommer
+                      Supprimer
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteFolder(f.id)}
-                    className="w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-dark-700"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="mx-2 border-t border-dark-700" />
 
@@ -986,6 +1167,11 @@ export default function NotesEditor() {
     setNewFolderPendingId(id); setMobilePanel('sidebar');
   };
 
+  const handleCreateSubfolder = async (parentId: string) => {
+    const id = await createFolder('Nouveau dossier', folders.length, parentId);
+    setNewFolderPendingId(id); setMobilePanel('sidebar');
+  };
+
   const handleCreateSmartFolder = async (name: string, filters: SmartFolderFilter) => {
     const id = await createSmartFolder(name, folders.length, filters);
     setView({ type: 'folder', id }); setShowSmartModal(false);
@@ -1128,6 +1314,7 @@ export default function NotesEditor() {
             onDeleteTag={handleDeleteTag}
             trashBtnRef={trashBtnRef}
             trashShake={trashShake}
+            onCreateSubfolder={handleCreateSubfolder}
           />
         </div>
 
