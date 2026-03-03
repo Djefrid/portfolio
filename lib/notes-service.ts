@@ -108,12 +108,11 @@ export async function permanentlyDeleteNote(id: string): Promise<void> {
   await deleteDoc(doc(db, 'adminNotes', id));
 }
 
-// Récupération depuis la Corbeille → retour dans l'Inbox (Apple Notes behavior)
+// Récupération depuis la Corbeille → retour dans le dossier d'origine (folderId conservé)
 export async function recoverNote(id: string): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
   await updateDoc(doc(db, 'adminNotes', id), {
     deletedAt: null,
-    folderId: null,
     updatedAt: serverTimestamp(),
   });
 }
