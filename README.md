@@ -550,7 +550,10 @@ L'éditeur propose une autocomplétion intelligente en temps réel :
 | Mot ≥ 3 lettres | `startsWith` sur l'index de tous les mots de toutes les notes |
 
 **Dans le titre :**
-- ≥ 2 lettres → suggestions basées sur les titres des notes existantes
+- `#` seul ou `#partial` → fuzzy matching sur les tags (s'insère au curseur)
+- Mot ≥ 3 lettres → complétion `startsWith` depuis l'index de mots (comme le contenu)
+- ≥ 2 lettres sans `#` → titres similaires existants (priorité 3)
+- Application intelligente au curseur : le mot partiel est remplacé, pas tout le titre
 
 **Dans la sidebar (nouveau tag) :**
 - Dès la 1ère lettre → suggestions parmi les tags existants
@@ -840,4 +843,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 3 mars 2026*
+*Documentation mise à jour le 3 mars 2026 — autocomplete titre complet (tags, mots, titres)*

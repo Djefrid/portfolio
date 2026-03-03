@@ -570,7 +570,9 @@ export default function NotesEditor() {
   const [suggestionType,  setSuggestionType]  = useState<'tag' | 'word'>('tag');
   const [titleSuggs,      setTitleSuggs]      = useState<string[]>([]);
   const [titleSuggIdx,    setTitleSuggIdx]    = useState(-1);
+  const [titleSuggType,   setTitleSuggType]   = useState<'tag' | 'word' | 'title'>('title');
   const contentRef = useRef<HTMLTextAreaElement>(null);
+  const titleRef   = useRef<HTMLInputElement>(null);
 
   const [search, setSearch] = useState('');
 
@@ -794,14 +796,47 @@ export default function NotesEditor() {
   };
 
   // ── Autocomplétion titre ──────────────────────────────────────────────────
+  const applyTitleSugg = useCallback((item: string) => {
+    const el = titleRef.current;
+    if (!el) return;
+    const cursor = el.selectionStart ?? title.length;
+
+    if (titleSuggType === 'title') {
+      setTitle(item);
+      scheduleAutoSave(item, content);
+    } else if (titleSuggType === 'tag') {
+      const textBefore = title.slice(0, cursor);
+      const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
+      if (tagMatch) {
+        const start = cursor - tagMatch[0].length;
+        const newTitle = title.slice(0, start) + '#' + item + ' ' + title.slice(cursor);
+        setTitle(newTitle);
+        scheduleAutoSave(newTitle, content);
+        setTimeout(() => { const p = start + item.length + 2; el.setSelectionRange(p, p); }, 0);
+      }
+    } else if (titleSuggType === 'word') {
+      const textBefore = title.slice(0, cursor);
+      const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
+      if (wordMatch) {
+        const start = cursor - wordMatch[0].length;
+        const newTitle = title.slice(0, start) + item + title.slice(cursor);
+        setTitle(newTitle);
+        scheduleAutoSave(newTitle, content);
+        setTimeout(() => { const p = start + item.length; el.setSelectionRange(p, p); }, 0);
+      }
+    }
+
+    setTitleSuggs([]); setTitleSuggIdx(-1);
+  }, [title, content, titleSuggType, scheduleAutoSave]);
+
   const handleTitleSuggKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (titleSuggs.length === 0) return;
     if (e.key === 'ArrowDown') { e.preventDefault(); setTitleSuggIdx(i => Math.min(i + 1, titleSuggs.length - 1)); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setTitleSuggIdx(i => Math.max(i - 1, -1)); }
     else if ((e.key === 'Tab' || e.key === 'Enter') && titleSuggIdx >= 0) {
-      e.preventDefault();
-      setTitle(titleSuggs[titleSuggIdx]); scheduleAutoSave(titleSuggs[titleSuggIdx], content);
-      setTitleSuggs([]); setTitleSuggIdx(-1);
+      e.preventDefault(); applyTitleSugg(titleSuggs[titleSuggIdx]);
+    } else if (e.key === 'Tab' && titleSuggIdx === -1 && titleSuggs.length > 0) {
+      e.preventDefault(); applyTitleSugg(titleSuggs[0]);
     } else if (e.key === 'Escape') { setTitleSuggs([]); }
   };
 
@@ -809,17 +844,44 @@ export default function NotesEditor() {
   const handleTitleChange = (v: string) => {
     setTitle(v);
     scheduleAutoSave(v, content);
-    // Suggestions de titres similaires existants
+
+    const el = titleRef.current;
+    const cursor = el?.selectionStart ?? v.length;
+    const textBefore = v.slice(0, cursor);
+
+    // Priorité 1 : hashtag → suggestions de tags
+    const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
+    if (tagMatch) {
+      const partial = (tagMatch[1] ?? '').toLowerCase();
+      const filtered = partial ? allTags.filter(t => t.includes(partial) && t !== partial) : allTags;
+      if (filtered.length > 0) {
+        setTitleSuggs(filtered.slice(0, 6)); setTitleSuggType('tag'); setTitleSuggIdx(-1); return;
+      }
+    }
+
+    // Priorité 2 : mot ≥ 3 lettres → complétion depuis l'index
+    const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
+    if (wordMatch) {
+      const partial = wordMatch[0].toLowerCase();
+      const matches = wordIndex.filter(w => w.startsWith(partial) && w !== partial).slice(0, 6);
+      if (matches.length > 0) {
+        setTitleSuggs(matches); setTitleSuggType('word'); setTitleSuggIdx(-1); return;
+      }
+    }
+
+    // Priorité 3 : titres similaires existants
     if (v.trim().length >= 2) {
       const lower = v.toLowerCase();
       const matches = notes
         .filter(n => n.id !== selectedId && n.title.toLowerCase().includes(lower))
         .map(n => n.title)
         .slice(0, 5);
-      setTitleSuggs(matches);
-    } else {
-      setTitleSuggs([]);
+      if (matches.length > 0) {
+        setTitleSuggs(matches); setTitleSuggType('title'); setTitleSuggIdx(-1); return;
+      }
     }
+
+    setTitleSuggs([]);
   };
   const handleContentChange = (v: string) => {
     setContent(v);
@@ -1172,7 +1234,9 @@ export default function NotesEditor() {
 
               {/* Titre + autocomplete */}
               <div className="relative">
-                <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
+                <input
+                  ref={titleRef}
+                  type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
                   onKeyDown={handleTitleSuggKey}
                   onBlur={() => setTimeout(() => setTitleSuggs([]), 150)}
                   placeholder="Titre" readOnly={isReadOnly} aria-label="Titre de la note"
@@ -1180,15 +1244,22 @@ export default function NotesEditor() {
                 />
                 {titleSuggs.length > 0 && (
                   <div className="absolute left-6 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[220px]" onClick={e => e.stopPropagation()}>
-                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Titres similaires</p>
+                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                      {titleSuggType === 'tag' ? 'Tags' : titleSuggType === 'word' ? 'Mots' : 'Titres similaires'}
+                    </p>
                     {titleSuggs.map((t, i) => (
                       <button key={t} type="button"
-                        onMouseDown={e => { e.preventDefault(); setTitle(t); scheduleAutoSave(t, content); setTitleSuggs([]); }}
-                        className={`w-full px-3 py-1.5 text-sm text-left transition-colors truncate ${
-                          i === titleSuggIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-300 hover:bg-dark-700'
+                        onMouseDown={e => { e.preventDefault(); applyTitleSugg(t); }}
+                        className={`w-full px-3 py-1.5 text-sm text-left transition-colors truncate flex items-center gap-2 ${
+                          i === titleSuggIdx
+                            ? 'bg-yellow-500/20 text-yellow-300'
+                            : titleSuggType === 'tag' ? 'text-yellow-400 hover:bg-dark-700' : 'text-gray-300 hover:bg-dark-700'
                         }`}
-                      >{t}</button>
+                      >
+                        {titleSuggType === 'tag' ? <><Hash size={11} />#{t}</> : t}
+                      </button>
                     ))}
+                    <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
                   </div>
                 )}
               </div>
