@@ -476,8 +476,15 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
 
   const SEP = () => <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />;
 
-  const HIGHLIGHTS = ['#fef08a','#bbf7d0','#bfdbfe','#fbcfe8','#fed7aa'];
-  const COLORS     = ['#f9fafb','#fbbf24','#34d399','#60a5fa','#f87171','#a78bfa'];
+  const HIGHLIGHTS = [
+    '#fef08a','#bbf7d0','#bfdbfe','#fbcfe8','#fed7aa',
+    '#e9d5ff','#fecdd3','#d1fae5','#dbeafe','#fde68a',
+  ];
+  const COLORS = [
+    '#f9fafb','#e5e7eb','#fbbf24','#f97316','#ef4444',
+    '#ec4899','#a78bfa','#60a5fa','#34d399','#14b8a6',
+    '#84cc16','#94a3b8',
+  ];
 
   const handleSetLink = () => {
     if (!linkVal.trim()) {
@@ -536,6 +543,11 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0"
           />
         ))}
+        <label title="Couleur personnalisée du texte"
+          className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0 cursor-pointer overflow-hidden relative flex items-center justify-center bg-gradient-to-br from-red-400 via-yellow-400 to-blue-400">
+          <input type="color" aria-label="Couleur personnalisée du texte" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+            onChange={e => editor.chain().focus().setColor(e.target.value).run()} />
+        </label>
         <button type="button" title="Réinitialiser couleur"
           onClick={() => editor.chain().focus().unsetColor().run()}
           className="text-[10px] text-gray-500 hover:text-gray-300 px-0.5 ml-0.5">×</button>
@@ -988,9 +1000,11 @@ export default function NotesEditor() {
   const detectAtCursorRef = useRef<() => void>(() => {});
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
-  const [search,      setSearch]      = useState('');
-  const [trashShake,  setTrashShake]  = useState(false);
-  const [focusMode,   setFocusMode]   = useState(false);
+  const [search,         setSearch]         = useState('');
+  const [trashShake,     setTrashShake]     = useState(false);
+  const [focusMode,      setFocusMode]      = useState(false);
+  const [bubbleLinkOpen, setBubbleLinkOpen] = useState(false);
+  const [bubbleLinkVal,  setBubbleLinkVal]  = useState('');
 
   // Slash commands
   const [slashMenu,   setSlashMenu]   = useState(false);
@@ -1984,46 +1998,6 @@ export default function NotesEditor() {
                 )}
               </div>
 
-              {/* Titre + autocomplete */}
-              <div className="relative">
-                <input
-                  ref={titleRef}
-                  type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
-                  onKeyDown={handleTitleSuggKey}
-                  onBlur={() => setTimeout(() => setTitleSuggs([]), 150)}
-                  placeholder="Titre" readOnly={isReadOnly} aria-label="Titre de la note"
-                  className={`w-full px-6 pt-5 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
-                />
-                {titleSuggs.length > 0 && (
-                  <div className="absolute left-6 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[220px]" onClick={e => e.stopPropagation()}>
-                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                      {titleSuggType === 'tag' ? 'Tags' : titleSuggType === 'word' ? 'Mots' : 'Titres similaires'}
-                    </p>
-                    {titleSuggs.map((t, i) => (
-                      <button key={t} type="button"
-                        onMouseDown={e => { e.preventDefault(); applyTitleSugg(t); }}
-                        className={`w-full px-3 py-1.5 text-sm text-left transition-colors truncate flex items-center gap-2 ${
-                          i === titleSuggIdx
-                            ? 'bg-yellow-500/20 text-yellow-300'
-                            : titleSuggType === 'tag' ? 'text-yellow-400 hover:bg-dark-700' : 'text-gray-300 hover:bg-dark-700'
-                        }`}
-                      >
-                        {titleSuggType === 'tag' ? <><Hash size={11} />#{t}</> : t}
-                      </button>
-                    ))}
-                    <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
-                  </div>
-                )}
-              </div>
-
-              {selectedNote.folderId && (
-                <div className="px-6 pb-1">
-                  <span className="flex items-center gap-1 text-xs text-gray-500">
-                    <FolderOpen size={11} />{folders.find(f => f.id === selectedNote.folderId)?.name ?? 'Dossier'}
-                  </span>
-                </div>
-              )}
-
               {/* Barre d'outils rich text + éditeur TipTap */}
               <div className="relative flex-1 flex flex-col overflow-hidden">
                 {!isReadOnly && (
@@ -2038,6 +2012,46 @@ export default function NotesEditor() {
                     onExportPdf={handleExportPDF}
                   />
                 )}
+
+                {/* Titre + autocomplete */}
+                <div className="relative">
+                  <input
+                    ref={titleRef}
+                    type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
+                    onKeyDown={handleTitleSuggKey}
+                    onBlur={() => setTimeout(() => setTitleSuggs([]), 150)}
+                    placeholder="Titre" readOnly={isReadOnly} aria-label="Titre de la note"
+                    className={`w-full px-6 pt-4 pb-1 bg-transparent text-xl font-bold text-white placeholder-gray-600 focus:outline-none ${isReadOnly ? 'cursor-default' : ''}`}
+                  />
+                  {titleSuggs.length > 0 && (
+                    <div className="absolute left-6 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[220px]" onClick={e => e.stopPropagation()}>
+                      <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
+                        {titleSuggType === 'tag' ? 'Tags' : titleSuggType === 'word' ? 'Mots' : 'Titres similaires'}
+                      </p>
+                      {titleSuggs.map((t, i) => (
+                        <button key={t} type="button"
+                          onMouseDown={e => { e.preventDefault(); applyTitleSugg(t); }}
+                          className={`w-full px-3 py-1.5 text-sm text-left transition-colors truncate flex items-center gap-2 ${
+                            i === titleSuggIdx
+                              ? 'bg-yellow-500/20 text-yellow-300'
+                              : titleSuggType === 'tag' ? 'text-yellow-400 hover:bg-dark-700' : 'text-gray-300 hover:bg-dark-700'
+                          }`}
+                        >
+                          {titleSuggType === 'tag' ? <><Hash size={11} />#{t}</> : t}
+                        </button>
+                      ))}
+                      <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
+                    </div>
+                  )}
+                </div>
+
+                {selectedNote.folderId && (
+                  <div className="px-6 pb-1">
+                    <span className="flex items-center gap-1 text-xs text-gray-500">
+                      <FolderOpen size={11} />{folders.find(f => f.id === selectedNote.folderId)?.name ?? 'Dossier'}
+                    </span>
+                  </div>
+                )}
                 {/* Inputs fichiers cachés */}
                 <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
                   aria-label="Insérer une image"
@@ -2045,27 +2059,69 @@ export default function NotesEditor() {
                 <input ref={fileInputRef} type="file" className="hidden"
                   aria-label="Joindre un fichier"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFileInsert(f); e.target.value = ''; }} />
-                {/* BubbleMenu — formatage rapide à la sélection */}
+                {/* BubbleMenu — formatage rapide à la sélection (apparaît sous le texte) */}
                 {editor && !isReadOnly && (
-                  <BubbleMenu editor={editor}
+                  <BubbleMenu editor={editor} options={{ placement: 'bottom' }}
                     className="flex items-center gap-0.5 bg-dark-800 border border-dark-700 rounded-lg p-1 shadow-2xl z-50">
-                    {([
-                      { mark: 'bold',      title: 'Gras',     icon: <Bold size={12} />,          cmd: () => editor.chain().focus().toggleBold().run()      },
-                      { mark: 'italic',    title: 'Italique', icon: <Italic size={12} />,        cmd: () => editor.chain().focus().toggleItalic().run()    },
-                      { mark: 'underline', title: 'Souligné', icon: <UnderlineIcon size={12} />, cmd: () => editor.chain().focus().toggleUnderline().run() },
-                      { mark: 'strike',    title: 'Barré',    icon: <Strikethrough size={12} />, cmd: () => editor.chain().focus().toggleStrike().run()    },
-                    ] as const).map(({ mark, title, icon, cmd }) => (
-                      <button key={mark} type="button" title={title} onClick={cmd}
-                        className={`p-1.5 rounded transition-colors ${editor.isActive(mark) ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
-                        {icon}
-                      </button>
-                    ))}
-                    <div className="w-px h-4 bg-dark-700 mx-0.5" />
-                    <button type="button" title="Surbrillance jaune"
-                      onClick={() => editor.chain().focus().toggleHighlight({ color: '#fef08a' }).run()}
-                      className={`p-1.5 rounded transition-colors ${editor.isActive('highlight') ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
-                      <Highlighter size={12} />
+                    <button type="button" title="Gras (Ctrl+B)"
+                      onClick={() => editor.chain().focus().toggleBold().run()}
+                      className={`p-1.5 rounded transition-colors ${editor.isActive('bold') ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
+                      <Bold size={12} />
                     </button>
+                    <button type="button" title="Italique (Ctrl+I)"
+                      onClick={() => editor.chain().focus().toggleItalic().run()}
+                      className={`p-1.5 rounded transition-colors ${editor.isActive('italic') ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
+                      <Italic size={12} />
+                    </button>
+                    <div className="w-px h-4 bg-dark-700 mx-0.5" />
+                    <div className="relative">
+                      <button type="button" title="Lien hypertexte"
+                        onClick={() => {
+                          if (editor.isActive('link')) {
+                            editor.chain().focus().unsetLink().run();
+                            setBubbleLinkOpen(false);
+                          } else {
+                            setBubbleLinkVal(editor.getAttributes('link').href || '');
+                            setBubbleLinkOpen(o => !o);
+                          }
+                        }}
+                        className={`p-1.5 rounded transition-colors ${editor.isActive('link') ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
+                        <LinkIcon size={12} />
+                      </button>
+                      {bubbleLinkOpen && (
+                        <div
+                          className="absolute top-full left-1/2 -translate-x-1/2 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg p-2 shadow-xl flex gap-1.5 min-w-[200px]"
+                          onMouseDown={e => e.stopPropagation()}>
+                          <input
+                            autoFocus
+                            value={bubbleLinkVal}
+                            onChange={e => setBubbleLinkVal(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') {
+                                const href = bubbleLinkVal.trim();
+                                if (!href) editor.chain().focus().unsetLink().run();
+                                else editor.chain().focus().setLink({ href: href.startsWith('http') ? href : `https://${href}` }).run();
+                                setBubbleLinkOpen(false); setBubbleLinkVal('');
+                              }
+                              if (e.key === 'Escape') { setBubbleLinkOpen(false); setBubbleLinkVal(''); }
+                            }}
+                            placeholder="https://..."
+                            className="flex-1 text-xs bg-dark-700 text-gray-200 placeholder-gray-500 rounded px-2 py-1 focus:outline-none border border-dark-600 focus:border-yellow-500/50"
+                          />
+                          <button type="button"
+                            onMouseDown={e => {
+                              e.preventDefault();
+                              const href = bubbleLinkVal.trim();
+                              if (!href) editor.chain().focus().unsetLink().run();
+                              else editor.chain().focus().setLink({ href: href.startsWith('http') ? href : `https://${href}` }).run();
+                              setBubbleLinkOpen(false); setBubbleLinkVal('');
+                            }}
+                            className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 rounded transition-colors">
+                            OK
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </BubbleMenu>
                 )}
                 <EditorContent
