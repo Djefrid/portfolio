@@ -1,8 +1,9 @@
-import { db } from '@/lib/firebase/config';
+import { db, storage } from '@/lib/firebase/config';
 import {
   collection, addDoc, updateDoc, deleteDoc, setDoc, getDoc,
   doc, serverTimestamp, writeBatch, getDocs, query, where,
 } from 'firebase/firestore';
+import { ref as storageRef, deleteObject } from 'firebase/storage';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,29 @@ export function extractHashtags(content: string): string[] {
   return Array.from(tags);
 }
 
+// ── Nettoyage Firebase Storage ────────────────────────────────────────────────
+
+/** Extrait toutes les URLs Firebase Storage présentes dans le HTML d'une note (img + fichiers joints). */
+function extractStorageUrls(html: string): string[] {
+  if (!html) return [];
+  const regex = /https:\/\/firebasestorage\.googleapis\.com\/[^"'\s>)]+/g;
+  const urls: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(html)) !== null) urls.push(m[0]);
+  return urls;
+}
+
+/** Supprime tous les fichiers Storage liés au contenu d'une note avant sa suppression définitive. */
+async function deleteNoteStorageFiles(content: string): Promise<void> {
+  if (!storage) return;
+  const urls = extractStorageUrls(content);
+  if (urls.length === 0) return;
+  // allSettled : ne bloque pas si un fichier a déjà été supprimé manuellement
+  await Promise.allSettled(
+    urls.map(url => deleteObject(storageRef(storage!, url)))
+  );
+}
+
 // ── Notes CRUD ───────────────────────────────────────────────────────────────
 
 export async function createNote(folderId: string | null = null): Promise<string> {
@@ -116,9 +140,13 @@ export async function deleteNote(id: string): Promise<void> {
   });
 }
 
-// Suppression définitive — irréversible
+// Suppression définitive — irréversible + nettoyage Storage automatique
 export async function permanentlyDeleteNote(id: string): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
+  const snap = await getDoc(doc(db, 'adminNotes', id));
+  if (snap.exists()) {
+    await deleteNoteStorageFiles(snap.data().content ?? '');
+  }
   await deleteDoc(doc(db, 'adminNotes', id));
 }
 
@@ -134,6 +162,10 @@ export async function recoverNote(id: string): Promise<void> {
 // Suppression silencieuse d'une note vide (pas de corbeille, Apple Notes behavior)
 export async function silentlyDeleteNote(id: string): Promise<void> {
   if (!db) throw new Error('Firebase non configuré');
+  const snap = await getDoc(doc(db, 'adminNotes', id));
+  if (snap.exists()) {
+    await deleteNoteStorageFiles(snap.data().content ?? '');
+  }
   await deleteDoc(doc(db, 'adminNotes', id));
 }
 
