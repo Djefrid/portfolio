@@ -469,15 +469,16 @@ function FolderTreeItem({
 
 // ── EditorToolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf }: {
-  editor:         Editor | null;
-  onImageClick:   () => void;
-  onFileClick:    () => void;
-  uploadProgress: number | null;
-  focusMode:      boolean;
-  onFocusToggle:  () => void;
-  onExportMd:     () => void;
-  onExportPdf:    () => void;
+function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick }: {
+  editor:           Editor | null;
+  onImageClick:     () => void;
+  onFileClick:      () => void;
+  uploadProgress:   number | null;
+  focusMode:        boolean;
+  onFocusToggle:    () => void;
+  onExportMd:       () => void;
+  onExportPdf:      () => void;
+  onCodeBlockClick: () => void;
 }) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkVal,  setLinkVal]  = useState('');
@@ -674,7 +675,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         {TB(editor.isActive('taskList'),    'Liste de tâches', () => editor.chain().focus().toggleTaskList().run(),    <ListChecks size={13} />)}
         <SEP />
         {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
-        {TB(editor.isActive('codeBlock'),  'Bloc de code',          () => editor.chain().focus().toggleCodeBlock().run(),  <Code2 size={13} />)}
+        {TB(editor.isActive('codeBlock'),  'Bloc de code',          onCodeBlockClick,  <Code2 size={13} />)}
         {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
         {/* Grid picker tableau — style Word/Google Docs */}
         <div className="relative" ref={tableRef}>
@@ -1154,6 +1155,12 @@ export default function NotesEditor() {
   const [bubbleLinkOpen, setBubbleLinkOpen] = useState(false);
   const [bubbleLinkVal,  setBubbleLinkVal]  = useState('');
   const [codeCopied,     setCodeCopied]     = useState(false);
+  const [isInCodeBlock,  setIsInCodeBlock]  = useState(false);
+  const [codeBlockLang,  setCodeBlockLang]  = useState<string>('auto');
+  const [codeModal,      setCodeModal]      = useState<{
+    open: boolean; code: string; lang: string; isEdit: boolean; from: number; to: number;
+  } | null>(null);
+  const [codeModalCopied, setCodeModalCopied] = useState(false);
 
   // Slash commands
   const [slashMenu,   setSlashMenu]   = useState(false);
@@ -1578,6 +1585,62 @@ export default function NotesEditor() {
       setMobilePanel('editor');
     } catch { /* ignore */ }
   }, [loading, editor]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Détection bloc de code actif (fiable — via events editor, pas BubbleMenu)
+  useEffect(() => {
+    if (!editor) return;
+    const update = () => {
+      const active = editor.isActive('codeBlock');
+      setIsInCodeBlock(active);
+      if (active) setCodeBlockLang(editor.getAttributes('codeBlock').language ?? 'auto');
+    };
+    editor.on('selectionUpdate', update);
+    editor.on('transaction', update);
+    return () => { editor.off('selectionUpdate', update); editor.off('transaction', update); };
+  }, [editor]);
+
+  // Ouvre le modal code block (nouveau ou édition de l'existant)
+  const openCodeModal = useCallback(() => {
+    if (!editor) return;
+    if (editor.isActive('codeBlock')) {
+      const { state } = editor;
+      const { $from } = state.selection;
+      let from = -1, to = -1, codeText = '', lang = 'auto';
+      for (let d = $from.depth; d >= 0; d--) {
+        const n = $from.node(d);
+        if (n.type.name === 'codeBlock') {
+          from = $from.before(d);
+          to   = $from.after(d);
+          codeText = n.textContent;
+          lang     = n.attrs.language ?? 'auto';
+          break;
+        }
+      }
+      setCodeModal({ open: true, code: codeText, lang, isEdit: true, from, to });
+    } else {
+      setCodeModal({ open: true, code: '', lang: 'auto', isEdit: false, from: -1, to: -1 });
+    }
+  }, [editor]);
+
+  // Applique le contenu du modal dans l'éditeur
+  const applyCodeModal = useCallback(() => {
+    if (!editor || !codeModal) return;
+    const langAttr = codeModal.lang === 'auto' ? null : codeModal.lang;
+    const newNode = {
+      type: 'codeBlock',
+      attrs: { language: langAttr },
+      content: codeModal.code ? [{ type: 'text', text: codeModal.code }] : [],
+    };
+    if (codeModal.isEdit && codeModal.from >= 0) {
+      editor.chain().focus()
+        .deleteRange({ from: codeModal.from, to: codeModal.to })
+        .insertContentAt(codeModal.from, newNode)
+        .run();
+    } else {
+      editor.chain().focus().insertContent(newNode).run();
+    }
+    setCodeModal(null);
+  }, [editor, codeModal]);
 
   // Sync editor ↔ isReadOnly
   useEffect(() => {
@@ -2201,6 +2264,7 @@ export default function NotesEditor() {
                     onFocusToggle={() => setFocusMode(f => !f)}
                     onExportMd={handleExportMarkdown}
                     onExportPdf={handleExportPDF}
+                    onCodeBlockClick={openCodeModal}
                   />
                 )}
 
@@ -2250,40 +2314,32 @@ export default function NotesEditor() {
                 <input ref={fileInputRef} type="file" className="hidden"
                   aria-label="Joindre un fichier"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFileInsert(f); e.target.value = ''; }} />
-                {/* BubbleMenu code block — apparaît au-dessus du bloc de code actif */}
-                {editor && !isReadOnly && (
-                  <BubbleMenu
-                    editor={editor}
-                    options={{ placement: 'top-start' }}
-                    shouldShow={({ editor: e }) => e.isActive('codeBlock')}
-                    className="flex items-center gap-1 bg-dark-800 border border-dark-700 rounded-lg px-1.5 py-1 shadow-2xl z-50"
-                  >
+                {/* Barre contextuelle bloc de code — s'affiche quand curseur est dans un bloc */}
+                {isInCodeBlock && !isReadOnly && editor && (
+                  <div className="px-3 py-1.5 border-b border-dark-800 flex items-center gap-2 bg-dark-900 shrink-0">
+                    <Code2 size={11} className="text-yellow-400 shrink-0" />
                     <select
                       title="Langage du bloc de code"
-                      value={editor.getAttributes('codeBlock').language ?? 'auto'}
+                      value={codeBlockLang}
                       onChange={e => {
                         const lang = e.target.value;
+                        setCodeBlockLang(lang);
                         editor.chain().focus().updateAttributes('codeBlock', {
                           language: lang === 'auto' ? null : lang,
                         }).run();
                       }}
-                      className="text-xs bg-dark-700 text-gray-300 border border-dark-600 rounded px-1.5 py-0.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer"
+                      className="text-xs bg-dark-800 text-gray-300 border border-dark-700 rounded px-1.5 py-0.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer"
                     >
-                      {LANGUAGES.map(l => (
-                        <option key={l.value} value={l.value}>{l.label}</option>
-                      ))}
+                      {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
                     </select>
-                    <div className="w-px h-4 bg-dark-700 mx-0.5" />
+                    <div className="w-px h-3 bg-dark-700" />
                     <button
                       type="button"
-                      title="Copier le code"
                       onClick={() => {
                         const { $from } = editor.state.selection;
-                        // Remonter jusqu'au noeud codeBlock pour récupérer tout le texte
-                        let node = $from.node();
+                        let node = $from.parent;
                         if (node.type.name !== 'codeBlock') {
-                          const depth = $from.depth;
-                          for (let d = depth; d >= 0; d--) {
+                          for (let d = $from.depth; d >= 0; d--) {
                             const n = $from.node(d);
                             if (n.type.name === 'codeBlock') { node = n; break; }
                           }
@@ -2293,15 +2349,18 @@ export default function NotesEditor() {
                           setTimeout(() => setCodeCopied(false), 1500);
                         });
                       }}
-                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-dark-700"
+                      className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
                     >
-                      {codeCopied ? (
-                        <span className="text-green-400">✓ Copié</span>
-                      ) : (
-                        <span>Copier</span>
-                      )}
+                      {codeCopied ? <span className="text-green-400">✓ Copié</span> : 'Copier'}
                     </button>
-                  </BubbleMenu>
+                    <button
+                      type="button"
+                      onClick={openCodeModal}
+                      className="ml-auto text-xs text-gray-500 hover:text-yellow-400 transition-colors"
+                    >
+                      Modifier…
+                    </button>
+                  </div>
                 )}
                 {/* BubbleMenu tableau — outils contextuels (apparaît quand curseur dans une cellule) */}
                 {editor && !isReadOnly && (
@@ -2518,6 +2577,100 @@ export default function NotesEditor() {
           )}
         </div>
       </div>
+      {/* ── Modal bloc de code ──────────────────────────────────────────────── */}
+      {codeModal?.open && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setCodeModal(null)}
+        >
+          <div
+            className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-[700px] max-w-[95vw] flex flex-col max-h-[80vh]"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-dark-800 shrink-0">
+              <Code2 size={14} className="text-yellow-400" />
+              <span className="text-sm font-semibold text-gray-200">
+                {codeModal.isEdit ? 'Modifier le bloc de code' : 'Nouveau bloc de code'}
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <select
+                  title="Langage du bloc de code"
+                  value={codeModal.lang}
+                  onChange={e => setCodeModal(m => m ? { ...m, lang: e.target.value } : m)}
+                  className="text-xs bg-dark-800 text-gray-300 border border-dark-600 rounded px-2 py-1 focus:outline-none focus:border-yellow-500/50 cursor-pointer"
+                >
+                  {LANGUAGES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+                <button
+                  type="button"
+                  title="Fermer"
+                  onClick={() => setCodeModal(null)}
+                  className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+            </div>
+
+            {/* Zone de code */}
+            <textarea
+              value={codeModal.code}
+              onChange={e => setCodeModal(m => m ? { ...m, code: e.target.value } : m)}
+              onKeyDown={e => {
+                if (e.key === 'Tab') {
+                  e.preventDefault();
+                  const el = e.currentTarget;
+                  const start = el.selectionStart ?? 0;
+                  const end   = el.selectionEnd   ?? 0;
+                  const next  = el.value.substring(0, start) + '  ' + el.value.substring(end);
+                  setCodeModal(m => m ? { ...m, code: next } : m);
+                  setTimeout(() => { el.selectionStart = el.selectionEnd = start + 2; }, 0);
+                } else if (e.key === 'Escape') {
+                  setCodeModal(null);
+                }
+              }}
+              placeholder="Écrivez votre code ici…"
+              autoFocus
+              spellCheck={false}
+              className="code-modal-textarea flex-1 bg-dark-950 text-gray-200 text-sm px-4 py-3 resize-none focus:outline-none min-h-[320px] overflow-y-auto"
+            />
+
+            {/* Footer */}
+            <div className="flex items-center justify-between px-4 py-3 border-t border-dark-800 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!codeModal.code) return;
+                  navigator.clipboard.writeText(codeModal.code).then(() => {
+                    setCodeModalCopied(true);
+                    setTimeout(() => setCodeModalCopied(false), 1500);
+                  });
+                }}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                {codeModalCopied ? <span className="text-green-400">✓ Copié</span> : 'Copier'}
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCodeModal(null)}
+                  className="text-xs px-3 py-1.5 rounded text-gray-400 hover:text-white hover:bg-dark-800 transition-colors"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={applyCodeModal}
+                  className="text-xs px-3 py-1.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors font-medium"
+                >
+                  {codeModal.isEdit ? 'Mettre à jour' : 'Insérer'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

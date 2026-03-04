@@ -231,6 +231,11 @@
   z-index: 20;
 }
 .tiptap-editor table.resize-cursor { cursor: col-resize; }
+/* Textarea monospace pour le modal code block */
+.code-modal-textarea {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.6;
+}
 /* Links */
 .tiptap-editor a, .tiptap-link {
   color: #60a5fa;
