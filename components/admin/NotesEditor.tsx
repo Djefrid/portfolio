@@ -1726,59 +1726,6 @@ export default function NotesEditor() {
         )}
       </AnimatePresence>
 
-      {/* Focus mode — overlay plein écran */}
-      {focusMode && (
-        <div
-          className="fixed inset-0 z-50 bg-dark-950 flex flex-col"
-          onClick={() => { setShowMoveMenu(false); setSuggestions([]); }}
-        >
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {selectedNote && (
-              <>
-                {/* Titre */}
-                <input
-                  type="text" value={title} readOnly={isReadOnly}
-                  onChange={e => { setTitle(e.target.value); scheduleAutoSave(e.target.value, content); }}
-                  placeholder="Titre" aria-label="Titre de la note"
-                  className="w-full max-w-3xl mx-auto px-8 pt-8 pb-1 bg-transparent text-2xl font-bold text-white placeholder-gray-600 focus:outline-none"
-                />
-                {/* Toolbar + éditeur */}
-                <div className="relative flex-1 flex flex-col overflow-hidden max-w-3xl mx-auto w-full">
-                  {!isReadOnly && (
-                    <EditorToolbar
-                      editor={editor}
-                      onImageClick={() => imageInputRef.current?.click()}
-                      onFileClick={() => fileInputRef.current?.click()}
-                      uploadProgress={uploadProgress}
-                      focusMode={focusMode}
-                      onFocusToggle={() => setFocusMode(false)}
-                      onExportMd={handleExportMarkdown}
-                      onExportPdf={handleExportPDF}
-                    />
-                  )}
-                  <EditorContent editor={editor} className="flex-1 px-8 py-4 overflow-y-auto min-h-0" />
-                  {editor && (
-                    <div className="px-8 py-1 border-t border-dark-800 flex justify-end shrink-0">
-                      <span className="text-[10px] text-gray-600">
-                        {editor.storage.characterCount?.words?.() ?? 0} mots
-                        · {editor.storage.characterCount?.characters?.() ?? 0} car.
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-            {!selectedNote && (
-              <div className="flex-1 flex items-center justify-center">
-                <button type="button" onClick={() => setFocusMode(false)} className="text-gray-500 hover:text-white text-sm flex items-center gap-2">
-                  <Minimize2 size={14} /> Quitter le mode focus
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <div
         className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
         onClick={() => {
@@ -1959,7 +1906,9 @@ export default function NotesEditor() {
 
         {/* ══ EDITOR ═══════════════════════════════════════════════════════════ */}
         <div
-          className={`${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-dark-900 min-w-0`}
+          className={focusMode
+            ? 'fixed inset-0 z-50 bg-dark-950 flex flex-col'
+            : `${mobilePanel === 'editor' ? 'flex' : 'hidden'} md:flex flex-1 flex-col bg-dark-900 min-w-0`}
           onClick={e => e.stopPropagation()}
         >
           {!selectedNote ? (
