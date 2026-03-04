@@ -8,12 +8,38 @@ import {
   Plus, Pin, Trash2, Search, StickyNote, FolderPlus,
   Hash, MoreHorizontal, FolderOpen, Folder, ArrowLeft,
   ChevronRight, X, RotateCcw, ArrowUpDown, Zap, Image as ImageIcon,
+  Bold, Italic, Underline as UnderlineIcon, Strikethrough,
+  AlignLeft, AlignCenter, AlignRight, AlignJustify,
+  List, ListOrdered, ListChecks,
+  Quote, Minus, Code2, Link as LinkIcon,
+  Table as TableIcon, Highlighter,
+  Subscript as SubIcon, Superscript as SupIcon,
+  Undo2, Redo2, FileUp, Maximize2, Minimize2, Download, FileText,
 } from 'lucide-react';
 import { useEditor, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
+import type { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
+import { all, createLowlight } from 'lowlight';
 import ImageExtension from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
-import { uploadNoteImage } from '@/lib/upload-image';
+import Underline from '@tiptap/extension-underline';
+import Link from '@tiptap/extension-link';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import TextAlign from '@tiptap/extension-text-align';
+import Highlight from '@tiptap/extension-highlight';
+import { TextStyle } from '@tiptap/extension-text-style';
+import Color from '@tiptap/extension-color';
+import TaskList from '@tiptap/extension-task-list';
+import TaskItem from '@tiptap/extension-task-item';
+import Superscript from '@tiptap/extension-superscript';
+import Subscript from '@tiptap/extension-subscript';
+import CharacterCount from '@tiptap/extension-character-count';
+import { uploadNoteImage, uploadNoteFile } from '@/lib/upload-image';
 import { useAdminNotes } from '@/hooks/useAdminNotes';
 import {
   createNote, updateNote, deleteNote, moveNote,
@@ -22,6 +48,23 @@ import {
   createTag, deleteTag,
   Note, Folder as FolderType, SmartFolderFilter,
 } from '@/lib/notes-service';
+
+// ── Lowlight instance (module-level pour éviter recréation) ───────────────────
+const lowlight = createLowlight(all);
+
+// ── Slash commands ────────────────────────────────────────────────────────────
+const SLASH_CMDS = [
+  { id: 'h1',    label: 'Titre 1',         desc: 'Grand titre',          apply: (e: Editor) => e.chain().focus().toggleHeading({ level: 1 }).run() },
+  { id: 'h2',    label: 'Titre 2',         desc: 'Titre moyen',          apply: (e: Editor) => e.chain().focus().toggleHeading({ level: 2 }).run() },
+  { id: 'h3',    label: 'Titre 3',         desc: 'Sous-titre',           apply: (e: Editor) => e.chain().focus().toggleHeading({ level: 3 }).run() },
+  { id: 'ul',    label: 'Liste à puces',   desc: 'Liste non ordonnée',   apply: (e: Editor) => e.chain().focus().toggleBulletList().run() },
+  { id: 'ol',    label: 'Liste numérotée', desc: 'Liste ordonnée',       apply: (e: Editor) => e.chain().focus().toggleOrderedList().run() },
+  { id: 'todo',  label: 'Tâches',          desc: 'Cases à cocher',       apply: (e: Editor) => e.chain().focus().toggleTaskList().run() },
+  { id: 'quote', label: 'Citation',        desc: 'Bloc de citation',     apply: (e: Editor) => e.chain().focus().toggleBlockquote().run() },
+  { id: 'code',  label: 'Bloc de code',    desc: 'Code avec coloration', apply: (e: Editor) => e.chain().focus().toggleCodeBlock().run() },
+  { id: 'table', label: 'Tableau',         desc: 'Tableau 3×3',          apply: (e: Editor) => e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run() },
+  { id: 'hr',    label: 'Séparateur',      desc: 'Ligne horizontale',    apply: (e: Editor) => e.chain().focus().setHorizontalRule().run() },
+] as const;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -319,6 +362,7 @@ function FolderTreeItem({
         ) : (
           <button
             type="button"
+            title={node.name}
             className={`${rowCls} px-1.5 py-1.5`}
             onClick={() => onSelectView({ type: 'folder', id: node.id })}
           >
@@ -394,6 +438,166 @@ function FolderTreeItem({
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── EditorToolbar ─────────────────────────────────────────────────────────────
+
+function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf }: {
+  editor:         Editor | null;
+  onImageClick:   () => void;
+  onFileClick:    () => void;
+  uploadProgress: number | null;
+  focusMode:      boolean;
+  onFocusToggle:  () => void;
+  onExportMd:     () => void;
+  onExportPdf:    () => void;
+}) {
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkVal,  setLinkVal]  = useState('');
+
+  if (!editor) return null;
+
+  const TB = (
+    active:   boolean,
+    title:    string,
+    onClick:  () => void,
+    icon:     React.ReactNode,
+    disabled?: boolean
+  ) => (
+    <button
+      type="button" title={title} onClick={onClick} disabled={disabled}
+      className={`p-1.5 rounded transition-colors ${
+        active ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'
+      } disabled:opacity-30 disabled:cursor-not-allowed`}
+    >{icon}</button>
+  );
+
+  const SEP = () => <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />;
+
+  const HIGHLIGHTS = ['#fef08a','#bbf7d0','#bfdbfe','#fbcfe8','#fed7aa'];
+  const COLORS     = ['#f9fafb','#fbbf24','#34d399','#60a5fa','#f87171','#a78bfa'];
+
+  const handleSetLink = () => {
+    if (!linkVal.trim()) {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      const href = linkVal.startsWith('http') ? linkVal : `https://${linkVal}`;
+      editor.chain().focus().setLink({ href }).run();
+    }
+    setLinkOpen(false);
+    setLinkVal('');
+  };
+
+  return (
+    <div className="border-b border-dark-800 shrink-0 select-none">
+      {/* Ligne 1 : formatage du texte */}
+      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5">
+        <select
+          title="Style de paragraphe"
+          value={
+            editor.isActive('heading', { level: 1 }) ? '1' :
+            editor.isActive('heading', { level: 2 }) ? '2' :
+            editor.isActive('heading', { level: 3 }) ? '3' : '0'
+          }
+          onChange={e => {
+            const v = Number(e.target.value);
+            if (v === 0) editor.chain().focus().setParagraph().run();
+            else editor.chain().focus().toggleHeading({ level: v as 1|2|3 }).run();
+          }}
+          className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer"
+        >
+          <option value="0">Normal</option>
+          <option value="1">Titre 1</option>
+          <option value="2">Titre 2</option>
+          <option value="3">Titre 3</option>
+        </select>
+        <SEP />
+        {TB(editor.isActive('bold'),        'Gras (Ctrl+B)',      () => editor.chain().focus().toggleBold().run(),        <Bold size={13} />)}
+        {TB(editor.isActive('italic'),      'Italique (Ctrl+I)',  () => editor.chain().focus().toggleItalic().run(),      <Italic size={13} />)}
+        {TB(editor.isActive('underline'),   'Souligné (Ctrl+U)', () => editor.chain().focus().toggleUnderline().run(),   <UnderlineIcon size={13} />)}
+        {TB(editor.isActive('strike'),      'Barré',             () => editor.chain().focus().toggleStrike().run(),      <Strikethrough size={13} />)}
+        {TB(editor.isActive('superscript'), 'Exposant',          () => editor.chain().focus().toggleSuperscript().run(), <SupIcon size={13} />)}
+        {TB(editor.isActive('subscript'),   'Indice',            () => editor.chain().focus().toggleSubscript().run(),   <SubIcon size={13} />)}
+        <SEP />
+        {HIGHLIGHTS.map(c => (
+          <button key={c} type="button" title="Surbrillance"
+            onClick={() => editor.chain().focus().toggleHighlight({ color: c }).run()}
+            style={{ background: c }}
+            className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0"
+          />
+        ))}
+        <SEP />
+        {COLORS.map(c => (
+          <button key={c} type="button" title="Couleur du texte"
+            onClick={() => editor.chain().focus().setColor(c).run()}
+            style={{ background: c }}
+            className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0"
+          />
+        ))}
+        <button type="button" title="Réinitialiser couleur"
+          onClick={() => editor.chain().focus().unsetColor().run()}
+          className="text-[10px] text-gray-500 hover:text-gray-300 px-0.5 ml-0.5">×</button>
+        <SEP />
+        {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
+        {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
+      </div>
+
+      {/* Ligne 2 : structure + insertion */}
+      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 border-t border-dark-900">
+        {TB(editor.isActive({ textAlign: 'left' }),    'Aligner gauche', () => editor.chain().focus().setTextAlign('left').run(),    <AlignLeft size={13} />)}
+        {TB(editor.isActive({ textAlign: 'center' }),  'Centrer',        () => editor.chain().focus().setTextAlign('center').run(),  <AlignCenter size={13} />)}
+        {TB(editor.isActive({ textAlign: 'right' }),   'Aligner droite', () => editor.chain().focus().setTextAlign('right').run(),   <AlignRight size={13} />)}
+        {TB(editor.isActive({ textAlign: 'justify' }), 'Justifier',      () => editor.chain().focus().setTextAlign('justify').run(), <AlignJustify size={13} />)}
+        <SEP />
+        {TB(editor.isActive('bulletList'),  'Liste à puces',   () => editor.chain().focus().toggleBulletList().run(),  <List size={13} />)}
+        {TB(editor.isActive('orderedList'), 'Liste numérotée', () => editor.chain().focus().toggleOrderedList().run(), <ListOrdered size={13} />)}
+        {TB(editor.isActive('taskList'),    'Liste de tâches', () => editor.chain().focus().toggleTaskList().run(),    <ListChecks size={13} />)}
+        <SEP />
+        {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
+        {TB(editor.isActive('codeBlock'),  'Bloc de code',          () => editor.chain().focus().toggleCodeBlock().run(),  <Code2 size={13} />)}
+        {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
+        {TB(false, 'Insérer un tableau (3×3)', () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), <TableIcon size={13} />)}
+        <SEP />
+        {/* Lien */}
+        <div className="relative">
+          {TB(editor.isActive('link'), 'Lien hypertexte', () => {
+            if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); setLinkOpen(false); }
+            else { setLinkVal(editor.getAttributes('link').href || ''); setLinkOpen(o => !o); }
+          }, <LinkIcon size={13} />)}
+          {linkOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg p-2 shadow-xl flex gap-1.5 min-w-[210px]"
+              onMouseDown={e => e.stopPropagation()}>
+              <input autoFocus value={linkVal} onChange={e => setLinkVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSetLink(); if (e.key === 'Escape') setLinkOpen(false); }}
+                placeholder="https://..."
+                className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-yellow-500/50"
+              />
+              <button type="button" onClick={handleSetLink}
+                className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/30">OK</button>
+            </div>
+          )}
+        </div>
+        <SEP />
+        {TB(false, 'Insérer une image',  onImageClick, <ImageIcon size={13} />)}
+        {TB(false, 'Joindre un fichier', onFileClick,  <FileUp size={13} />)}
+        {uploadProgress !== null && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-2">
+            <div className="w-16 h-1 bg-dark-700 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+            </div>
+            <span>{uploadProgress}%</span>
+          </div>
+        )}
+        <div className="ml-auto flex items-center gap-0.5">
+          <SEP />
+          {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
+          {TB(false, 'Imprimer / PDF',       onExportPdf, <Download size={13} />)}
+          {TB(focusMode, focusMode ? 'Quitter le mode focus' : 'Mode focus (plein écran)', onFocusToggle,
+            focusMode ? <Minimize2 size={13} /> : <Maximize2 size={13} />)}
+        </div>
+      </div>
     </div>
   );
 }
@@ -780,11 +984,23 @@ export default function NotesEditor() {
   const searchRef       = useRef<HTMLInputElement>(null);
   const trashBtnRef     = useRef<HTMLButtonElement>(null);
   const imageInputRef   = useRef<HTMLInputElement>(null);
+  const fileInputRef    = useRef<HTMLInputElement>(null);
   const detectAtCursorRef = useRef<() => void>(() => {});
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const [search,      setSearch]      = useState('');
   const [trashShake,  setTrashShake]  = useState(false);
+  const [focusMode,   setFocusMode]   = useState(false);
+
+  // Slash commands
+  const [slashMenu,   setSlashMenu]   = useState(false);
+  const [slashFilter, setSlashFilter] = useState('');
+  const [slashIdx,    setSlashIdx]    = useState(0);
+  const slashMenuRef  = useRef(false);
+  const slashIdxRef   = useRef(0);
+  const applySlashRef = useRef<(idx: number) => void>(() => {});
+  useEffect(() => { slashMenuRef.current = slashMenu; }, [slashMenu]);
+  useEffect(() => { slashIdxRef.current  = slashIdx;  }, [slashIdx]);
   const [flyItem, setFlyItem] = useState<{
     x: number; y: number; w: number; h: number;
     tx: number; ty: number; label: string;
@@ -957,6 +1173,16 @@ export default function NotesEditor() {
     const { $from } = editor.state.selection;
     const textBefore = $from.parent.textContent.slice(0, $from.parentOffset);
 
+    // Priorité 0 : slash command — "/" ou "/partial" en début de paragraphe
+    const slashMatch = textBefore.match(/^\/([a-zA-Z]*)$/);
+    if (slashMatch) {
+      setSlashFilter(slashMatch[1].toLowerCase());
+      setSlashMenu(true);
+      setSlashIdx(0);
+      return;
+    }
+    if (slashMenuRef.current) setSlashMenu(false);
+
     // Priorité 1 : hashtag (#tag ou # seul)
     const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
     if (tagMatch) {
@@ -1007,11 +1233,27 @@ export default function NotesEditor() {
   // ── TipTap editor ─────────────────────────────────────────────────────────
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({ codeBlock: false }),
+      CodeBlockLowlight.configure({ lowlight }),
       ImageExtension.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({
         placeholder: 'Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement.',
       }),
+      Underline,
+      Link.configure({ openOnClick: false, HTMLAttributes: { rel: 'noopener noreferrer' } }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      Highlight.configure({ multicolor: true }),
+      TextStyle,
+      Color,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Superscript,
+      Subscript,
+      CharacterCount,
     ],
     editorProps: {
       attributes: { class: 'tiptap-editor' },
@@ -1065,6 +1307,31 @@ export default function NotesEditor() {
         return false;
       },
       handleKeyDown(_, event) {
+        // Navigation dans le menu slash commands
+        if (slashMenuRef.current) {
+          const cmds = SLASH_CMDS.filter(c =>
+            !slashFilter || c.id.startsWith(slashFilter) || c.label.toLowerCase().startsWith(slashFilter)
+          );
+          if (event.key === 'ArrowDown') {
+            setSlashIdx(i => Math.min(i + 1, cmds.length - 1));
+            return true;
+          }
+          if (event.key === 'ArrowUp') {
+            setSlashIdx(i => Math.max(i - 1, 0));
+            return true;
+          }
+          if (event.key === 'Enter' || event.key === 'Tab') {
+            applySlashRef.current(slashIdxRef.current);
+            return true;
+          }
+          if (event.key === 'Escape') {
+            setSlashMenu(false);
+            return true;
+          }
+          // Fermer si l'utilisateur tape espace ou backspace efface tout
+          if (event.key === ' ') { setSlashMenu(false); return false; }
+        }
+
         // Navigation dans les suggestions d'autocomplétion
         if (suggestionsRef.current.length === 0) return false;
         if (event.key === 'ArrowDown') {
@@ -1132,6 +1399,90 @@ export default function NotesEditor() {
   }, [editor, selectedId, title, scheduleAutoSave]);
   useEffect(() => { handleImageInsertRef.current = handleImageInsert; }, [handleImageInsert]);
   useEffect(() => { applySuggestionRef.current   = applySuggestion;   }, [applySuggestion]);
+
+  // ── Upload fichier joint ───────────────────────────────────────────────────
+  const handleFileInsert = useCallback(async (file: File) => {
+    if (!editor || !selectedId) return;
+    try {
+      setUploadProgress(0);
+      const { url, name } = await uploadNoteFile(file, selectedId, pct => setUploadProgress(pct));
+      editor.chain().focus().insertContent(
+        `<a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a> `
+      ).run();
+      const html = editor.getHTML();
+      setContent(html);
+      scheduleAutoSave(title, html);
+    } catch (err) {
+      console.error('Upload fichier:', err);
+    } finally {
+      setUploadProgress(null);
+    }
+  }, [editor, selectedId, title, scheduleAutoSave]);
+
+  // ── Apply slash command ────────────────────────────────────────────────────
+  const applySlashCommand = useCallback((idx: number) => {
+    if (!editor) return;
+    const filteredCmds = SLASH_CMDS.filter(c =>
+      !slashFilter || c.id.startsWith(slashFilter) || c.label.toLowerCase().startsWith(slashFilter)
+    );
+    const cmd = filteredCmds[idx];
+    if (!cmd) { setSlashMenu(false); return; }
+    // Supprimer le "/" et le texte du filtre
+    const { state } = editor;
+    const { from, $from } = state.selection;
+    const blockStart = from - $from.parentOffset;
+    editor.chain().focus().deleteRange({ from: blockStart, to: from }).run();
+    cmd.apply(editor);
+    setSlashMenu(false);
+  }, [editor, slashFilter]);
+  useEffect(() => { applySlashRef.current = applySlashCommand; }, [applySlashCommand]);
+
+  // ── Export Markdown ────────────────────────────────────────────────────────
+  const handleExportMarkdown = useCallback(async () => {
+    if (!editor || !selectedNote) return;
+    // Import dynamique pour éviter les problèmes SSR
+    const TurndownService = (await import('turndown')).default;
+    const td = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+    const md = `# ${title}\n\n${td.turndown(editor.getHTML())}`;
+    const blob = new Blob([md], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${title || 'note'}.md`;
+    a.click(); URL.revokeObjectURL(url);
+  }, [editor, title, selectedNote]);
+
+  // ── Export PDF ─────────────────────────────────────────────────────────────
+  const handleExportPDF = useCallback(() => {
+    if (!editor || !selectedNote) return;
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8">
+      <title>${title || 'Note'}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #111; line-height: 1.6; }
+        h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: .3em; }
+        h2 { font-size: 1.5em; } h3 { font-size: 1.25em; }
+        pre { background: #f6f8fa; border-radius: 6px; padding: 16px; overflow: auto; }
+        code { background: #f6f8fa; border-radius: 3px; padding: .2em .4em; font-size: .9em; }
+        blockquote { border-left: 4px solid #ddd; margin: 0; padding-left: 16px; color: #666; }
+        table { border-collapse: collapse; width: 100%; }
+        td, th { border: 1px solid #ddd; padding: 8px 12px; }
+        th { background: #f6f8fa; font-weight: 600; }
+        img { max-width: 100%; }
+        ul[data-type="taskList"] { list-style: none; padding: 0; }
+        li[data-type="taskItem"] > label { display: flex; gap: 8px; }
+        a { color: #0366d6; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head><body>
+      <h1>${title || 'Sans titre'}</h1>
+      ${editor.getHTML()}
+    </body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
+  }, [editor, title, selectedNote]);
 
   // ── Autocomplétion titre ──────────────────────────────────────────────────
   const applyTitleSugg = useCallback((item: string) => {
@@ -1374,6 +1725,59 @@ export default function NotesEditor() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Focus mode — overlay plein écran */}
+      {focusMode && (
+        <div
+          className="fixed inset-0 z-50 bg-dark-950 flex flex-col"
+          onClick={() => { setShowMoveMenu(false); setSuggestions([]); }}
+        >
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {selectedNote && (
+              <>
+                {/* Titre */}
+                <input
+                  type="text" value={title} readOnly={isReadOnly}
+                  onChange={e => { setTitle(e.target.value); scheduleAutoSave(e.target.value, content); }}
+                  placeholder="Titre" aria-label="Titre de la note"
+                  className="w-full max-w-3xl mx-auto px-8 pt-8 pb-1 bg-transparent text-2xl font-bold text-white placeholder-gray-600 focus:outline-none"
+                />
+                {/* Toolbar + éditeur */}
+                <div className="relative flex-1 flex flex-col overflow-hidden max-w-3xl mx-auto w-full">
+                  {!isReadOnly && (
+                    <EditorToolbar
+                      editor={editor}
+                      onImageClick={() => imageInputRef.current?.click()}
+                      onFileClick={() => fileInputRef.current?.click()}
+                      uploadProgress={uploadProgress}
+                      focusMode={focusMode}
+                      onFocusToggle={() => setFocusMode(false)}
+                      onExportMd={handleExportMarkdown}
+                      onExportPdf={handleExportPDF}
+                    />
+                  )}
+                  <EditorContent editor={editor} className="flex-1 px-8 py-4 overflow-y-auto min-h-0" />
+                  {editor && (
+                    <div className="px-8 py-1 border-t border-dark-800 flex justify-end shrink-0">
+                      <span className="text-[10px] text-gray-600">
+                        {editor.storage.characterCount?.words?.() ?? 0} mots
+                        · {editor.storage.characterCount?.characters?.() ?? 0} car.
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+            {!selectedNote && (
+              <div className="flex-1 flex items-center justify-center">
+                <button type="button" onClick={() => setFocusMode(false)} className="text-gray-500 hover:text-white text-sm flex items-center gap-2">
+                  <Minimize2 size={14} /> Quitter le mode focus
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div
         className="flex h-[calc(100vh-260px)] min-h-[540px] overflow-hidden -m-6 rounded-xl"
@@ -1671,43 +2075,82 @@ export default function NotesEditor() {
                 </div>
               )}
 
-              {/* Barre image + éditeur TipTap */}
-              <div className="relative flex-1 flex flex-col overflow-y-auto">
+              {/* Barre d'outils rich text + éditeur TipTap */}
+              <div className="relative flex-1 flex flex-col overflow-hidden">
                 {!isReadOnly && (
-                  <div className="px-6 py-1.5 border-b border-dark-800 flex items-center gap-3 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => imageInputRef.current?.click()}
-                      title="Insérer une image"
-                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-yellow-400 transition-colors px-1 py-0.5 rounded"
-                    >
-                      <ImageIcon size={13} /> Image
+                  <EditorToolbar
+                    editor={editor}
+                    onImageClick={() => imageInputRef.current?.click()}
+                    onFileClick={() => fileInputRef.current?.click()}
+                    uploadProgress={uploadProgress}
+                    focusMode={focusMode}
+                    onFocusToggle={() => setFocusMode(f => !f)}
+                    onExportMd={handleExportMarkdown}
+                    onExportPdf={handleExportPDF}
+                  />
+                )}
+                {/* Inputs fichiers cachés */}
+                <input ref={imageInputRef} type="file" accept="image/*" className="hidden"
+                  aria-label="Insérer une image"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleImageInsert(f); e.target.value = ''; }} />
+                <input ref={fileInputRef} type="file" className="hidden"
+                  aria-label="Joindre un fichier"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFileInsert(f); e.target.value = ''; }} />
+                {/* BubbleMenu — formatage rapide à la sélection */}
+                {editor && !isReadOnly && (
+                  <BubbleMenu editor={editor}
+                    className="flex items-center gap-0.5 bg-dark-800 border border-dark-700 rounded-lg p-1 shadow-2xl z-50">
+                    {([
+                      { mark: 'bold',      title: 'Gras',     icon: <Bold size={12} />,          cmd: () => editor.chain().focus().toggleBold().run()      },
+                      { mark: 'italic',    title: 'Italique', icon: <Italic size={12} />,        cmd: () => editor.chain().focus().toggleItalic().run()    },
+                      { mark: 'underline', title: 'Souligné', icon: <UnderlineIcon size={12} />, cmd: () => editor.chain().focus().toggleUnderline().run() },
+                      { mark: 'strike',    title: 'Barré',    icon: <Strikethrough size={12} />, cmd: () => editor.chain().focus().toggleStrike().run()    },
+                    ] as const).map(({ mark, title, icon, cmd }) => (
+                      <button key={mark} type="button" title={title} onClick={cmd}
+                        className={`p-1.5 rounded transition-colors ${editor.isActive(mark) ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
+                        {icon}
+                      </button>
+                    ))}
+                    <div className="w-px h-4 bg-dark-700 mx-0.5" />
+                    <button type="button" title="Surbrillance jaune"
+                      onClick={() => editor.chain().focus().toggleHighlight({ color: '#fef08a' }).run()}
+                      className={`p-1.5 rounded transition-colors ${editor.isActive('highlight') ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'}`}>
+                      <Highlighter size={12} />
                     </button>
-                    {uploadProgress !== null && (
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <div className="w-20 h-1 bg-dark-700 rounded-full overflow-hidden">
-                          <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
-                        </div>
-                        <span>{uploadProgress}%</span>
-                      </div>
-                    )}
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={e => {
-                        const file = e.target.files?.[0];
-                        if (file) handleImageInsert(file);
-                        e.target.value = '';
-                      }}
-                    />
-                  </div>
+                  </BubbleMenu>
                 )}
                 <EditorContent
                   editor={editor}
-                  className="flex-1 px-6 py-2 overflow-y-auto"
+                  className="flex-1 px-6 py-2 overflow-y-auto min-h-0"
                 />
+                {/* Slash command menu */}
+                {slashMenu && (() => {
+                  const cmds = SLASH_CMDS.filter(c =>
+                    !slashFilter || c.id.startsWith(slashFilter) || c.label.toLowerCase().startsWith(slashFilter)
+                  );
+                  if (cmds.length === 0) return null;
+                  return (
+                    <div className="absolute left-6 top-16 z-50 bg-dark-800 border border-dark-600 rounded-xl shadow-2xl overflow-hidden w-64"
+                      onClick={e => e.stopPropagation()}>
+                      <p className="px-3 pt-2 pb-1 text-[10px] font-semibold text-gray-500 uppercase tracking-widest">
+                        Commandes — tapez pour filtrer
+                      </p>
+                      {cmds.map((c, i) => (
+                        <button key={c.id} type="button"
+                          onMouseDown={e => { e.preventDefault(); applySlashCommand(i); }}
+                          className={`w-full px-3 py-2 text-sm text-left flex items-center gap-3 transition-colors ${
+                            i === slashIdx ? 'bg-yellow-500/15 text-yellow-300' : 'text-gray-300 hover:bg-dark-700'
+                          }`}
+                        >
+                          <span className="font-medium text-sm w-24 shrink-0">{c.label}</span>
+                          <span className="text-xs text-gray-500 truncate">{c.desc}</span>
+                        </button>
+                      ))}
+                      <p className="px-3 py-1.5 text-[10px] text-gray-600 border-t border-dark-700">↑↓ · Enter · Esc</p>
+                    </div>
+                  );
+                })()}
+
                 {suggestions.length > 0 && (
                   <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[160px]" onClick={e => e.stopPropagation()}>
                     <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
@@ -1725,6 +2168,15 @@ export default function NotesEditor() {
                       </button>
                     ))}
                     <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
+                  </div>
+                )}
+                {/* Compteur mots / caractères */}
+                {editor && (
+                  <div className="px-6 py-1 border-t border-dark-900 flex justify-end shrink-0">
+                    <span className="text-[10px] text-gray-600">
+                      {editor.storage.characterCount?.words?.() ?? 0} mots
+                      · {editor.storage.characterCount?.characters?.() ?? 0} car.
+                    </span>
                   </div>
                 )}
               </div>
