@@ -1126,9 +1126,7 @@ export default function NotesEditor() {
       return v ? (JSON.parse(v) as ViewFilter) : 'inbox';
     } catch { return 'inbox'; }
   });
-  const [selectedId,  setSelectedId]  = useState<string | null>(() => {
-    try { return localStorage.getItem('notes_selectedId') ?? null; } catch { return null; }
-  });
+  const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('list');
 
   const [title,        setTitle]        = useState('');
@@ -1186,11 +1184,22 @@ export default function NotesEditor() {
       else            localStorage.removeItem('notes_selectedId');
     } catch { /* ignore */ }
   }, [selectedId]);
-  // Vérification post-chargement : si la note restaurée n'existe plus → désélectionner
+  // Restauration post-chargement — runs once when Firestore data is ready
+  // selectedId starts as null (safe) then is set here with real content in prevTitle/prevContent
   useEffect(() => {
-    if (loading || !selectedId) return;
-    const exists = [...notes, ...deletedNotes].some(n => n.id === selectedId);
-    if (!exists) setSelectedId(null);
+    if (loading || selectedId) return; // only once, after loading, if nothing selected yet
+    try {
+      const savedId = localStorage.getItem('notes_selectedId');
+      if (!savedId) return;
+      const note = [...notes, ...deletedNotes].find(n => n.id === savedId);
+      if (!note) return;
+      // Set real content BEFORE selectedId changes so the cleanup effect never sees empty values
+      prevTitle.current   = note.title;
+      prevContent.current = note.content;
+      setSelectedId(savedId);
+      setTitle(note.title);
+      setContent(note.content);
+    } catch { /* ignore */ }
   }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ctrl+F / Cmd+F → focus barre de recherche
