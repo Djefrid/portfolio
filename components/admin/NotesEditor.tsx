@@ -1120,8 +1120,15 @@ function NotesSidebar({
 export default function NotesEditor() {
   const { notes, deletedNotes, folders, manualTags, loading } = useAdminNotes();
 
-  const [view,        setView]        = useState<ViewFilter>('inbox');
-  const [selectedId,  setSelectedId]  = useState<string | null>(null);
+  const [view,        setView]        = useState<ViewFilter>(() => {
+    try {
+      const v = localStorage.getItem('notes_view');
+      return v ? (JSON.parse(v) as ViewFilter) : 'inbox';
+    } catch { return 'inbox'; }
+  });
+  const [selectedId,  setSelectedId]  = useState<string | null>(() => {
+    try { return localStorage.getItem('notes_selectedId') ?? null; } catch { return null; }
+  });
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('list');
 
   const [title,        setTitle]        = useState('');
@@ -1168,6 +1175,23 @@ export default function NotesEditor() {
     x: number; y: number; w: number; h: number;
     tx: number; ty: number; label: string;
   } | null>(null);
+
+  // Persistance localStorage — view + selectedId
+  useEffect(() => {
+    try { localStorage.setItem('notes_view', JSON.stringify(view)); } catch { /* ignore */ }
+  }, [view]);
+  useEffect(() => {
+    try {
+      if (selectedId) localStorage.setItem('notes_selectedId', selectedId);
+      else            localStorage.removeItem('notes_selectedId');
+    } catch { /* ignore */ }
+  }, [selectedId]);
+  // Vérification post-chargement : si la note restaurée n'existe plus → désélectionner
+  useEffect(() => {
+    if (loading || !selectedId) return;
+    const exists = [...notes, ...deletedNotes].some(n => n.id === selectedId);
+    if (!exists) setSelectedId(null);
+  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Ctrl+F / Cmd+F → focus barre de recherche
   useEffect(() => {
