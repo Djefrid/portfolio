@@ -1184,23 +1184,7 @@ export default function NotesEditor() {
       else            localStorage.removeItem('notes_selectedId');
     } catch { /* ignore */ }
   }, [selectedId]);
-  // Restauration post-chargement — runs once when Firestore data is ready
-  // selectedId starts as null (safe) then is set here with real content in prevTitle/prevContent
-  useEffect(() => {
-    if (loading || selectedId) return; // only once, after loading, if nothing selected yet
-    try {
-      const savedId = localStorage.getItem('notes_selectedId');
-      if (!savedId) return;
-      const note = [...notes, ...deletedNotes].find(n => n.id === savedId);
-      if (!note) return;
-      // Set real content BEFORE selectedId changes so the cleanup effect never sees empty values
-      prevTitle.current   = note.title;
-      prevContent.current = note.content;
-      setSelectedId(savedId);
-      setTitle(note.title);
-      setContent(note.content);
-    } catch { /* ignore */ }
-  }, [loading]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasRestoredRef = useRef(false);
 
   // Ctrl+F / Cmd+F → focus barre de recherche
   useEffect(() => {
@@ -1569,6 +1553,26 @@ export default function NotesEditor() {
   useEffect(() => { suggestionsRef.current    = suggestions;    }, [suggestions]);
   useEffect(() => { suggestionIdxRef.current  = suggestionIdx;  }, [suggestionIdx]);
   useEffect(() => { scheduleAutoSaveRef.current = scheduleAutoSave; }, [scheduleAutoSave]);
+
+  // Restauration post-chargement — exécuté une seule fois quand Firestore ET l'éditeur sont prêts
+  useEffect(() => {
+    if (loading || !editor || editor.isDestroyed || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    try {
+      const savedId = localStorage.getItem('notes_selectedId');
+      if (!savedId) return;
+      const note = [...notes, ...deletedNotes].find(n => n.id === savedId);
+      if (!note) return;
+      // Écrire le vrai contenu dans les refs AVANT de changer selectedId
+      // pour que l'effet de nettoyage des notes vides ne voie jamais '' comme contenu
+      prevTitle.current   = note.title;
+      prevContent.current = note.content;
+      setSelectedId(savedId);
+      setTitle(note.title);
+      setContent(note.content);
+      editor.commands.setContent(note.content);
+    } catch { /* ignore */ }
+  }, [loading, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sync editor ↔ isReadOnly
   useEffect(() => {
