@@ -127,6 +127,21 @@ export async function updateNote(
       });
       await batch.commit();
     }
+    // Nettoyage Storage : supprimer les images/fichiers retirés du contenu
+    if (storage) {
+      const snap = await getDoc(doc(_db, 'adminNotes', id));
+      if (snap.exists()) {
+        const oldUrls = extractStorageUrls(snap.data().content ?? '');
+        const newUrls = extractStorageUrls(data.content);
+        const newUrlSet = new Set(newUrls);
+        const removed = oldUrls.filter(u => !newUrlSet.has(u));
+        if (removed.length > 0) {
+          await Promise.allSettled(
+            removed.map(url => deleteObject(storageRef(storage!, url)))
+          );
+        }
+      }
+    }
   }
   await updateDoc(doc(_db, 'adminNotes', id), payload);
 }
