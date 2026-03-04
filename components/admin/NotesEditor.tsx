@@ -1008,16 +1008,17 @@ export default function NotesEditor() {
   const editor = useEditor({
     extensions: [
       StarterKit,
-      ImageExtension.configure({ inline: false, allowBase64: false }),
+      ImageExtension.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({
         placeholder: 'Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement.',
       }),
     ],
     editorProps: {
       attributes: { class: 'tiptap-editor' },
-      handlePaste(_, event) {
-        // Intercepte les images collées depuis le presse-papier
+      handlePaste(view, event) {
         const items = Array.from(event.clipboardData?.items ?? []);
+
+        // 1. Image binaire (copier une image → coller) → upload Firebase
         const imgItem = items.find(i => i.type.startsWith('image/'));
         if (imgItem && selectedId) {
           event.preventDefault();
@@ -1025,7 +1026,32 @@ export default function NotesEditor() {
           if (file) handleImageInsertRef.current(file);
           return true;
         }
-        return false; // TipTap gère le reste (texte, HTML formaté, etc.)
+
+        // 2. HTML collé depuis une page web contenant des <img> → afficher inline
+        const htmlItem = items.find(i => i.type === 'text/html');
+        if (htmlItem) {
+          htmlItem.getAsString(html => {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const imgs = Array.from(doc.querySelectorAll('img'));
+            if (imgs.length > 0) {
+              // Injecter les images depuis leurs URLs d'origine (pas d'upload)
+              imgs.forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && !src.startsWith('data:')) {
+                  view.dispatch(
+                    view.state.tr.replaceSelectionWith(
+                      view.state.schema.nodes.image.create({ src, alt: img.getAttribute('alt') ?? '' })
+                    )
+                  );
+                }
+              });
+            }
+          });
+          // Laisser aussi TipTap gérer le texte du HTML collé
+          return false;
+        }
+
+        return false; // TipTap gère le reste (texte brut, etc.)
       },
       handleDrop(_, event) {
         // Intercepte les images glissées-déposées
