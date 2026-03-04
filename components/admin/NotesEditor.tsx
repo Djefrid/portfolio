@@ -66,6 +66,31 @@ const SLASH_CMDS = [
   { id: 'hr',    label: 'Séparateur',      desc: 'Ligne horizontale',    apply: (e: Editor) => e.chain().focus().setHorizontalRule().run() },
 ] as const;
 
+// ── Langages pour code blocks ─────────────────────────────────────────────────
+const LANGUAGES = [
+  { value: 'auto',       label: 'Auto' },
+  { value: 'javascript', label: 'JavaScript' },
+  { value: 'typescript', label: 'TypeScript' },
+  { value: 'python',     label: 'Python' },
+  { value: 'java',       label: 'Java' },
+  { value: 'c',          label: 'C' },
+  { value: 'cpp',        label: 'C++' },
+  { value: 'csharp',     label: 'C#' },
+  { value: 'go',         label: 'Go' },
+  { value: 'rust',       label: 'Rust' },
+  { value: 'php',        label: 'PHP' },
+  { value: 'ruby',       label: 'Ruby' },
+  { value: 'swift',      label: 'Swift' },
+  { value: 'kotlin',     label: 'Kotlin' },
+  { value: 'html',       label: 'HTML' },
+  { value: 'css',        label: 'CSS' },
+  { value: 'json',       label: 'JSON' },
+  { value: 'yaml',       label: 'YAML' },
+  { value: 'sql',        label: 'SQL' },
+  { value: 'bash',       label: 'Bash' },
+  { value: 'markdown',   label: 'Markdown' },
+] as const;
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type ViewFilter =
@@ -482,11 +507,15 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
   const [lastHighlight,  setLastHighlight]  = useState('#fef08a');
   const textColorRef = useRef<HTMLDivElement>(null);
   const highlightRef  = useRef<HTMLDivElement>(null);
+  const [tableOpen,  setTableOpen]  = useState(false);
+  const [tableHover, setTableHover] = useState({ r: 0, c: 0 });
+  const tableRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (textColorRef.current && !textColorRef.current.contains(e.target as Node)) setTextColorOpen(false);
       if (highlightRef.current  && !highlightRef.current.contains(e.target as Node))  setHighlightOpen(false);
+      if (tableRef.current      && !tableRef.current.contains(e.target as Node))      { setTableOpen(false); setTableHover({ r: 0, c: 0 }); }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -647,7 +676,49 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
         {TB(editor.isActive('codeBlock'),  'Bloc de code',          () => editor.chain().focus().toggleCodeBlock().run(),  <Code2 size={13} />)}
         {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
-        {TB(false, 'Insérer un tableau (3×3)', () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), <TableIcon size={13} />)}
+        {/* Grid picker tableau — style Word/Google Docs */}
+        <div className="relative" ref={tableRef}>
+          <button
+            type="button"
+            title="Insérer un tableau"
+            onClick={() => setTableOpen(o => !o)}
+            className={`p-1.5 rounded transition-colors ${tableOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}
+          >
+            <TableIcon size={13} />
+          </button>
+          {tableOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-700 rounded-lg p-2.5 shadow-2xl select-none"
+              onMouseLeave={() => setTableHover({ r: 0, c: 0 })}>
+              <div className="flex flex-col gap-0.5 mb-2">
+                {Array.from({ length: 8 }).map((_, ri) => (
+                  <div key={ri} className="flex gap-0.5">
+                    {Array.from({ length: 8 }).map((_, ci) => (
+                      <div
+                        key={ci}
+                        className={`w-5 h-5 border rounded-sm cursor-pointer transition-colors ${
+                          ri < tableHover.r && ci < tableHover.c
+                            ? 'bg-yellow-500/30 border-yellow-500/60'
+                            : 'bg-dark-700 border-dark-600 hover:bg-dark-600'
+                        }`}
+                        onMouseEnter={() => setTableHover({ r: ri + 1, c: ci + 1 })}
+                        onClick={() => {
+                          editor.chain().focus().insertTable({ rows: tableHover.r, cols: tableHover.c, withHeaderRow: true }).run();
+                          setTableOpen(false);
+                          setTableHover({ r: 0, c: 0 });
+                        }}
+                      />
+                    ))}
+                  </div>
+                ))}
+              </div>
+              <p className="text-center text-xs text-gray-400 min-h-[1rem]">
+                {tableHover.r > 0 && tableHover.c > 0
+                  ? `${tableHover.r} × ${tableHover.c} tableau`
+                  : 'Survoler pour choisir'}
+              </p>
+            </div>
+          )}
+        </div>
         <SEP />
         {/* Groupe Insertion — Lien + Image + Fichier côte à côte */}
         <div className="relative">
@@ -1082,6 +1153,7 @@ export default function NotesEditor() {
   const [focusMode,      setFocusMode]      = useState(false);
   const [bubbleLinkOpen, setBubbleLinkOpen] = useState(false);
   const [bubbleLinkVal,  setBubbleLinkVal]  = useState('');
+  const [codeCopied,     setCodeCopied]     = useState(false);
 
   // Slash commands
   const [slashMenu,   setSlashMenu]   = useState(false);
@@ -2136,6 +2208,132 @@ export default function NotesEditor() {
                 <input ref={fileInputRef} type="file" className="hidden"
                   aria-label="Joindre un fichier"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFileInsert(f); e.target.value = ''; }} />
+                {/* BubbleMenu code block — apparaît au-dessus du bloc de code actif */}
+                {editor && !isReadOnly && (
+                  <BubbleMenu
+                    editor={editor}
+                    options={{ placement: 'top-start' }}
+                    shouldShow={({ editor: e }) => e.isActive('codeBlock')}
+                    className="flex items-center gap-1 bg-dark-800 border border-dark-700 rounded-lg px-1.5 py-1 shadow-2xl z-50"
+                  >
+                    <select
+                      title="Langage du bloc de code"
+                      value={editor.getAttributes('codeBlock').language ?? 'auto'}
+                      onChange={e => {
+                        const lang = e.target.value;
+                        editor.chain().focus().updateAttributes('codeBlock', {
+                          language: lang === 'auto' ? null : lang,
+                        }).run();
+                      }}
+                      className="text-xs bg-dark-700 text-gray-300 border border-dark-600 rounded px-1.5 py-0.5 focus:outline-none focus:border-yellow-500/50 cursor-pointer"
+                    >
+                      {LANGUAGES.map(l => (
+                        <option key={l.value} value={l.value}>{l.label}</option>
+                      ))}
+                    </select>
+                    <div className="w-px h-4 bg-dark-700 mx-0.5" />
+                    <button
+                      type="button"
+                      title="Copier le code"
+                      onClick={() => {
+                        const { $from } = editor.state.selection;
+                        // Remonter jusqu'au noeud codeBlock pour récupérer tout le texte
+                        let node = $from.node();
+                        if (node.type.name !== 'codeBlock') {
+                          const depth = $from.depth;
+                          for (let d = depth; d >= 0; d--) {
+                            const n = $from.node(d);
+                            if (n.type.name === 'codeBlock') { node = n; break; }
+                          }
+                        }
+                        navigator.clipboard.writeText(node.textContent).then(() => {
+                          setCodeCopied(true);
+                          setTimeout(() => setCodeCopied(false), 1500);
+                        });
+                      }}
+                      className="flex items-center gap-1 text-xs px-2 py-0.5 rounded transition-colors text-gray-400 hover:text-white hover:bg-dark-700"
+                    >
+                      {codeCopied ? (
+                        <span className="text-green-400">✓ Copié</span>
+                      ) : (
+                        <span>Copier</span>
+                      )}
+                    </button>
+                  </BubbleMenu>
+                )}
+                {/* BubbleMenu tableau — outils contextuels (apparaît quand curseur dans une cellule) */}
+                {editor && !isReadOnly && (
+                  <BubbleMenu
+                    editor={editor}
+                    options={{ placement: 'top' }}
+                    shouldShow={({ editor: e }) => e.isActive('tableCell') || e.isActive('tableHeader')}
+                    className="flex items-center gap-0.5 flex-wrap bg-dark-800 border border-dark-700 rounded-lg px-1.5 py-1 shadow-2xl z-50 max-w-sm"
+                  >
+                    {/* Lignes */}
+                    <button type="button" title="Ajouter une ligne au-dessus"
+                      onClick={() => editor.chain().focus().addRowBefore().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      ↑ Ligne
+                    </button>
+                    <button type="button" title="Ajouter une ligne en-dessous"
+                      onClick={() => editor.chain().focus().addRowAfter().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      ↓ Ligne
+                    </button>
+                    <button type="button" title="Supprimer la ligne"
+                      onClick={() => editor.chain().focus().deleteRow().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-red-400/70 hover:text-red-400 hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      ✕ Ligne
+                    </button>
+                    <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />
+                    {/* Colonnes */}
+                    <button type="button" title="Ajouter une colonne à gauche"
+                      onClick={() => editor.chain().focus().addColumnBefore().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      ← Col.
+                    </button>
+                    <button type="button" title="Ajouter une colonne à droite"
+                      onClick={() => editor.chain().focus().addColumnAfter().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      → Col.
+                    </button>
+                    <button type="button" title="Supprimer la colonne"
+                      onClick={() => editor.chain().focus().deleteColumn().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-red-400/70 hover:text-red-400 hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      ✕ Col.
+                    </button>
+                    <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />
+                    {/* Fusion / Scission */}
+                    <button type="button" title="Fusionner les cellules sélectionnées"
+                      onClick={() => editor.chain().focus().mergeCells().run()}
+                      disabled={!editor.can().mergeCells()}
+                      className="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-dark-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap">
+                      Fusionner
+                    </button>
+                    <button type="button" title="Scinder la cellule"
+                      onClick={() => editor.chain().focus().splitCell().run()}
+                      disabled={!editor.can().splitCell()}
+                      className="text-xs px-1.5 py-0.5 rounded text-gray-400 hover:text-white hover:bg-dark-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed whitespace-nowrap">
+                      Scinder
+                    </button>
+                    <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />
+                    {/* En-tête */}
+                    <button type="button" title="Basculer la ligne en en-tête"
+                      onClick={() => editor.chain().focus().toggleHeaderRow().run()}
+                      className={`text-xs px-1.5 py-0.5 rounded transition-colors whitespace-nowrap ${
+                        editor.isActive('tableHeader') ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-400 hover:text-white hover:bg-dark-700'
+                      }`}>
+                      En-tête
+                    </button>
+                    <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />
+                    {/* Supprimer le tableau */}
+                    <button type="button" title="Supprimer le tableau"
+                      onClick={() => editor.chain().focus().deleteTable().run()}
+                      className="text-xs px-1.5 py-0.5 rounded text-red-400/70 hover:text-red-400 hover:bg-dark-700 transition-colors whitespace-nowrap">
+                      ✕ Tableau
+                    </button>
+                  </BubbleMenu>
+                )}
                 {/* BubbleMenu — formatage rapide à la sélection (apparaît sous le texte) */}
                 {editor && !isReadOnly && (
                   <BubbleMenu editor={editor} options={{ placement: 'bottom' }}
