@@ -526,8 +526,13 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
 
   return (
     <div className="border-b border-dark-800 shrink-0 select-none">
-      {/* Ligne 1 : formatage du texte */}
+      {/* Ligne 1 — Police (ordre Word : Historique → Style → Formatage → Couleurs) */}
       <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5">
+        {/* Groupe Historique */}
+        {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
+        {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
+        <SEP />
+        {/* Groupe Style */}
         <select
           title="Style de paragraphe"
           value={
@@ -548,6 +553,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
           <option value="3">Titre 3</option>
         </select>
         <SEP />
+        {/* Groupe Formatage caractère */}
         {TB(editor.isActive('bold'),        'Gras (Ctrl+B)',      () => editor.chain().focus().toggleBold().run(),        <Bold size={13} />)}
         {TB(editor.isActive('italic'),      'Italique (Ctrl+I)',  () => editor.chain().focus().toggleItalic().run(),      <Italic size={13} />)}
         {TB(editor.isActive('underline'),   'Souligné (Ctrl+U)', () => editor.chain().focus().toggleUnderline().run(),   <UnderlineIcon size={13} />)}
@@ -555,6 +561,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         {TB(editor.isActive('superscript'), 'Exposant',          () => editor.chain().focus().toggleSuperscript().run(), <SupIcon size={13} />)}
         {TB(editor.isActive('subscript'),   'Indice',            () => editor.chain().focus().toggleSubscript().run(),   <SubIcon size={13} />)}
         <SEP />
+        {/* Groupe Couleurs — Surbrillance + Texte côte à côte, sans séparateur entre eux */}
         {/* Surbrillance — Word-style dropdown */}
         <div className="relative shrink-0" ref={highlightRef}>
           <button type="button" title="Surbrillance"
@@ -624,12 +631,9 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             </div>
           )}
         </div>
-        <SEP />
-        {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
-        {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
       </div>
 
-      {/* Ligne 2 : structure + insertion */}
+      {/* Ligne 2 — Paragraphe + Insertion + Vue (ordre Word) */}
       <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 border-t border-dark-900">
         {TB(editor.isActive({ textAlign: 'left' }),    'Aligner gauche', () => editor.chain().focus().setTextAlign('left').run(),    <AlignLeft size={13} />)}
         {TB(editor.isActive({ textAlign: 'center' }),  'Centrer',        () => editor.chain().focus().setTextAlign('center').run(),  <AlignCenter size={13} />)}
@@ -645,7 +649,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
         {TB(false, 'Insérer un tableau (3×3)', () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), <TableIcon size={13} />)}
         <SEP />
-        {/* Lien */}
+        {/* Groupe Insertion — Lien + Image + Fichier côte à côte */}
         <div className="relative">
           {TB(editor.isActive('link'), 'Lien hypertexte', () => {
             if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); setLinkOpen(false); }
@@ -664,17 +668,17 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             </div>
           )}
         </div>
-        <SEP />
         {TB(false, 'Insérer une image',  onImageClick, <ImageIcon size={13} />)}
         {TB(false, 'Joindre un fichier', onFileClick,  <FileUp size={13} />)}
         {uploadProgress !== null && (
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-1">
             <div className="w-16 h-1 bg-dark-700 rounded-full overflow-hidden">
               <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
             </div>
             <span>{uploadProgress}%</span>
           </div>
         )}
+        {/* Groupe Vue — poussé à droite comme dans Word */}
         <div className="ml-auto flex items-center gap-0.5">
           <SEP />
           {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
