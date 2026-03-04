@@ -14,8 +14,10 @@ import {
   Quote, Minus, Code2, Link as LinkIcon,
   Table as TableIcon, Highlighter,
   Subscript as SubIcon, Superscript as SupIcon,
-  Undo2, Redo2, FileUp, Maximize2, Minimize2, Download, FileText,
+  Undo2, Redo2, FileUp, Maximize2, Minimize2, Download, FileText, Pencil,
 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
@@ -469,7 +471,7 @@ function FolderTreeItem({
 
 // ── EditorToolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick }: {
+function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick, onDrawClick }: {
   editor:           Editor | null;
   onImageClick:     () => void;
   onFileClick:      () => void;
@@ -479,6 +481,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
   onExportMd:       () => void;
   onExportPdf:      () => void;
   onCodeBlockClick: () => void;
+  onDrawClick:      () => void;
 }) {
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkVal,  setLinkVal]  = useState('');
@@ -676,6 +679,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         <SEP />
         {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
         {TB(editor.isActive('codeBlock'),  'Bloc de code',          onCodeBlockClick,  <Code2 size={13} />)}
+        {TB(false,                         'Dessin (Excalidraw)',   onDrawClick,       <Pencil size={13} />)}
         {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
         {/* Grid picker tableau — style Word/Google Docs */}
         <div className="relative" ref={tableRef}>
@@ -1161,6 +1165,16 @@ export default function NotesEditor() {
     open: boolean; code: string; lang: string; isEdit: boolean; from: number; to: number;
   } | null>(null);
   const [codeModalCopied, setCodeModalCopied] = useState(false);
+  const [excalidrawModal, setExcalidrawModal] = useState<{
+    open: boolean;
+    initialData?: Record<string, unknown>;
+  } | null>(null);
+  const excalidrawApiRef  = useRef<ExcalidrawImperativeAPI | null>(null);
+  // Import dynamique (SSR-incompatible)
+  const ExcalidrawComponent = useMemo(() => dynamic(
+    () => import('@excalidraw/excalidraw').then(m => ({ default: m.Excalidraw })),
+    { ssr: false, loading: () => <p className="text-gray-500 text-sm p-4">Chargement du dessin…</p> }
+  ), []);
 
   // Slash commands
   const [slashMenu,   setSlashMenu]   = useState(false);
@@ -1487,15 +1501,32 @@ export default function NotesEditor() {
         return false; // TipTap gère le reste (texte brut, etc.)
       },
       handleDrop(_, event) {
-        // Intercepte les images glissées-déposées
         const files = Array.from(event.dataTransfer?.files ?? []);
-        const img = files.find(f => f.type.startsWith('image/'));
-        if (img && selectedId) {
+        if (files.length === 0 || !selectedId) return false;
+
+        // Fichier .excalidraw → ouvrir dans le modal
+        const excFile = files.find(f => f.name.endsWith('.excalidraw'));
+        if (excFile) {
           event.preventDefault();
-          handleImageInsertRef.current(img);
+          excFile.text().then(json => {
+            try { setExcalidrawModal({ open: true, initialData: JSON.parse(json) }); }
+            catch { setExcalidrawModal({ open: true }); }
+          });
           return true;
         }
-        return false;
+
+        event.preventDefault();
+        // Traitement séquentiel : images inline, autres fichiers en lien
+        (async () => {
+          for (const file of files) {
+            if (file.type.startsWith('image/')) {
+              await handleImageInsertRef.current(file);
+            } else {
+              await handleFileInsertRef.current(file);
+            }
+          }
+        })();
+        return true;
       },
       handleKeyDown(_, event) {
         // Navigation dans le menu slash commands
@@ -1642,6 +1673,32 @@ export default function NotesEditor() {
     setCodeModal(null);
   }, [editor, codeModal]);
 
+  // Export Excalidraw → PNG → Firebase Storage → inséré comme image
+  const insertExcalidraw = useCallback(async () => {
+    if (!excalidrawApiRef.current || !editor || !selectedId) return;
+    try {
+      setUploadProgress(0);
+      const { exportToBlob } = await import('@excalidraw/excalidraw');
+      const blob = await exportToBlob({
+        elements: excalidrawApiRef.current.getSceneElements(),
+        appState: { ...excalidrawApiRef.current.getAppState(), exportWithDarkMode: false },
+        files: excalidrawApiRef.current.getFiles(),
+        mimeType: 'image/png',
+      });
+      const file = new File([blob], `drawing-${Date.now()}.png`, { type: 'image/png' });
+      const url  = await uploadNoteImage(file, selectedId, pct => setUploadProgress(pct));
+      editor.chain().focus().setImage({ src: url, alt: 'Dessin' }).run();
+      const html = editor.getHTML();
+      setContent(html);
+      scheduleAutoSave(title, html);
+      setExcalidrawModal(null);
+    } catch (err) {
+      console.error('Export Excalidraw:', err);
+    } finally {
+      setUploadProgress(null);
+    }
+  }, [editor, selectedId, title, scheduleAutoSave]);
+
   // Sync editor ↔ isReadOnly
   useEffect(() => {
     if (!editor) return;
@@ -1686,6 +1743,8 @@ export default function NotesEditor() {
       setUploadProgress(null);
     }
   }, [editor, selectedId, title, scheduleAutoSave]);
+  const handleFileInsertRef = useRef(handleFileInsert);
+  useEffect(() => { handleFileInsertRef.current = handleFileInsert; }, [handleFileInsert]);
 
   // ── Apply slash command ────────────────────────────────────────────────────
   const applySlashCommand = useCallback((idx: number) => {
@@ -2265,6 +2324,7 @@ export default function NotesEditor() {
                     onExportMd={handleExportMarkdown}
                     onExportPdf={handleExportPDF}
                     onCodeBlockClick={openCodeModal}
+                    onDrawClick={() => setExcalidrawModal({ open: true })}
                   />
                 )}
 
@@ -2668,6 +2728,47 @@ export default function NotesEditor() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal Excalidraw — plein écran ──────────────────────────────────── */}
+      {excalidrawModal?.open && (
+        <div className="fixed inset-0 z-[200] flex flex-col bg-dark-950">
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 border-b border-dark-800 shrink-0 bg-dark-900">
+            <Pencil size={14} className="text-yellow-400" />
+            <span className="text-sm font-semibold text-gray-200">Dessin</span>
+            <span className="text-xs text-gray-500">Glissez-déposez un fichier .excalidraw pour l&apos;ouvrir</span>
+            <div className="ml-auto flex items-center gap-2">
+              {uploadProgress !== null && (
+                <span className="text-xs text-yellow-400">{uploadProgress}%</span>
+              )}
+              <button
+                type="button"
+                onClick={insertExcalidraw}
+                className="text-xs px-3 py-1.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors font-medium"
+              >
+                Insérer dans la note
+              </button>
+              <button
+                type="button"
+                title="Fermer"
+                onClick={() => setExcalidrawModal(null)}
+                className="p-1 text-gray-500 hover:text-white rounded transition-colors"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+          {/* Canvas Excalidraw */}
+          <div className="flex-1 overflow-hidden">
+            <ExcalidrawComponent
+              excalidrawAPI={(api: ExcalidrawImperativeAPI) => { excalidrawApiRef.current = api; }}
+              initialData={excalidrawModal.initialData}
+              theme="dark"
+              UIOptions={{ canvasActions: { saveToActiveFile: false, loadScene: false } }}
+            />
           </div>
         </div>
       )}
