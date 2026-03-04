@@ -476,14 +476,41 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
 
   const SEP = () => <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />;
 
-  const HIGHLIGHTS = [
-    '#fef08a','#bbf7d0','#bfdbfe','#fbcfe8','#fed7aa',
-    '#e9d5ff','#fecdd3','#d1fae5','#dbeafe','#fde68a',
+  const [textColorOpen, setTextColorOpen] = useState(false);
+  const [highlightOpen, setHighlightOpen] = useState(false);
+  const [lastTextColor, setLastTextColor] = useState('#f9fafb');
+  const [lastHighlight,  setLastHighlight]  = useState('#fef08a');
+  const textColorRef = useRef<HTMLDivElement>(null);
+  const highlightRef  = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (textColorRef.current && !textColorRef.current.contains(e.target as Node)) setTextColorOpen(false);
+      if (highlightRef.current  && !highlightRef.current.contains(e.target as Node))  setHighlightOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Grille 6×10 couleurs — style Word (Noir → gris → blanc + palettes chromatiques)
+  const COLOR_GRID = [
+    ['#000000','#1a1a1a','#333333','#4d4d4d','#666666','#808080','#999999','#b3b3b3','#cccccc','#ffffff'],
+    ['#1e3a5f','#1e40af','#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe','#eff6ff'],
+    ['#14532d','#166534','#15803d','#16a34a','#22c55e','#4ade80','#86efac','#bbf7d0','#dcfce7','#f0fdf4'],
+    ['#7f1d1d','#991b1b','#b91c1c','#dc2626','#ef4444','#f87171','#fca5a5','#fecaca','#fee2e2','#fff1f2'],
+    ['#7c2d12','#c2410c','#ea580c','#f97316','#fb923c','#fdba74','#fcd34d','#fef08a','#fef9c3','#fffbeb'],
+    ['#4c1d95','#6d28d9','#7c3aed','#8b5cf6','#a78bfa','#c4b5fd','#be185d','#ec4899','#fbcfe8','#fdf4ff'],
   ];
-  const COLORS = [
-    '#f9fafb','#e5e7eb','#fbbf24','#f97316','#ef4444',
-    '#ec4899','#a78bfa','#60a5fa','#34d399','#14b8a6',
-    '#84cc16','#94a3b8',
+
+  // Palette surbrillance (couleurs vives / pastels)
+  const HIGHLIGHT_COLORS = [
+    '#fef08a','#fde68a','#fcd34d','#fbbf24',
+    '#bbf7d0','#86efac','#4ade80','#22c55e',
+    '#bfdbfe','#93c5fd','#60a5fa','#3b82f6',
+    '#fecaca','#fca5a5','#f87171','#ef4444',
+    '#e9d5ff','#c4b5fd','#a78bfa','#8b5cf6',
+    '#fbcfe8','#f9a8d4','#f472b6','#ec4899',
+    '#fed7aa','#fdba74','#fb923c','#f97316',
   ];
 
   const handleSetLink = () => {
@@ -528,29 +555,75 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         {TB(editor.isActive('superscript'), 'Exposant',          () => editor.chain().focus().toggleSuperscript().run(), <SupIcon size={13} />)}
         {TB(editor.isActive('subscript'),   'Indice',            () => editor.chain().focus().toggleSubscript().run(),   <SubIcon size={13} />)}
         <SEP />
-        {HIGHLIGHTS.map(c => (
-          <button key={c} type="button" title="Surbrillance"
-            onClick={() => editor.chain().focus().toggleHighlight({ color: c }).run()}
-            style={{ background: c }}
-            className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0"
-          />
-        ))}
+        {/* Surbrillance — Word-style dropdown */}
+        <div className="relative shrink-0" ref={highlightRef}>
+          <button type="button" title="Surbrillance"
+            onClick={() => { setHighlightOpen(o => !o); setTextColorOpen(false); }}
+            className="flex flex-col items-center p-1 rounded hover:bg-dark-700 transition-colors">
+            <Highlighter size={12} className="text-gray-300" />
+            <div className="w-3.5 h-[3px] rounded-full mt-0.5 border border-dark-600" style={{ background: lastHighlight }} />
+          </button>
+          {highlightOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5 min-w-max"
+              onMouseDown={e => e.stopPropagation()}>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Surbrillance</p>
+              <div className="grid grid-cols-4 gap-1">
+                {HIGHLIGHT_COLORS.map(c => (
+                  <button key={c} type="button" title={c}
+                    onClick={() => { editor.chain().focus().toggleHighlight({ color: c }).run(); setLastHighlight(c); setHighlightOpen(false); }}
+                    style={{ background: c }}
+                    className="w-5 h-5 rounded border border-dark-600 hover:scale-110 transition-transform"
+                  />
+                ))}
+              </div>
+              <button type="button"
+                onClick={() => { editor.chain().focus().unsetHighlight().run(); setHighlightOpen(false); }}
+                className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-200 py-1 border-t border-dark-700 hover:bg-dark-700 rounded transition-colors">
+                ✕ Aucune surbrillance
+              </button>
+            </div>
+          )}
+        </div>
         <SEP />
-        {COLORS.map(c => (
-          <button key={c} type="button" title="Couleur du texte"
-            onClick={() => editor.chain().focus().setColor(c).run()}
-            style={{ background: c }}
-            className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0"
-          />
-        ))}
-        <label title="Couleur personnalisée du texte"
-          className="w-[18px] h-[18px] rounded border border-dark-600 hover:scale-110 transition-transform shrink-0 cursor-pointer overflow-hidden relative flex items-center justify-center bg-gradient-to-br from-red-400 via-yellow-400 to-blue-400">
-          <input type="color" aria-label="Couleur personnalisée du texte" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-            onChange={e => editor.chain().focus().setColor(e.target.value).run()} />
-        </label>
-        <button type="button" title="Réinitialiser couleur"
-          onClick={() => editor.chain().focus().unsetColor().run()}
-          className="text-[10px] text-gray-500 hover:text-gray-300 px-0.5 ml-0.5">×</button>
+        {/* Couleur du texte — Word-style dropdown avec grille 6×10 */}
+        <div className="relative shrink-0" ref={textColorRef}>
+          <button type="button" title="Couleur du texte"
+            onClick={() => { setTextColorOpen(o => !o); setHighlightOpen(false); }}
+            className="flex flex-col items-center p-1 rounded hover:bg-dark-700 transition-colors">
+            <span className="text-[13px] font-bold text-gray-300 leading-none">A</span>
+            <div className="w-3.5 h-[3px] rounded-full mt-0.5 border border-dark-600" style={{ background: lastTextColor }} />
+          </button>
+          {textColorOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5 min-w-max"
+              onMouseDown={e => e.stopPropagation()}>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Couleur du texte</p>
+              <div className="grid grid-cols-10 gap-0.5">
+                {COLOR_GRID.flat().map(c => (
+                  <button key={c} type="button" title={c}
+                    onClick={() => { editor.chain().focus().setColor(c).run(); setLastTextColor(c); setTextColorOpen(false); }}
+                    style={{ background: c }}
+                    className="w-5 h-5 rounded-sm border border-dark-600 hover:scale-110 transition-transform hover:border-gray-400"
+                  />
+                ))}
+              </div>
+              <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-dark-700">
+                <label className="flex items-center gap-1.5 text-[10px] text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                  <div className="w-5 h-5 rounded-sm border border-dark-500 bg-gradient-to-br from-red-400 via-yellow-400 to-blue-400 relative overflow-hidden shrink-0">
+                    <input type="color" aria-label="Couleur personnalisée du texte"
+                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                      onChange={e => { editor.chain().focus().setColor(e.target.value).run(); setLastTextColor(e.target.value); }} />
+                  </div>
+                  Personnalisée
+                </label>
+                <button type="button"
+                  onClick={() => { editor.chain().focus().unsetColor().run(); setTextColorOpen(false); }}
+                  className="text-[10px] text-gray-400 hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-dark-700 transition-colors">
+                  ✕ Réinitialiser
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <SEP />
         {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
         {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
