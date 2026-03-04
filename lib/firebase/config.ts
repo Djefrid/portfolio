@@ -62,7 +62,10 @@ if (isFirebaseConfigured) {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   auth = getAuth(app);
   db = getFirestore(app);
-  storage = getStorage(app);
+  // Storage uniquement si storageBucket est configuré (évite de casser Auth+Firestore)
+  if (firebaseConfig.storageBucket) {
+    try { storage = getStorage(app); } catch { /* Storage non disponible */ }
+  }
 }
 
 export { app, auth, db, storage };
