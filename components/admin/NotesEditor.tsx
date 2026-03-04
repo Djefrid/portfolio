@@ -1120,12 +1120,7 @@ function NotesSidebar({
 export default function NotesEditor() {
   const { notes, deletedNotes, folders, manualTags, loading } = useAdminNotes();
 
-  const [view,        setView]        = useState<ViewFilter>(() => {
-    try {
-      const v = localStorage.getItem('notes_view');
-      return v ? (JSON.parse(v) as ViewFilter) : 'inbox';
-    } catch { return 'inbox'; }
-  });
+  const [view,        setView]        = useState<ViewFilter>('inbox');
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>('list');
 
@@ -1174,17 +1169,26 @@ export default function NotesEditor() {
     tx: number; ty: number; label: string;
   } | null>(null);
 
-  // Persistance localStorage — view + selectedId
+  // ── Persistance localStorage ─────────────────────────────────────────────
+  const hasRestoredRef = useRef(false);
+  // Restaurer la vue au premier rendu côté client (après hydration SSR)
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem('notes_view');
+      if (v) setView(JSON.parse(v) as ViewFilter);
+    } catch { /* ignore */ }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Sauvegarder view à chaque changement
   useEffect(() => {
     try { localStorage.setItem('notes_view', JSON.stringify(view)); } catch { /* ignore */ }
   }, [view]);
+  // Sauvegarder selectedId à chaque changement
   useEffect(() => {
     try {
       if (selectedId) localStorage.setItem('notes_selectedId', selectedId);
       else            localStorage.removeItem('notes_selectedId');
     } catch { /* ignore */ }
   }, [selectedId]);
-  const hasRestoredRef = useRef(false);
 
   // Ctrl+F / Cmd+F → focus barre de recherche
   useEffect(() => {
@@ -1571,6 +1575,7 @@ export default function NotesEditor() {
       setTitle(note.title);
       setContent(note.content);
       editor.commands.setContent(note.content);
+      setMobilePanel('editor');
     } catch { /* ignore */ }
   }, [loading, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
