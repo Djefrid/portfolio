@@ -1,4 +1,5 @@
 import { Extension } from '@tiptap/core';
+import type { EditorState } from '@tiptap/pm/state';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -18,7 +19,7 @@ const LIST_TYPES = ['listItem', 'taskItem'];
 const BLOCK_TYPES = ['paragraph', 'heading', 'blockquote'];
 
 /** Vérifie si la sélection est entièrement dans une liste */
-function isInList(state: Parameters<Parameters<typeof Extension.create>[0]['addKeyboardShortcuts']>[0]['state']): boolean {
+function isInList(state: EditorState): boolean {
   const { $from } = state.selection;
   for (let d = $from.depth; d > 0; d--) {
     const node = $from.node(d);
