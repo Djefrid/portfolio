@@ -239,6 +239,18 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   line-height: 1.6;
 }
+/* Accessibilité — texte uniquement pour les lecteurs d'écran */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
 /* Correcteur orthographique — soulignement rouge pointillé style Word */
 .spell-error {
   text-decoration: underline wavy #ef4444;

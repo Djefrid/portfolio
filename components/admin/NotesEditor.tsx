@@ -15,14 +15,14 @@ import {
   Table as TableIcon, Highlighter,
   Subscript as SubIcon, Superscript as SupIcon,
   Undo2, Redo2, FileUp, Maximize2, Minimize2, Download, FileText, Pencil,
-  FileDown, FilePlus, BookOpen, CheckCircle, PenLine,
+  FileDown, FilePlus, BookOpen,
   Eraser, IndentIncrease, IndentDecrease, CaseSensitive, Sigma, SearchCode,
   ChevronDown, Replace,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { importDocx, exportDocx } from '@/lib/docx-utils';
-import { extractTextFromPdf, readPdfFormFields, fillAndDownloadPdf, signAndDownloadPdf } from '@/lib/pdf-utils';
+import { extractTextFromPdf } from '@/lib/pdf-utils';
 import { SpellCheckExtension } from '@/lib/tiptap-extensions/spell-check';
 import { GhostTextExtension } from '@/lib/tiptap-extensions/ghost-text';
 import { Indent } from '@/lib/tiptap-extensions/indent';
@@ -56,12 +56,15 @@ import {
   createNote, updateNote, deleteNote, moveNote,
   permanentlyDeleteNote, recoverNote, silentlyDeleteNote,
   createFolder, createSmartFolder, updateFolder, updateSmartFolderFilters, deleteFolder,
-  createTag, deleteTag,
+  createTag, deleteTag, addToDictionary,
   Note, Folder as FolderType, SmartFolderFilter,
 } from '@/lib/notes-service';
 
 // ── Lowlight instance (module-level pour éviter recréation) ───────────────────
 const lowlight = createLowlight(all);
+
+// ── Constantes ────────────────────────────────────────────────────────────────
+const AUTOSAVE_DELAY_MS = 1000;
 
 // ── Slash commands ────────────────────────────────────────────────────────────
 const SLASH_CMDS = [
@@ -528,7 +531,7 @@ const LINE_SPACINGS = [
   { value: '3',      label: '3.0' },
 ];
 
-function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick, onDrawClick, onImportDocxClick, onExportDocxClick, onImportPdfClick, onPdfFormClick, onPdfSignClick }: {
+function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick, onDrawClick, onImportDocxClick, onExportDocxClick, onImportPdfClick }: {
   editor:             Editor | null;
   onImageClick:       () => void;
   onFileClick:        () => void;
@@ -542,8 +545,6 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
   onImportDocxClick:  () => void;
   onExportDocxClick:  () => void;
   onImportPdfClick:   () => void;
-  onPdfFormClick:     () => void;
-  onPdfSignClick:     () => void;
 }) {
   const [linkOpen,       setLinkOpen]       = useState(false);
   const [linkVal,        setLinkVal]        = useState('');
@@ -576,7 +577,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     disabled?: boolean
   ) => (
     <button
-      type="button" title={title} onClick={onClick} disabled={disabled}
+      type="button" title={title} aria-label={title} onClick={onClick} disabled={disabled}
       className={`p-1.5 rounded transition-colors ${
         active ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'
       } disabled:opacity-30 disabled:cursor-not-allowed`}
@@ -1073,11 +1074,9 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         <SEP />
 
         {/* Import/Export documents */}
-        {TB(false, 'Importer un fichier Word (.docx)', onImportDocxClick, <FilePlus    size={13} />)}
-        {TB(false, 'Exporter en Word (.docx)',         onExportDocxClick, <FileDown    size={13} />)}
-        {TB(false, 'Importer un PDF (texte)',          onImportPdfClick,  <BookOpen    size={13} />)}
-        {TB(false, 'Remplir un formulaire PDF',        onPdfFormClick,    <CheckCircle size={13} />)}
-        {TB(false, 'Signer un PDF',                    onPdfSignClick,    <PenLine     size={13} />)}
+        {TB(false, 'Importer un fichier Word (.docx)', onImportDocxClick, <FilePlus size={13} />)}
+        {TB(false, 'Exporter en Word (.docx)',         onExportDocxClick, <FileDown size={13} />)}
+        {TB(false, 'Importer un PDF (texte)',          onImportPdfClick,  <BookOpen size={13} />)}
         <SEP />
         {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
         {TB(false, 'Imprimer / PDF',       onExportPdf, <Download size={13} />)}
@@ -1448,7 +1447,7 @@ function NotesSidebar({
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export default function NotesEditor() {
-  const { notes, deletedNotes, folders, manualTags, loading } = useAdminNotes();
+  const { notes, deletedNotes, folders, manualTags, dictionary, loading } = useAdminNotes();
 
   const [view,        setView]        = useState<ViewFilter>('inbox');
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
@@ -1490,22 +1489,22 @@ export default function NotesEditor() {
     open: boolean; code: string; lang: string; isEdit: boolean; from: number; to: number;
   } | null>(null);
   const [codeModalCopied, setCodeModalCopied] = useState(false);
+
+  // ── Orthographe — menu clic-droit ─────────────────────────────────────────
+  const [spellMenu, setSpellMenu] = useState<{
+    x: number; y: number; word: string; fixes: string[]; from: number; to: number;
+  } | null>(null);
+  const ignoredWordsRef = useRef<Set<string>>(new Set()); // ignorés pour la session
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+
   const [excalidrawModal, setExcalidrawModal] = useState<{
     open: boolean;
     initialData?: Record<string, unknown>;
   } | null>(null);
   const excalidrawApiRef  = useRef<ExcalidrawImperativeAPI | null>(null);
 
-  // ── PDF / DOCX modals ─────────────────────────────────────────────
-  const [pdfFile,          setPdfFile]         = useState<File | null>(null);
-  const [pdfModal,         setPdfModal]         = useState<'form' | 'sign' | null>(null);
-  const [pdfFormFields,    setPdfFormFields]    = useState<{ name: string; type: string; value: string }[]>([]);
-  const [pdfFormData,      setPdfFormData]      = useState<Record<string, string>>({});
-  const [signaturePadRef]  = useState(() => ({ current: null as import('signature_pad').default | null }));
-  const sigCanvasRef       = useRef<HTMLCanvasElement>(null);
-  const docxInputRef       = useRef<HTMLInputElement>(null);
-  const pdfInputRef        = useRef<HTMLInputElement>(null);
-  const pdfInputModeRef    = useRef<'import' | 'form' | 'sign'>('import');
+  const docxInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef  = useRef<HTMLInputElement>(null);
   // Import dynamique (SSR-incompatible)
   const ExcalidrawComponent = useMemo(() => dynamic(
     () => import('@excalidraw/excalidraw').then(m => ({ default: m.Excalidraw })),
@@ -1716,7 +1715,7 @@ export default function NotesEditor() {
       } catch {
         setSaveStatus('error');
       }
-    }, 1000);
+    }, AUTOSAVE_DELAY_MS);
   }, [selectedId, isReadOnly]);
 
   // Reset de l'index de sélection quand les suggestions changent
@@ -1815,7 +1814,9 @@ export default function NotesEditor() {
       LineHeight,
       Indent,
       Mathematics,
-      SpellCheckExtension,
+      SpellCheckExtension.configure({
+        getIgnored: () => Array.from(ignoredWordsRef.current).concat(dictionary),
+      }),
       GhostTextExtension.configure({
         // ghostSuggestionRef est mis à jour après useEditor
         getSuggestion: (text) => ghostSuggestionRef.current(text),
@@ -2101,44 +2102,6 @@ export default function NotesEditor() {
     finally { setUploadProgress(null); }
   }, [editor, title, scheduleAutoSave]);
 
-  // ── PDF Form / Sign ────────────────────────────────────────────────────────
-  const handleOpenPdfForm = useCallback(async (file: File) => {
-    try {
-      const fields = await readPdfFormFields(file);
-      setPdfFile(file);
-      setPdfFormFields(fields);
-      const defaults: Record<string, string> = {};
-      fields.forEach(f => { defaults[f.name] = f.value; });
-      setPdfFormData(defaults);
-      setPdfModal('form');
-    } catch (err) { console.error('Lecture champs PDF:', err); }
-  }, []);
-
-  const handleFillPdf = useCallback(async () => {
-    if (!pdfFile) return;
-    await fillAndDownloadPdf(pdfFile, pdfFormData, title || 'formulaire');
-    setPdfModal(null);
-  }, [pdfFile, pdfFormData, title]);
-
-  const handleSignPdf = useCallback(async () => {
-    if (!pdfFile || !signaturePadRef.current) return;
-    if (signaturePadRef.current.isEmpty()) return;
-    const dataUrl = signaturePadRef.current.toDataURL('image/png');
-    await signAndDownloadPdf(pdfFile, dataUrl, { x: 50, y: 650, width: 200, height: 80, page: 0 }, title || 'document');
-    setPdfModal(null);
-  }, [pdfFile, title, signaturePadRef]);
-
-  // Initialiser signature_pad quand le canvas est monté
-  useEffect(() => {
-    if (pdfModal !== 'sign' || !sigCanvasRef.current) return;
-    import('signature_pad').then(({ default: SignaturePad }) => {
-      signaturePadRef.current = new SignaturePad(sigCanvasRef.current!, {
-        backgroundColor: 'rgb(255,255,255)',
-        penColor:        'rgb(0,0,0)',
-      });
-    });
-  }, [pdfModal, signaturePadRef]);
-
   // ── Upload image (paste / drag-drop / bouton) ─────────────────────────────
   const handleImageInsert = useCallback(async (file: File) => {
     if (!editor || !selectedId) return;
@@ -2158,6 +2121,39 @@ export default function NotesEditor() {
   }, [editor, selectedId, title, scheduleAutoSave]);
   useEffect(() => { handleImageInsertRef.current = handleImageInsert; }, [handleImageInsert]);
   useEffect(() => { applySuggestionRef.current   = applySuggestion;   }, [applySuggestion]);
+
+  // ── Menu clic-droit orthographe ───────────────────────────────────────────
+  useEffect(() => {
+    const container = editorContainerRef.current;
+    if (!container) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.classList.contains('spell-error')) return;
+      e.preventDefault();
+      const fixes = target.dataset.fixes?.split('|').filter(Boolean) ?? [];
+      const word  = target.textContent ?? '';
+      const from  = parseInt(target.dataset.from ?? '0', 10);
+      const to    = parseInt(target.dataset.to   ?? '0', 10);
+      setSpellMenu({ x: e.clientX, y: e.clientY, word, fixes, from, to });
+    };
+    container.addEventListener('contextmenu', handler);
+    return () => container.removeEventListener('contextmenu', handler);
+  }, []);
+
+  // Fermer le menu contextuel orthographe sur clic ou touche Escape
+  useEffect(() => {
+    if (!spellMenu) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if ('key' in e && e.key !== 'Escape') return;
+      setSpellMenu(null);
+    };
+    document.addEventListener('mousedown', close as EventListener);
+    document.addEventListener('keydown',   close as EventListener);
+    return () => {
+      document.removeEventListener('mousedown', close as EventListener);
+      document.removeEventListener('keydown',   close as EventListener);
+    };
+  }, [spellMenu]);
 
   // ── Upload fichier joint ───────────────────────────────────────────────────
   const handleFileInsert = useCallback(async (file: File) => {
@@ -2341,7 +2337,32 @@ export default function NotesEditor() {
     setSelectedId(id); setTitle(''); setContent(''); setSaveStatus('saved');
     editor?.commands.setContent('');
     setMobilePanel('editor');
+    setTimeout(() => titleRef.current?.focus(), 80);
   };
+
+  // Ctrl+S — sauvegarde immédiate (bypass du délai autosave)
+  // Ctrl+N — nouvelle note
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === 's') {
+        e.preventDefault();
+        if (!selectedId || isReadOnly) return;
+        clearTimeout(saveTimer.current);
+        setSaveStatus('saving');
+        updateNote(selectedId, { title, content })
+          .then(() => { setLastSaved(new Date()); setSaveStatus('saved'); })
+          .catch(() => setSaveStatus('error'));
+      }
+      if (e.key === 'n') {
+        e.preventDefault();
+        handleNewNote();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, isReadOnly, title, content]);
 
   const handleSelectNote = (note: Note) => {
     setSelectedId(note.id); setTitle(note.title); setContent(note.content);
@@ -2748,7 +2769,7 @@ export default function NotesEditor() {
               </div>
 
               {/* Barre d'outils rich text + éditeur TipTap */}
-              <div className="relative flex-1 flex flex-col overflow-hidden">
+              <div ref={editorContainerRef} className="relative flex-1 flex flex-col overflow-hidden">
                 {!isReadOnly && (
                   <EditorToolbar
                     editor={editor}
@@ -2763,9 +2784,7 @@ export default function NotesEditor() {
                     onDrawClick={() => setExcalidrawModal({ open: true })}
                     onImportDocxClick={() => docxInputRef.current?.click()}
                     onExportDocxClick={handleExportDocx}
-                    onImportPdfClick={() => { pdfInputModeRef.current = 'import'; pdfInputRef.current?.click(); }}
-                    onPdfFormClick={() => { pdfInputModeRef.current = 'form';   pdfInputRef.current?.click(); }}
-                    onPdfSignClick={() => { pdfInputModeRef.current = 'sign';   pdfInputRef.current?.click(); }}
+                    onImportPdfClick={() => pdfInputRef.current?.click()}
                   />
                 )}
 
@@ -2820,15 +2839,7 @@ export default function NotesEditor() {
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleImportDocx(f); e.target.value = ''; }} />
                 <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden"
                   aria-label="Ouvrir un fichier PDF"
-                  onChange={e => {
-                    const f = e.target.files?.[0];
-                    if (!f) { e.target.value = ''; return; }
-                    e.target.value = '';
-                    const mode = pdfInputModeRef.current;
-                    if (mode === 'import') handleImportPdf(f);
-                    else if (mode === 'form') handleOpenPdfForm(f);
-                    else { setPdfFile(f); setPdfModal('sign'); }
-                  }} />
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleImportPdf(f); e.target.value = ''; }} />
                 {/* Barre contextuelle bloc de code — s'affiche quand curseur est dans un bloc */}
                 {isInCodeBlock && !isReadOnly && editor && (
                   <div className="px-3 py-1.5 border-b border-dark-800 flex items-center gap-2 bg-dark-900 shrink-0">
@@ -3187,97 +3198,6 @@ export default function NotesEditor() {
         </div>
       )}
 
-      {/* ── Modal formulaire PDF ─────────────────────────────────────────────── */}
-      {pdfModal === 'form' && pdfFile && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setPdfModal(null)}>
-          <div className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-[600px] max-w-[95vw] flex flex-col max-h-[85vh]"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-dark-800 shrink-0">
-              <CheckCircle size={14} className="text-yellow-400" />
-              <span className="text-sm font-semibold text-gray-200">Remplir un formulaire PDF</span>
-              <span className="text-xs text-gray-500 ml-1 truncate">{pdfFile.name}</span>
-              <button type="button" title="Fermer" onClick={() => setPdfModal(null)}
-                className="ml-auto p-1 text-gray-500 hover:text-white rounded transition-colors">
-                <X size={15} />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {pdfFormFields.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-8">Aucun champ de formulaire détecté dans ce PDF.</p>
-              ) : pdfFormFields.map(field => (
-                <div key={field.name} className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-400">{field.name}
-                    <span className="text-gray-600 ml-1">({field.type})</span>
-                  </label>
-                  {field.type === 'CheckBox' ? (
-                    <input type="checkbox"
-                      title={field.name}
-                      aria-label={field.name}
-                      checked={pdfFormData[field.name] === 'true'}
-                      onChange={e => setPdfFormData(d => ({ ...d, [field.name]: e.target.checked ? 'true' : 'false' }))}
-                      className="w-4 h-4 accent-yellow-400" />
-                  ) : (
-                    <input type="text"
-                      title={field.name}
-                      placeholder={field.name}
-                      value={pdfFormData[field.name] ?? ''}
-                      onChange={e => setPdfFormData(d => ({ ...d, [field.name]: e.target.value }))}
-                      className="text-sm bg-dark-800 border border-dark-700 text-gray-200 rounded px-3 py-1.5 focus:outline-none focus:border-yellow-500/50" />
-                  )}
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-dark-800 shrink-0">
-              <button type="button" onClick={() => setPdfModal(null)}
-                className="text-xs px-3 py-1.5 rounded text-gray-400 hover:text-white hover:bg-dark-800 transition-colors">Annuler</button>
-              <button type="button" onClick={handleFillPdf}
-                className="text-xs px-3 py-1.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 font-medium transition-colors">
-                Télécharger le PDF rempli
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal signature PDF ───────────────────────────────────────────────── */}
-      {pdfModal === 'sign' && pdfFile && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          onClick={() => setPdfModal(null)}>
-          <div className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-[500px] max-w-[95vw] flex flex-col"
-            onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-3 px-4 py-3 border-b border-dark-800 shrink-0">
-              <PenLine size={14} className="text-yellow-400" />
-              <span className="text-sm font-semibold text-gray-200">Signer un PDF</span>
-              <span className="text-xs text-gray-500 ml-1 truncate">{pdfFile.name}</span>
-              <button type="button" title="Fermer" onClick={() => setPdfModal(null)}
-                className="ml-auto p-1 text-gray-500 hover:text-white rounded transition-colors">
-                <X size={15} />
-              </button>
-            </div>
-            <div className="p-4 flex flex-col gap-3">
-              <p className="text-xs text-gray-500">Dessinez votre signature dans le cadre ci-dessous :</p>
-              <canvas ref={sigCanvasRef} width={460} height={160}
-                className="w-full border border-dark-600 rounded-lg bg-white cursor-crosshair"
-                style={{ touchAction: 'none' }}
-              />
-              <button type="button" onClick={() => signaturePadRef.current?.clear()}
-                className="text-xs text-gray-500 hover:text-gray-300 self-start transition-colors">
-                Effacer
-              </button>
-            </div>
-            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-dark-800 shrink-0">
-              <button type="button" onClick={() => setPdfModal(null)}
-                className="text-xs px-3 py-1.5 rounded text-gray-400 hover:text-white hover:bg-dark-800 transition-colors">Annuler</button>
-              <button type="button" onClick={handleSignPdf}
-                className="text-xs px-3 py-1.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 font-medium transition-colors">
-                Télécharger le PDF signé
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Modal Excalidraw — plein écran ──────────────────────────────────── */}
       {excalidrawModal?.open && (
         <div className="fixed inset-0 z-[200] flex flex-col bg-dark-950">
@@ -3318,6 +3238,91 @@ export default function NotesEditor() {
           </div>
         </div>
       )}
+      {/* ── Menu contextuel orthographe ─────────────────────────────────────── */}
+      {spellMenu && (
+        <div
+          className="fixed z-[300] min-w-[180px] bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden"
+          style={{ top: spellMenu.y, left: spellMenu.x }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          {/* En-tête */}
+          <div className="px-3 py-1.5 border-b border-dark-700 flex items-center gap-2">
+            <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">
+              Orthographe
+            </span>
+            <span className="text-xs text-gray-400 truncate ml-1">&laquo;{spellMenu.word}&raquo;</span>
+          </div>
+
+          {/* Suggestions de remplacement */}
+          {spellMenu.fixes.length > 0 ? (
+            <>
+              <p className="px-3 pt-1.5 text-[10px] text-gray-500">Remplacer par :</p>
+              {spellMenu.fixes.map(fix => (
+                <button
+                  key={fix}
+                  type="button"
+                  onMouseDown={() => {
+                    editor?.chain().focus().deleteRange({ from: spellMenu.from, to: spellMenu.to }).insertContent(fix).run();
+                    setSpellMenu(null);
+                  }}
+                  className="w-full px-3 py-1.5 text-sm text-left text-green-300 hover:bg-dark-700 transition-colors font-medium"
+                >
+                  {fix}
+                </button>
+              ))}
+              <div className="border-t border-dark-700 mt-1" />
+            </>
+          ) : (
+            <p className="px-3 py-2 text-xs text-gray-500 italic">Aucune suggestion</p>
+          )}
+
+          {/* Ignorer (session) */}
+          <button
+            type="button"
+            onMouseDown={() => {
+              ignoredWordsRef.current.add(spellMenu.word.toLowerCase());
+              setSpellMenu(null);
+              // Forcer un re-check en simulant un changement de doc
+              if (editor && !editor.isDestroyed) {
+                editor.commands.setContent(editor.getHTML(), { emitUpdate: true });
+              }
+            }}
+            className="w-full px-3 py-1.5 text-sm text-left text-gray-300 hover:bg-dark-700 transition-colors"
+          >
+            Ignorer
+          </button>
+
+          {/* Ajouter au dictionnaire */}
+          <button
+            type="button"
+            onMouseDown={async () => {
+              const word = spellMenu.word.toLowerCase();
+              ignoredWordsRef.current.add(word);
+              await addToDictionary(word);
+              setSpellMenu(null);
+              if (editor && !editor.isDestroyed) {
+                editor.commands.setContent(editor.getHTML(), { emitUpdate: true });
+              }
+            }}
+            className="w-full px-3 py-1.5 text-sm text-left text-gray-300 hover:bg-dark-700 transition-colors border-t border-dark-700"
+          >
+            Ajouter au dictionnaire
+          </button>
+        </div>
+      )}
+
+      {/* ── ARIA live region — orthographe ───────────────────────────────────── */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+      >
+        {spellMenu
+          ? `Erreur orthographique sur le mot « ${spellMenu.word} » — ${spellMenu.fixes.length} suggestion${spellMenu.fixes.length !== 1 ? 's' : ''} disponible${spellMenu.fixes.length !== 1 ? 's' : ''}`
+          : ''
+        }
+      </div>
     </>
   );
 }

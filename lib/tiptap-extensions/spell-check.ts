@@ -12,6 +12,11 @@ interface LTMatch {
   rule: { id: string; description: string };
 }
 
+interface SpellCheckOptions {
+  /** Retourne les mots ignorés (session + dictionnaire persistant) */
+  getIgnored: () => string[];
+}
+
 // Debounce helper
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function debounce<T extends (...args: any[]) => void>(fn: T, ms: number): T {
@@ -32,12 +37,22 @@ function extractText(doc: Parameters<typeof DecorationSet.create>[0]): string {
   return text;
 }
 
-export const SpellCheckExtension = Extension.create({
+export const SpellCheckExtension = Extension.create<SpellCheckOptions>({
   name: 'spellCheck',
 
+  addOptions() {
+    return { getIgnored: () => [] };
+  },
+
   addProseMirrorPlugins() {
+    const opts = this.options;
+
     // Fonction qui appelle l'API et retourne les décorations
-    const checkSpelling = debounce(async (text: string, dispatch: (decos: DecorationSet, doc: Parameters<typeof DecorationSet.create>[0]) => void, doc: Parameters<typeof DecorationSet.create>[0]) => {
+    const checkSpelling = debounce(async (
+      text: string,
+      dispatch: (decos: DecorationSet, doc: Parameters<typeof DecorationSet.create>[0]) => void,
+      doc: Parameters<typeof DecorationSet.create>[0],
+    ) => {
       if (text.trim().length < 5) {
         dispatch(DecorationSet.empty, doc);
         return;
@@ -51,6 +66,9 @@ export const SpellCheckExtension = Extension.create({
         if (!res.ok) return;
         const { matches } = await res.json() as { matches: LTMatch[] };
 
+        // Mots ignorés (session + dictionnaire persistant)
+        const ignored = opts.getIgnored().map(w => w.toLowerCase());
+
         // Construire les décorations
         const decos: Decoration[] = [];
         let docOffset = 0;
@@ -63,13 +81,19 @@ export const SpellCheckExtension = Extension.create({
             const end   = match.offset + match.length;
 
             if (start >= docOffset && end <= docOffset + node.text.length) {
+              const matchedWord = text.slice(start, end).toLowerCase();
+              // Filtrer les mots ignorés
+              if (ignored.includes(matchedWord)) continue;
+
               const from = pos + (start - docOffset);
               const to   = pos + (end   - docOffset);
               decos.push(
                 Decoration.inline(from, to, {
-                  class:           'spell-error',
-                  'data-message':  match.message,
-                  'data-fixes':    match.replacements.slice(0, 5).map(r => r.value).join('|'),
+                  class:          'spell-error',
+                  'data-message': match.message,
+                  'data-fixes':   match.replacements.slice(0, 5).map(r => r.value).join('|'),
+                  'data-from':    String(from),
+                  'data-to':      String(to),
                 })
               );
             }
@@ -79,7 +103,11 @@ export const SpellCheckExtension = Extension.create({
 
         dispatch(DecorationSet.create(doc, decos), doc);
       } catch { /* réseau indisponible — ignorer */ }
-    }, 1200) as unknown as (text: string, dispatch: (decos: DecorationSet, doc: Parameters<typeof DecorationSet.create>[0]) => void, doc: Parameters<typeof DecorationSet.create>[0]) => void;
+    }, 250) as unknown as (
+      text: string,
+      dispatch: (decos: DecorationSet, doc: Parameters<typeof DecorationSet.create>[0]) => void,
+      doc: Parameters<typeof DecorationSet.create>[0],
+    ) => void;
 
     let dispatchFn: ((decos: DecorationSet, doc: Parameters<typeof DecorationSet.create>[0]) => void) | null = null;
 

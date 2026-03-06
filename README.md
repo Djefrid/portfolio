@@ -54,8 +54,7 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 | **Éditeur riche** | TipTap 3 (26 extensions — police, taille, retrait, espacement, LaTeX, symboles, rechercher/remplacer…) |
 | **Dessin** | Excalidraw (modal plein écran, export PNG → Firebase Storage) |
 | **Documents** | mammoth (DOCX→HTML), @turbodocx/html-to-docx (HTML→DOCX) |
-| **PDF** | pdfjs-dist (extraction texte), pdf-lib (formulaires AcroForm, signature) |
-| **Signature** | signature_pad (canvas manuscrit) |
+| **PDF** | pdfjs-dist (extraction texte → insertion dans l'éditeur) |
 | **Orthographe** | LanguageTool API (proxy `/api/spellcheck`), ProseMirror Decorations |
 | **Ghost text** | GhostTextExtension (suggestion suffixe, Tab pour accepter) |
 | **Linting** | ESLint 8 |
@@ -227,6 +226,11 @@ service cloud.firestore {
       allow write: if request.auth != null
         && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
     }
+
+    match /adminDictionary/{document} {
+      allow write: if request.auth != null
+        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
+    }
   }
 }
 ```
@@ -388,14 +392,14 @@ portfolio/
 ├── hooks/                            # Hooks personnalisés
 │   ├── index.ts                      # Barrel export
 │   ├── usePortfolioData.ts           # Chargement données + conversion bilingual
-│   └── useAdminNotes.ts              # 3 subscriptions Firestore realtime (notes, dossiers, tags)
+│   └── useAdminNotes.ts              # 4 subscriptions Firestore realtime (notes, dossiers, tags, dictionnaire)
 │
 ├── lib/                              # Bibliothèques et utilitaires
 │   ├── utils.ts                      # cn() — clsx + tailwind-merge
 │   ├── notes-service.ts              # CRUD Firestore : Note, Folder, SmartFolder, Tags
 │   ├── upload-image.ts               # uploadNoteImage + uploadNoteFile (Firebase Storage)
 │   ├── docx-utils.ts                 # importDocx (mammoth) + exportDocx (@turbodocx)
-│   ├── pdf-utils.ts                  # extractTextFromPdf + fillAndDownloadPdf + signAndDownloadPdf
+│   ├── pdf-utils.ts                  # extractTextFromPdf (extraction texte pdfjs-dist)
 │   ├── tiptap-extensions/
 │   │   ├── spell-check.ts            # SpellCheckExtension (LanguageTool + Decorations)
 │   │   ├── ghost-text.ts             # GhostTextExtension (ghost text, Tab=accepter)
@@ -447,7 +451,8 @@ portfolio/
 | **Projets** | Carousel + modale détail (stack, fonctionnalités, défis, liens) |
 | **Compétences** | Carousel horizontal par catégorie |
 | **Contact** | Formulaire d'envoi d'email via Resend + liens Email/GitHub/LinkedIn |
-| **SEO** | Sitemap XML, robots.txt, OpenGraph, Twitter Card, canonical URL |
+| **SEO** | Sitemap XML, robots.txt, OpenGraph, Twitter Card, canonical URL, OG image |
+| **Accessibilité** | `aria-label` + `aria-hidden` SVGs décoratifs, `aria-live` formulaire contact, focus trap modal projets, Ctrl+S/Ctrl+N dans les notes |
 
 ### Panneau Admin (`/admin`)
 
@@ -522,6 +527,7 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | `adminNotes` | `title`, `content`, `pinned`, `folderId`, `tags[]`, `deletedAt`, `createdAt`, `updatedAt` |
 | `adminFolders` | `name`, `order`, `isSmart`, `filters?`, `createdAt`, `updatedAt` |
 | `adminTags` | `name`, `createdAt` (ID = nom du tag, upsert-safe) |
+| `adminDictionary` | `word`, `createdAt` (ID = mot en minuscules, upsert-safe) |
 
 ### Fonctionnalités clés
 
@@ -534,7 +540,7 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Tri** | Par date de modification, date de création, ou titre |
 | **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
 | **Jours restants** | Affichés en orange dans la corbeille |
-| **Sync temps réel** | 3 `onSnapshot` Firestore — multi-appareils, sans saut de curseur |
+| **Sync temps réel** | 4 `onSnapshot` Firestore — notes, dossiers, tags, dictionnaire — multi-appareils |
 | **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
 | **Animation suppression** | Ghost card vole vers la corbeille (framer-motion) · icône tremble à la réception · `AnimatePresence` sur la liste |
 | **Corbeille permanente** | Toujours visible dans la sidebar, même vide — compteur masqué si 0 |
@@ -593,15 +599,17 @@ La barre d'outils est organisée en **3 lignes thématiques** :
 
 | Action | Détail |
 |--------|--------|
-| **Import PDF (texte)** | pdfjs-dist → extraction texte → inséré dans l'éditeur |
-| **Remplir un formulaire** | pdf-lib → champs AcroForm → téléchargement PDF rempli |
-| **Signer un PDF** | signature_pad (canvas) → PNG embarqué → téléchargement PDF signé |
+| **Import PDF (texte)** | `pdfjs-dist` → extraction du texte → inséré dans l'éditeur comme paragraphes |
 
 ### Correcteur orthographique français
 
-- Appel à `/api/spellcheck` (proxy LanguageTool) après 1200 ms de pause
-- Soulignement rouge pointillé `text-decoration: underline wavy` style Word
+- Appel à `/api/spellcheck` (proxy LanguageTool) après **250 ms** de pause (réactif)
+- Soulignement rouge ondulé `text-decoration: underline wavy` style Word
 - ProseMirror `Decoration.inline()` — non intrusif dans le document
+- **Clic droit** sur un mot souligné → menu contextuel avec suggestions de correction
+- **"Ignorer"** — le mot est ignoré pour la session en cours (sans rechargement)
+- **"Ajouter au dictionnaire"** — le mot est sauvegardé dans Firestore (`adminDictionary`) et ne sera plus signalé sur aucun appareil
+- **Région ARIA** `aria-live="polite"` — les suggestions sont annoncées aux lecteurs d'écran
 
 ### Ghost text (autocomplétion style Copilot)
 
@@ -922,6 +930,7 @@ npm run dev -- -p 3001
 │   • Domaines autorisés        │    • adminNotes/{id}         │
 │                               │    • adminFolders/{id}       │
 │                               │    • adminTags/{name}        │
+│                               │    • adminDictionary/{word}  │
 │                               │    • Données FR/EN           │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
@@ -952,4 +961,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 6 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, PDF (texte/formulaires/signature), correcteur orthographique français (LanguageTool), ghost text autocomplétion style Copilot*
+*Documentation mise à jour le 6 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur orthographique français (LanguageTool, 250ms, clic droit, dictionnaire Firestore), ghost text autocomplétion style Copilot, accessibilité ARIA complète*

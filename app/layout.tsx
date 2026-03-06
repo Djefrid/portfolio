@@ -53,6 +53,14 @@ export const metadata: Metadata = {
     alternateLocale: "en_CA",
     url: SITE_URL,
     siteName: "Portfolio Djefrid Byli",
+    images: [
+      {
+        url: `${SITE_URL}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "Djefrid Byli — Développeur Full-Stack | Support IT",
+      },
+    ],
   },
 
   // --- Twitter Card ---
@@ -60,6 +68,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Djefrid Byli - Développeur Full-Stack | Support IT",
     description: "Portfolio de Djefrid Byli : projets full-stack et support IT, compétences en Django, React, Next.js, .NET et plus encore.",
+    images: [`${SITE_URL}/og-image.png`],
   },
 
   // --- Robots (complète le fichier robots.txt) ---

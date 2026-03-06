@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { usePortfolio } from "@/context/PortfolioContext";
@@ -14,18 +14,48 @@ function ProjectModal({
   index,
   t,
   onClose,
+  triggerRef,
 }: {
   project: Project;
   index: number;
   t: (key: string) => string;
   onClose: () => void;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
   const badges = ["🥇", "🥈", "🥉"];
   const badge = badges[index] || "";
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Fermer avec la touche Échap
+  // Focus sur le bouton fermer à l'ouverture
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    closeBtnRef.current?.focus();
+  }, []);
+
+  // Restaurer le focus sur l'élément déclencheur à la fermeture
+  useEffect(() => {
+    return () => {
+      (triggerRef?.current as HTMLElement | null)?.focus();
+    };
+  }, [triggerRef]);
+
+  // Fermer avec la touche Échap + focus trap (Tab/Shift-Tab restent dans la modale)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key === "Tab" && panelRef.current) {
+        const focusable = panelRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const first = focusable[0];
+        const last  = focusable[focusable.length - 1];
+        if (e.shiftKey) {
+          if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
+        } else {
+          if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
+        }
+      }
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -39,16 +69,21 @@ function ProjectModal({
   return (
     /* Backdrop */
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={project.title}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
       {/* Panneau */}
       <div
+        ref={panelRef}
         className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-dark-800 border border-dark-600 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Bouton fermer */}
         <button
+          ref={closeBtnRef}
           type="button"
           onClick={onClose}
           aria-label={t("projects.close")}
@@ -165,7 +200,7 @@ function ProjectCard({
   project: Project;
   index: number;
   t: (key: string) => string;
-  onOpen: () => void;
+  onOpen: (el: HTMLElement) => void;
 }) {
   const badges = ["🥇", "🥈", "🥉"];
   const badge = badges[index] || "";
@@ -179,7 +214,7 @@ function ProjectCard({
         borderColor: "rgba(99, 102, 241, 0.5)",
       }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      onClick={onOpen}
+      onClick={(e) => onOpen(e.currentTarget as HTMLElement)}
     >
       {/* Header */}
       <div className="flex items-start gap-2 mb-3">
@@ -243,7 +278,7 @@ function ProjectCard({
         {/* Bouton détails */}
         <button
           type="button"
-          onClick={onOpen}
+          onClick={(e) => onOpen(e.currentTarget)}
           className="text-xs text-gray-500 hover:text-primary-400 transition-colors flex items-center gap-1"
         >
           {t("projects.viewMore")}
@@ -288,6 +323,7 @@ export default function Projects() {
   const { t } = useLanguage();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState<{ project: Project; index: number } | null>(null);
+  const openBtnRef = useRef<HTMLElement | null>(null);
 
   const scroll = (dir: "prev" | "next") => {
     const el = scrollRef.current;
@@ -357,7 +393,7 @@ export default function Projects() {
                     project={project}
                     index={index}
                     t={t}
-                    onOpen={() => setSelected({ project, index })}
+                    onOpen={(el: HTMLElement) => { openBtnRef.current = el; setSelected({ project, index }); }}
                   />
                 </div>
               ))}
@@ -387,6 +423,7 @@ export default function Projects() {
           index={selected.index}
           t={t}
           onClose={() => setSelected(null)}
+          triggerRef={openBtnRef}
         />
       )}
     </section>
