@@ -271,23 +271,6 @@ export async function updateSmartFolderFilters(
   });
 }
 
-// ── Dictionnaire orthographique persistant ────────────────────────────────────
-
-/** Ajoute un mot au dictionnaire personnel (collection adminDictionary). */
-export async function addToDictionary(word: string): Promise<void> {
-  if (!db) return;
-  await setDoc(doc(db, 'adminDictionary', word.toLowerCase()), {
-    word: word.toLowerCase(),
-    createdAt: serverTimestamp(),
-  });
-}
-
-/** Retire un mot du dictionnaire personnel. */
-export async function removeFromDictionary(word: string): Promise<void> {
-  if (!db) return;
-  await deleteDoc(doc(db, 'adminDictionary', word.toLowerCase()));
-}
-
 // ── Folders CRUD ──────────────────────────────────────────────────────────────
 
 export async function deleteFolder(id: string): Promise<void> {

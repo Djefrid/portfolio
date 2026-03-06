@@ -23,8 +23,6 @@ import dynamic from 'next/dynamic';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
 import { importDocx, exportDocx } from '@/lib/docx-utils';
 import { extractTextFromPdf } from '@/lib/pdf-utils';
-import { SpellCheckExtension } from '@/lib/tiptap-extensions/spell-check';
-import { GhostTextExtension } from '@/lib/tiptap-extensions/ghost-text';
 import { Indent } from '@/lib/tiptap-extensions/indent';
 import Mathematics from '@tiptap/extension-mathematics';
 import { useEditor, EditorContent } from '@tiptap/react';
@@ -56,7 +54,7 @@ import {
   createNote, updateNote, deleteNote, moveNote,
   permanentlyDeleteNote, recoverNote, silentlyDeleteNote,
   createFolder, createSmartFolder, updateFolder, updateSmartFolderFilters, deleteFolder,
-  createTag, deleteTag, addToDictionary,
+  createTag, deleteTag,
   Note, Folder as FolderType, SmartFolderFilter,
 } from '@/lib/notes-service';
 
@@ -1447,7 +1445,7 @@ function NotesSidebar({
 // ── Main Component ───────────────────────────────────────────────────────────
 
 export default function NotesEditor() {
-  const { notes, deletedNotes, folders, manualTags, dictionary, loading } = useAdminNotes();
+  const { notes, deletedNotes, folders, manualTags, loading } = useAdminNotes();
 
   const [view,        setView]        = useState<ViewFilter>('inbox');
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
@@ -1465,10 +1463,8 @@ export default function NotesEditor() {
 
   const [suggestions,     setSuggestions]     = useState<string[]>([]);
   const [suggestionIdx,   setSuggestionIdx]   = useState(-1);
-  const [suggestionType,  setSuggestionType]  = useState<'tag' | 'word'>('tag');
   const [titleSuggs,      setTitleSuggs]      = useState<string[]>([]);
   const [titleSuggIdx,    setTitleSuggIdx]    = useState(-1);
-  const [titleSuggType,   setTitleSuggType]   = useState<'tag' | 'word' | 'title'>('title');
   const titleRef        = useRef<HTMLInputElement>(null);
   const searchRef       = useRef<HTMLInputElement>(null);
   const trashBtnRef     = useRef<HTMLButtonElement>(null);
@@ -1489,13 +1485,6 @@ export default function NotesEditor() {
     open: boolean; code: string; lang: string; isEdit: boolean; from: number; to: number;
   } | null>(null);
   const [codeModalCopied, setCodeModalCopied] = useState(false);
-
-  // ── Orthographe — menu clic-droit ─────────────────────────────────────────
-  const [spellMenu, setSpellMenu] = useState<{
-    x: number; y: number; word: string; fixes: string[]; from: number; to: number;
-  } | null>(null);
-  const ignoredWordsRef = useRef<Set<string>>(new Set()); // ignorés pour la session
-  const editorContainerRef = useRef<HTMLDivElement>(null);
 
   const [excalidrawModal, setExcalidrawModal] = useState<{
     open: boolean;
@@ -1589,30 +1578,6 @@ export default function NotesEditor() {
     notes.forEach(n => n.tags.forEach(t => set.add(t)));
     return Array.from(set);
   }, [notes, manualTags]);
-
-  // Index de tous les mots (≥ 4 lettres) présents dans toutes les notes
-  const wordIndex = useMemo(() => {
-    const words = new Set<string>();
-    notes.forEach(n => {
-      const text = `${n.title} ${stripHtml(n.content)}`;
-      const matches = text.match(/[a-zA-Z\u00C0-\u024F]{4,}/g);
-      matches?.forEach(w => words.add(w.toLowerCase()));
-    });
-    return Array.from(words);
-  }, [notes]);
-
-  // Ref pour la suggestion ghost text (mis à jour quand wordIndex change)
-  const ghostSuggestionRef = useRef<(text: string) => string>(() => '');
-  useEffect(() => {
-    ghostSuggestionRef.current = (textBefore: string) => {
-      const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
-      if (!wordMatch) return '';
-      const partial = wordMatch[0].toLowerCase();
-      const match   = wordIndex.find(w => w.startsWith(partial) && w.length > partial.length);
-      if (!match) return '';
-      return match.slice(partial.length); // seulement le suffixe
-    };
-  }, [wordIndex]);
 
   const smartModalInitial = useMemo(() => {
     if (!editingSmartId) return undefined;
@@ -1721,7 +1686,7 @@ export default function NotesEditor() {
   // Reset de l'index de sélection quand les suggestions changent
   useEffect(() => { setSuggestionIdx(-1); }, [suggestions]);
 
-  // ── Autocomplétion contenu (tags + mots) ─────────────────────────────────
+  // ── Autocomplétion contenu (tags uniquement) ─────────────────────────────
   const detectAtCursor = useCallback(() => {
     if (!editor || editor.isDestroyed) return;
     const { $from } = editor.state.selection;
@@ -1742,29 +1707,14 @@ export default function NotesEditor() {
     if (tagMatch) {
       const partial = (tagMatch[1] ?? '').toLowerCase();
       const filtered = partial
-        ? allTags.filter(t => t.includes(partial) && t !== partial) // fuzzy
+        ? allTags.filter(t => t.includes(partial) && t !== partial)
         : allTags;
       setSuggestions(filtered.slice(0, 6));
-      setSuggestionType('tag');
       return;
     }
 
-    // Priorité 2 : mot ordinaire (≥ 3 lettres)
-    const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
-    if (wordMatch) {
-      const partial = wordMatch[0].toLowerCase();
-      const matches = wordIndex
-        .filter(w => w.startsWith(partial) && w !== partial)
-        .slice(0, 6);
-      if (matches.length > 0) {
-        setSuggestions(matches);
-        setSuggestionType('word');
-        return;
-      }
-    }
-
     setSuggestions([]);
-  }, [allTags, wordIndex]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allTags]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Garde la ref à jour pour éviter les dépendances circulaires avec useEditor
   useEffect(() => { detectAtCursorRef.current = detectAtCursor; }, [detectAtCursor]);
@@ -1774,13 +1724,8 @@ export default function NotesEditor() {
     const { state } = editor;
     const { from }  = state.selection;
     const textBefore = state.selection.$from.parent.textContent.slice(0, state.selection.$from.parentOffset);
-    if (suggestionType === 'tag') {
-      const m = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
-      if (m) editor.chain().focus().deleteRange({ from: from - m[0].length, to: from }).insertContent(`#${item} `).run();
-    } else {
-      const m = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
-      if (m) editor.chain().focus().deleteRange({ from: from - m[0].length, to: from }).insertContent(item).run();
-    }
+    const m = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
+    if (m) editor.chain().focus().deleteRange({ from: from - m[0].length, to: from }).insertContent(`#${item} `).run();
     setSuggestions([]);
   };
 
@@ -1814,16 +1759,9 @@ export default function NotesEditor() {
       LineHeight,
       Indent,
       Mathematics,
-      SpellCheckExtension.configure({
-        getIgnored: () => Array.from(ignoredWordsRef.current).concat(dictionary),
-      }),
-      GhostTextExtension.configure({
-        // ghostSuggestionRef est mis à jour après useEditor
-        getSuggestion: (text) => ghostSuggestionRef.current(text),
-      }),
     ],
     editorProps: {
-      attributes: { class: 'tiptap-editor' },
+      attributes: { class: 'tiptap-editor', spellcheck: 'true' },
       handlePaste(view, event) {
         const items = Array.from(event.clipboardData?.items ?? []);
 
@@ -2122,43 +2060,6 @@ export default function NotesEditor() {
   useEffect(() => { handleImageInsertRef.current = handleImageInsert; }, [handleImageInsert]);
   useEffect(() => { applySuggestionRef.current   = applySuggestion;   }, [applySuggestion]);
 
-  // ── Menu clic-droit orthographe ───────────────────────────────────────────
-  useEffect(() => {
-    const container = editorContainerRef.current;
-    if (!container) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target.classList.contains('spell-error')) return;
-      e.preventDefault();
-      const fixes = target.dataset.fixes?.split('|').filter(Boolean) ?? [];
-      const word  = target.textContent ?? '';
-      const from  = parseInt(target.dataset.from ?? '0', 10);
-      const to    = parseInt(target.dataset.to   ?? '0', 10);
-      setSpellMenu({ x: e.clientX, y: e.clientY, word, fixes, from, to });
-    };
-    container.addEventListener('contextmenu', handler);
-    return () => container.removeEventListener('contextmenu', handler);
-  }, []);
-
-  // Fermer le menu contextuel orthographe sur clic ou touche Escape
-  useEffect(() => {
-    if (!spellMenu) return;
-    const closeClick = () => setSpellMenu(null);
-    const closeKey   = (e: KeyboardEvent) => { if (e.key === 'Escape') setSpellMenu(null); };
-    // capture:true → prioritaire sur ProseMirror (qui peut intercepter la phase bubble)
-    document.addEventListener('mousedown',   closeClick, true);
-    document.addEventListener('contextmenu', closeClick, true);
-    document.addEventListener('keydown',     closeKey,   true);
-    // Fermer aussi quand le curseur bouge dans l'éditeur
-    if (editor) editor.on('selectionUpdate', closeClick);
-    return () => {
-      document.removeEventListener('mousedown',   closeClick, true);
-      document.removeEventListener('contextmenu', closeClick, true);
-      document.removeEventListener('keydown',     closeKey,   true);
-      if (editor) editor.off('selectionUpdate', closeClick);
-    };
-  }, [spellMenu, editor]);
-
   // ── Upload fichier joint ───────────────────────────────────────────────────
   const handleFileInsert = useCallback(async (file: File) => {
     if (!editor || !selectedId) return;
@@ -2247,39 +2148,22 @@ export default function NotesEditor() {
     setTimeout(() => { printWindow.print(); printWindow.close(); }, 300);
   }, [editor, title, selectedNote]);
 
-  // ── Autocomplétion titre ──────────────────────────────────────────────────
+  // ── Autocomplétion titre (tags uniquement) ────────────────────────────────
   const applyTitleSugg = useCallback((item: string) => {
     const el = titleRef.current;
     if (!el) return;
     const cursor = el.selectionStart ?? title.length;
-
-    if (titleSuggType === 'title') {
-      setTitle(item);
-      scheduleAutoSave(item, content);
-    } else if (titleSuggType === 'tag') {
-      const textBefore = title.slice(0, cursor);
-      const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
-      if (tagMatch) {
-        const start = cursor - tagMatch[0].length;
-        const newTitle = title.slice(0, start) + '#' + item + ' ' + title.slice(cursor);
-        setTitle(newTitle);
-        scheduleAutoSave(newTitle, content);
-        setTimeout(() => { const p = start + item.length + 2; el.setSelectionRange(p, p); }, 0);
-      }
-    } else if (titleSuggType === 'word') {
-      const textBefore = title.slice(0, cursor);
-      const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
-      if (wordMatch) {
-        const start = cursor - wordMatch[0].length;
-        const newTitle = title.slice(0, start) + item + title.slice(cursor);
-        setTitle(newTitle);
-        scheduleAutoSave(newTitle, content);
-        setTimeout(() => { const p = start + item.length; el.setSelectionRange(p, p); }, 0);
-      }
+    const textBefore = title.slice(0, cursor);
+    const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
+    if (tagMatch) {
+      const start = cursor - tagMatch[0].length;
+      const newTitle = title.slice(0, start) + '#' + item + ' ' + title.slice(cursor);
+      setTitle(newTitle);
+      scheduleAutoSave(newTitle, content);
+      setTimeout(() => { const p = start + item.length + 2; el.setSelectionRange(p, p); }, 0);
     }
-
     setTitleSuggs([]); setTitleSuggIdx(-1);
-  }, [title, content, titleSuggType, scheduleAutoSave]);
+  }, [title, content, scheduleAutoSave]);
 
   const handleTitleSuggKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (titleSuggs.length === 0) return;
@@ -2287,7 +2171,7 @@ export default function NotesEditor() {
     else if (e.key === 'ArrowUp') { e.preventDefault(); setTitleSuggIdx(i => Math.max(i - 1, -1)); }
     else if ((e.key === 'Tab' || e.key === 'Enter') && titleSuggIdx >= 0) {
       e.preventDefault(); applyTitleSugg(titleSuggs[titleSuggIdx]);
-    } else if (e.key === 'Tab' && titleSuggIdx === -1 && titleSuggs.length > 0) {
+    } else if (e.key === 'Tab' && titleSuggIdx === -1) {
       e.preventDefault(); applyTitleSugg(titleSuggs[0]);
     } else if (e.key === 'Escape') { setTitleSuggs([]); }
   };
@@ -2301,35 +2185,13 @@ export default function NotesEditor() {
     const cursor = el?.selectionStart ?? v.length;
     const textBefore = v.slice(0, cursor);
 
-    // Priorité 1 : hashtag → suggestions de tags
+    // Tags (#tag ou # seul)
     const tagMatch = textBefore.match(/#([a-zA-Z\u00C0-\u024F][a-zA-Z0-9\u00C0-\u024F_-]*)?$/);
     if (tagMatch) {
       const partial = (tagMatch[1] ?? '').toLowerCase();
       const filtered = partial ? allTags.filter(t => t.includes(partial) && t !== partial) : allTags;
       if (filtered.length > 0) {
-        setTitleSuggs(filtered.slice(0, 6)); setTitleSuggType('tag'); setTitleSuggIdx(-1); return;
-      }
-    }
-
-    // Priorité 2 : mot ≥ 3 lettres → complétion depuis l'index
-    const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
-    if (wordMatch) {
-      const partial = wordMatch[0].toLowerCase();
-      const matches = wordIndex.filter(w => w.startsWith(partial) && w !== partial).slice(0, 6);
-      if (matches.length > 0) {
-        setTitleSuggs(matches); setTitleSuggType('word'); setTitleSuggIdx(-1); return;
-      }
-    }
-
-    // Priorité 3 : titres similaires existants
-    if (v.trim().length >= 2) {
-      const lower = v.toLowerCase();
-      const matches = notes
-        .filter(n => n.id !== selectedId && n.title.toLowerCase().includes(lower))
-        .map(n => n.title)
-        .slice(0, 5);
-      if (matches.length > 0) {
-        setTitleSuggs(matches); setTitleSuggType('title'); setTitleSuggIdx(-1); return;
+        setTitleSuggs(filtered.slice(0, 6)); setTitleSuggIdx(-1); return;
       }
     }
 
@@ -2773,7 +2635,7 @@ export default function NotesEditor() {
               </div>
 
               {/* Barre d'outils rich text + éditeur TipTap */}
-              <div ref={editorContainerRef} className="relative flex-1 flex flex-col overflow-hidden">
+              <div className="relative flex-1 flex flex-col overflow-hidden">
                 {!isReadOnly && (
                   <EditorToolbar
                     editor={editor}
@@ -2804,19 +2666,15 @@ export default function NotesEditor() {
                   />
                   {titleSuggs.length > 0 && (
                     <div className="absolute left-6 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[220px]" onClick={e => e.stopPropagation()}>
-                      <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                        {titleSuggType === 'tag' ? 'Tags' : titleSuggType === 'word' ? 'Mots' : 'Titres similaires'}
-                      </p>
+                      <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tags</p>
                       {titleSuggs.map((t, i) => (
                         <button key={t} type="button"
                           onMouseDown={e => { e.preventDefault(); applyTitleSugg(t); }}
                           className={`w-full px-3 py-1.5 text-sm text-left transition-colors truncate flex items-center gap-2 ${
-                            i === titleSuggIdx
-                              ? 'bg-yellow-500/20 text-yellow-300'
-                              : titleSuggType === 'tag' ? 'text-yellow-400 hover:bg-dark-700' : 'text-gray-300 hover:bg-dark-700'
+                            i === titleSuggIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-yellow-400 hover:bg-dark-700'
                           }`}
                         >
-                          {titleSuggType === 'tag' ? <><Hash size={11} />#{t}</> : t}
+                          <Hash size={11} />#{t}
                         </button>
                       ))}
                       <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
@@ -3064,18 +2922,14 @@ export default function NotesEditor() {
 
                 {suggestions.length > 0 && (
                   <div className="absolute left-6 bottom-4 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden min-w-[160px]" onClick={e => e.stopPropagation()}>
-                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">
-                      {suggestionType === 'tag' ? 'Tags' : 'Mots'}
-                    </p>
+                    <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Tags</p>
                     {suggestions.map((item, i) => (
                       <button key={item} type="button" onClick={() => applySuggestion(item)}
                         className={`w-full px-3 py-1.5 text-sm text-left flex items-center gap-2 transition-colors ${
-                          i === suggestionIdx
-                            ? 'bg-yellow-500/20 text-yellow-300'
-                            : suggestionType === 'tag' ? 'text-yellow-400 hover:bg-dark-700' : 'text-gray-300 hover:bg-dark-700'
+                          i === suggestionIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-yellow-400 hover:bg-dark-700'
                         }`}
                       >
-                        {suggestionType === 'tag' ? <><Hash size={11} />#{item}</> : item}
+                        <Hash size={11} />#{item}
                       </button>
                     ))}
                     <p className="px-3 py-1 text-[10px] text-gray-600">↑↓ · Tab/Enter · Esc</p>
@@ -3242,91 +3096,6 @@ export default function NotesEditor() {
           </div>
         </div>
       )}
-      {/* ── Menu contextuel orthographe ─────────────────────────────────────── */}
-      {spellMenu && (
-        <div
-          className="fixed z-[300] min-w-[180px] bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden"
-          style={{ top: spellMenu.y, left: spellMenu.x }}
-          onMouseDown={e => e.stopPropagation()}
-        >
-          {/* En-tête */}
-          <div className="px-3 py-1.5 border-b border-dark-700 flex items-center gap-2">
-            <span className="text-[10px] font-semibold text-red-400 uppercase tracking-wide">
-              Orthographe
-            </span>
-            <span className="text-xs text-gray-400 truncate ml-1">&laquo;{spellMenu.word}&raquo;</span>
-          </div>
-
-          {/* Suggestions de remplacement */}
-          {spellMenu.fixes.length > 0 ? (
-            <>
-              <p className="px-3 pt-1.5 text-[10px] text-gray-500">Remplacer par :</p>
-              {spellMenu.fixes.map(fix => (
-                <button
-                  key={fix}
-                  type="button"
-                  onMouseDown={() => {
-                    editor?.chain().focus().deleteRange({ from: spellMenu.from, to: spellMenu.to }).insertContent(fix).run();
-                    setSpellMenu(null);
-                  }}
-                  className="w-full px-3 py-1.5 text-sm text-left text-green-300 hover:bg-dark-700 transition-colors font-medium"
-                >
-                  {fix}
-                </button>
-              ))}
-              <div className="border-t border-dark-700 mt-1" />
-            </>
-          ) : (
-            <p className="px-3 py-2 text-xs text-gray-500 italic">Aucune suggestion</p>
-          )}
-
-          {/* Ignorer (session) */}
-          <button
-            type="button"
-            onMouseDown={() => {
-              ignoredWordsRef.current.add(spellMenu.word.toLowerCase());
-              setSpellMenu(null);
-              // Forcer un re-check en simulant un changement de doc
-              if (editor && !editor.isDestroyed) {
-                editor.commands.setContent(editor.getHTML(), { emitUpdate: true });
-              }
-            }}
-            className="w-full px-3 py-1.5 text-sm text-left text-gray-300 hover:bg-dark-700 transition-colors"
-          >
-            Ignorer
-          </button>
-
-          {/* Ajouter au dictionnaire */}
-          <button
-            type="button"
-            onMouseDown={async () => {
-              const word = spellMenu.word.toLowerCase();
-              ignoredWordsRef.current.add(word);
-              await addToDictionary(word);
-              setSpellMenu(null);
-              if (editor && !editor.isDestroyed) {
-                editor.commands.setContent(editor.getHTML(), { emitUpdate: true });
-              }
-            }}
-            className="w-full px-3 py-1.5 text-sm text-left text-gray-300 hover:bg-dark-700 transition-colors border-t border-dark-700"
-          >
-            Ajouter au dictionnaire
-          </button>
-        </div>
-      )}
-
-      {/* ── ARIA live region — orthographe ───────────────────────────────────── */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      >
-        {spellMenu
-          ? `Erreur orthographique sur le mot « ${spellMenu.word} » — ${spellMenu.fixes.length} suggestion${spellMenu.fixes.length !== 1 ? 's' : ''} disponible${spellMenu.fixes.length !== 1 ? 's' : ''}`
-          : ''
-        }
-      </div>
     </>
   );
 }

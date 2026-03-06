@@ -12,16 +12,15 @@ export function useAdminNotes() {
   const [deletedNotes, setDeletedNotes] = useState<Note[]>([]);   // corbeille
   const [folders,      setFolders]      = useState<Folder[]>([]);
   const [manualTags,   setManualTags]   = useState<string[]>([]);  // bibliothèque de tags
-  const [dictionary,   setDictionary]   = useState<string[]>([]);  // dictionnaire orthographique
   const [loading,      setLoading]      = useState(true);
 
   // ── Écoute Firestore ────────────────────────────────────────────────────
   useEffect(() => {
     if (!db) { setLoading(false); return; }
 
-    let notesReady = false, foldersReady = false, tagsReady = false, dictReady = false;
+    let notesReady = false, foldersReady = false, tagsReady = false;
     const checkReady = () => {
-      if (notesReady && foldersReady && tagsReady && dictReady) setLoading(false);
+      if (notesReady && foldersReady && tagsReady) setLoading(false);
     };
 
     // Notes actives + corbeille
@@ -85,17 +84,7 @@ export function useAdminNotes() {
       }
     );
 
-    // Dictionnaire orthographique persistant
-    const unsub4 = onSnapshot(
-      collection(db, 'adminDictionary'),
-      (snap) => {
-        setDictionary(snap.docs.map(d => d.id));
-        dictReady = true;
-        checkReady();
-      }
-    );
-
-    return () => { unsub1(); unsub2(); unsub3(); unsub4(); };
+    return () => { unsub1(); unsub2(); unsub3(); };
   }, []);
 
   // ── Auto-purge : supprime définitivement les notes > 30 jours ───────────
@@ -106,5 +95,5 @@ export function useAdminNotes() {
       .forEach(n => permanentlyDeleteNote(n.id));
   }, [deletedNotes]);
 
-  return { notes, deletedNotes, folders, manualTags, dictionary, loading };
+  return { notes, deletedNotes, folders, manualTags, loading };
 }
