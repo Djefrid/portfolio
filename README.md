@@ -227,10 +227,6 @@ service cloud.firestore {
         && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
     }
 
-    match /adminDictionary/{document} {
-      allow write: if request.auth != null
-        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
-    }
   }
 }
 ```
@@ -392,7 +388,7 @@ portfolio/
 ├── hooks/                            # Hooks personnalisés
 │   ├── index.ts                      # Barrel export
 │   ├── usePortfolioData.ts           # Chargement données + conversion bilingual
-│   └── useAdminNotes.ts              # 4 subscriptions Firestore realtime (notes, dossiers, tags, dictionnaire)
+│   └── useAdminNotes.ts              # 3 subscriptions Firestore realtime (notes, dossiers, tags)
 │
 ├── lib/                              # Bibliothèques et utilitaires
 │   ├── utils.ts                      # cn() — clsx + tailwind-merge
@@ -527,7 +523,6 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | `adminNotes` | `title`, `content`, `pinned`, `folderId`, `tags[]`, `deletedAt`, `createdAt`, `updatedAt` |
 | `adminFolders` | `name`, `order`, `isSmart`, `filters?`, `createdAt`, `updatedAt` |
 | `adminTags` | `name`, `createdAt` (ID = nom du tag, upsert-safe) |
-| `adminDictionary` | `word`, `createdAt` (ID = mot en minuscules, upsert-safe) |
 
 ### Fonctionnalités clés
 
@@ -540,7 +535,7 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Tri** | Par date de modification, date de création, ou titre |
 | **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
 | **Jours restants** | Affichés en orange dans la corbeille |
-| **Sync temps réel** | 4 `onSnapshot` Firestore — notes, dossiers, tags, dictionnaire — multi-appareils |
+| **Sync temps réel** | 3 `onSnapshot` Firestore — notes, dossiers, tags — multi-appareils |
 | **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
 | **Animation suppression** | Ghost card vole vers la corbeille (framer-motion) · icône tremble à la réception · `AnimatePresence` sur la liste |
 | **Corbeille permanente** | Toujours visible dans la sidebar, même vide — compteur masqué si 0 |
@@ -601,21 +596,10 @@ La barre d'outils est organisée en **3 lignes thématiques** :
 |--------|--------|
 | **Import PDF (texte)** | `pdfjs-dist` → extraction du texte → inséré dans l'éditeur comme paragraphes |
 
-### Correcteur orthographique français
+### Correcteur orthographique
 
-- Appel à `/api/spellcheck` (proxy LanguageTool) après **250 ms** de pause (réactif)
-- Soulignement rouge ondulé `text-decoration: underline wavy` style Word
-- ProseMirror `Decoration.inline()` — non intrusif dans le document
-- **Clic droit** sur un mot souligné → menu contextuel avec suggestions de correction
-- **"Ignorer"** — le mot est ignoré pour la session en cours (sans rechargement)
-- **"Ajouter au dictionnaire"** — le mot est sauvegardé dans Firestore (`adminDictionary`) et ne sera plus signalé sur aucun appareil
-- **Région ARIA** `aria-live="polite"` — les suggestions sont annoncées aux lecteurs d'écran
-
-### Ghost text (autocomplétion style Copilot)
-
-- Texte fantôme en gris italique après le curseur (hors document)
-- Basé sur l'index de tous les mots (≥ 4 lettres) de toutes les notes
-- **Tab** pour accepter · **Escape** pour refuser · toute autre touche = refus silencieux
+- Correcteur **natif du navigateur** (`spellcheck="true"` sur le contenteditable)
+- Clic droit natif sur un mot souligné → suggestions du navigateur
 
 ### Dossiers intelligents (Smart Folders)
 
@@ -930,7 +914,6 @@ npm run dev -- -p 3001
 │   • Domaines autorisés        │    • adminNotes/{id}         │
 │                               │    • adminFolders/{id}       │
 │                               │    • adminTags/{name}        │
-│                               │    • adminDictionary/{word}  │
 │                               │    • Données FR/EN           │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
@@ -961,4 +944,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 6 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur orthographique français (LanguageTool, 250ms, clic droit, dictionnaire Firestore), ghost text autocomplétion style Copilot, accessibilité ARIA complète*
+*Documentation mise à jour le 6 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète*
