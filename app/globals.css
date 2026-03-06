@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* KaTeX — équations LaTeX dans l'éditeur TipTap */
+@import 'katex/dist/katex.min.css';
+
 @layer base {
   html {
     scroll-behavior: smooth;
@@ -235,6 +238,45 @@
 .code-modal-textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   line-height: 1.6;
+}
+/* Correcteur orthographique — soulignement rouge pointillé style Word */
+.spell-error {
+  text-decoration: underline wavy #ef4444;
+  text-underline-offset: 2px;
+  cursor: help;
+}
+/* Ghost text autocomplétion — texte fantôme après le curseur */
+.ghost-text-suggestion {
+  color: #6b7280;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  font-style: italic;
+}
+/* Mathematics — TipTap extension équations LaTeX */
+.tiptap-editor .Tiptap-mathematics-editor {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 4px;
+  color: #f1f5f9;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  padding: 2px 6px;
+  outline: none;
+  min-width: 80px;
+}
+.tiptap-editor .Tiptap-mathematics-render {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+.tiptap-editor .Tiptap-mathematics-render:hover {
+  background: rgba(234, 179, 8, 0.1);
+}
+.tiptap-editor .Tiptap-mathematics-render.ProseMirror-selectednode {
+  background: rgba(234, 179, 8, 0.2);
+  outline: 1px solid rgba(234, 179, 8, 0.5);
 }
 /* Links */
 .tiptap-editor a, .tiptap-link {

@@ -67,3 +67,17 @@ coverage/
 # Misc
 # ========================
 *.log
+
+# ========================
+# Fichiers temporaires / uploads locaux
+# ========================
+*.excalidraw.bak
+*.pdf.bak
+tmp/
+temp/
+uploads/
+
+# ========================
+# Plans Claude Code
+# ========================
+.claude/plans/

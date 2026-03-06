@@ -15,9 +15,18 @@ import {
   Table as TableIcon, Highlighter,
   Subscript as SubIcon, Superscript as SupIcon,
   Undo2, Redo2, FileUp, Maximize2, Minimize2, Download, FileText, Pencil,
+  FileDown, FilePlus, BookOpen, CheckCircle, PenLine,
+  Eraser, IndentIncrease, IndentDecrease, CaseSensitive, Sigma, SearchCode,
+  ChevronDown, Replace,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import type { ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types';
+import { importDocx, exportDocx } from '@/lib/docx-utils';
+import { extractTextFromPdf, readPdfFormFields, fillAndDownloadPdf, signAndDownloadPdf } from '@/lib/pdf-utils';
+import { SpellCheckExtension } from '@/lib/tiptap-extensions/spell-check';
+import { GhostTextExtension } from '@/lib/tiptap-extensions/ghost-text';
+import { Indent } from '@/lib/tiptap-extensions/indent';
+import Mathematics from '@tiptap/extension-mathematics';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
@@ -34,7 +43,7 @@ import { TableHeader } from '@tiptap/extension-table-header';
 import { TableCell } from '@tiptap/extension-table-cell';
 import TextAlign from '@tiptap/extension-text-align';
 import Highlight from '@tiptap/extension-highlight';
-import { TextStyle } from '@tiptap/extension-text-style';
+import { TextStyle, FontFamily, FontSize, LineHeight } from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
@@ -253,6 +262,8 @@ function SmartFolderModal({
             <label className="text-xs text-gray-400 mb-1.5 block">Nom</label>
             <input
               type="text"
+              title="Nom du dossier"
+              placeholder="Nom du dossier"
               value={name}
               onChange={e => setName(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
@@ -471,20 +482,89 @@ function FolderTreeItem({
 
 // ── EditorToolbar ─────────────────────────────────────────────────────────────
 
-function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick, onDrawClick }: {
-  editor:           Editor | null;
-  onImageClick:     () => void;
-  onFileClick:      () => void;
-  uploadProgress:   number | null;
-  focusMode:        boolean;
-  onFocusToggle:    () => void;
-  onExportMd:       () => void;
-  onExportPdf:      () => void;
-  onCodeBlockClick: () => void;
-  onDrawClick:      () => void;
+// Polices disponibles (style Word)
+const FONT_FAMILIES = [
+  { value: '',                  label: 'Par défaut' },
+  { value: 'Arial, sans-serif',                    label: 'Arial' },
+  { value: '"Times New Roman", serif',             label: 'Times New Roman' },
+  { value: '"Courier New", monospace',             label: 'Courier New' },
+  { value: 'Georgia, serif',                       label: 'Georgia' },
+  { value: 'Verdana, sans-serif',                  label: 'Verdana' },
+  { value: '"Trebuchet MS", sans-serif',           label: 'Trebuchet MS' },
+  { value: 'Impact, sans-serif',                   label: 'Impact' },
+  { value: '"Comic Sans MS", cursive',             label: 'Comic Sans MS' },
+  { value: '"Palatino Linotype", serif',           label: 'Palatino' },
+  { value: '"Lucida Console", monospace',          label: 'Lucida Console' },
+];
+
+// Tailles de police standard (comme Word)
+const FONT_SIZES = ['8','9','10','11','12','14','16','18','20','24','28','32','36','48','60','72'];
+
+// Symboles spéciaux organisés par catégorie
+const SPECIAL_SYMBOLS = [
+  // Typographie
+  '\u00A9','\u00AE','\u2122','\u00B0','\u00B7','\u2022','\u2023','\u25E6',
+  '\u2014','\u2013','\u2026','\u00AB','\u00BB','\u201C','\u201D','\u2018','\u2019',
+  // Mathématiques
+  '\u00B1','\u00D7','\u00F7','\u2260','\u2264','\u2265','\u2248','\u221E',
+  '\u221A','\u2211','\u222B','\u2202','\u0394','\u2207','\u220F','\u2208','\u2209','\u2229','\u222A','\u2282','\u2283',
+  // Flèches
+  '\u2190','\u2192','\u2191','\u2193','\u2194','\u2195','\u21D0','\u21D2','\u21D1','\u21D3','\u21D4',
+  // Monnaie
+  '\u20AC','\u00A3','\u00A5','\u00A2','\u20B9','\u20BF','\u20A9',
+  // Divers
+  '\u00BD','\u00BC','\u00BE','\u00B9','\u00B2','\u00B3','\u2020','\u2021',
+  '\u00A7','\u00B6','\u2116','\u2605','\u2606','\u2665','\u2666','\u2663','\u2660','\u2713','\u2717','\u2726',
+];
+
+// Interlignes disponibles
+const LINE_SPACINGS = [
+  { value: 'normal', label: 'Normal' },
+  { value: '1',      label: '1.0' },
+  { value: '1.15',   label: '1.15' },
+  { value: '1.5',    label: '1.5' },
+  { value: '2',      label: '2.0' },
+  { value: '2.5',    label: '2.5' },
+  { value: '3',      label: '3.0' },
+];
+
+function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focusMode, onFocusToggle, onExportMd, onExportPdf, onCodeBlockClick, onDrawClick, onImportDocxClick, onExportDocxClick, onImportPdfClick, onPdfFormClick, onPdfSignClick }: {
+  editor:             Editor | null;
+  onImageClick:       () => void;
+  onFileClick:        () => void;
+  uploadProgress:     number | null;
+  focusMode:          boolean;
+  onFocusToggle:      () => void;
+  onExportMd:         () => void;
+  onExportPdf:        () => void;
+  onCodeBlockClick:   () => void;
+  onDrawClick:        () => void;
+  onImportDocxClick:  () => void;
+  onExportDocxClick:  () => void;
+  onImportPdfClick:   () => void;
+  onPdfFormClick:     () => void;
+  onPdfSignClick:     () => void;
 }) {
-  const [linkOpen, setLinkOpen] = useState(false);
-  const [linkVal,  setLinkVal]  = useState('');
+  const [linkOpen,       setLinkOpen]       = useState(false);
+  const [linkVal,        setLinkVal]        = useState('');
+  const [textColorOpen,  setTextColorOpen]  = useState(false);
+  const [highlightOpen,  setHighlightOpen]  = useState(false);
+  const [lastTextColor,  setLastTextColor]  = useState('#f9fafb');
+  const [lastHighlight,  setLastHighlight]  = useState('#fef08a');
+  const [tableOpen,      setTableOpen]      = useState(false);
+  const [tableHover,     setTableHover]     = useState({ r: 0, c: 0 });
+  const [symbolsOpen,    setSymbolsOpen]    = useState(false);
+  const [findOpen,       setFindOpen]       = useState(false);
+  const [findVal,        setFindVal]        = useState('');
+  const [replaceVal,     setReplaceVal]     = useState('');
+  const [lineSpacing,    setLineSpacing]    = useState('normal');
+  const [caseOpen,       setCaseOpen]       = useState(false);
+
+  const textColorRef = useRef<HTMLDivElement>(null);
+  const highlightRef  = useRef<HTMLDivElement>(null);
+  const tableRef      = useRef<HTMLDivElement>(null);
+  const symbolsRef    = useRef<HTMLDivElement>(null);
+  const caseRef       = useRef<HTMLDivElement>(null);
 
   if (!editor) return null;
 
@@ -505,27 +585,19 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
 
   const SEP = () => <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />;
 
-  const [textColorOpen, setTextColorOpen] = useState(false);
-  const [highlightOpen, setHighlightOpen] = useState(false);
-  const [lastTextColor, setLastTextColor] = useState('#f9fafb');
-  const [lastHighlight,  setLastHighlight]  = useState('#fef08a');
-  const textColorRef = useRef<HTMLDivElement>(null);
-  const highlightRef  = useRef<HTMLDivElement>(null);
-  const [tableOpen,  setTableOpen]  = useState(false);
-  const [tableHover, setTableHover] = useState({ r: 0, c: 0 });
-  const tableRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (textColorRef.current && !textColorRef.current.contains(e.target as Node)) setTextColorOpen(false);
       if (highlightRef.current  && !highlightRef.current.contains(e.target as Node))  setHighlightOpen(false);
       if (tableRef.current      && !tableRef.current.contains(e.target as Node))      { setTableOpen(false); setTableHover({ r: 0, c: 0 }); }
+      if (symbolsRef.current    && !symbolsRef.current.contains(e.target as Node))    setSymbolsOpen(false);
+      if (caseRef.current       && !caseRef.current.contains(e.target as Node))       setCaseOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Grille 6×10 couleurs — style Word (Noir → gris → blanc + palettes chromatiques)
+  // Grille 6×10 couleurs — style Word
   const COLOR_GRID = [
     ['#000000','#1a1a1a','#333333','#4d4d4d','#666666','#808080','#999999','#b3b3b3','#cccccc','#ffffff'],
     ['#1e3a5f','#1e40af','#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe','#eff6ff'],
@@ -535,7 +607,6 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     ['#4c1d95','#6d28d9','#7c3aed','#8b5cf6','#a78bfa','#c4b5fd','#be185d','#ec4899','#fbcfe8','#fdf4ff'],
   ];
 
-  // Palette surbrillance (couleurs vives / pastels)
   const HIGHLIGHT_COLORS = [
     '#fef08a','#fde68a','#fcd34d','#fbbf24',
     '#bbf7d0','#86efac','#4ade80','#22c55e',
@@ -557,15 +628,116 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     setLinkVal('');
   };
 
+  // Lire la taille de police courante
+  const currentFontSize = editor.getAttributes('textStyle').fontSize?.replace('pt','') ?? '';
+
+  // Appliquer l'interligne via CSS inline sur les paragraphes
+  const applyLineSpacing = (value: string) => {
+    setLineSpacing(value);
+    if (value === 'normal') {
+      editor.chain().focus().unsetLineHeight().run();
+    } else {
+      editor.chain().focus().setLineHeight(value).run();
+    }
+  };
+
+  // Changer la casse du texte sélectionné
+  const changeCase = (mode: 'upper' | 'lower' | 'title' | 'sentence') => {
+    const { from, to } = editor.state.selection;
+    if (from === to) return;
+    const text = editor.state.doc.textBetween(from, to, ' ');
+    let result = text;
+    if (mode === 'upper')    result = text.toUpperCase();
+    if (mode === 'lower')    result = text.toLowerCase();
+    if (mode === 'title')    result = text.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+    if (mode === 'sentence') result = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
+    editor.chain().focus().deleteRange({ from, to }).insertContent(result).run();
+    setCaseOpen(false);
+  };
+
+  // Rechercher dans le document (highlight natif ProseMirror)
+  const doFind = () => {
+    if (!findVal) return;
+    const content = editor.state.doc.textContent;
+    const idx = content.indexOf(findVal);
+    if (idx >= 0) {
+      // Sélectionner la première occurrence
+      editor.chain().focus().setTextSelection({ from: idx + 1, to: idx + 1 + findVal.length }).run();
+    }
+  };
+
+  // Remplacer la première occurrence
+  const doReplace = () => {
+    if (!findVal) return;
+    const { doc } = editor.state;
+    let found = false;
+    doc.descendants((node, pos) => {
+      if (found || !node.isText) return;
+      const idx = node.text!.indexOf(findVal);
+      if (idx >= 0) {
+        editor.chain().focus()
+          .setTextSelection({ from: pos + idx, to: pos + idx + findVal.length })
+          .insertContent(replaceVal)
+          .run();
+        found = true;
+      }
+    });
+  };
+
+  // Remplacer toutes les occurrences
+  const doReplaceAll = () => {
+    if (!findVal) return;
+    const html = editor.getHTML();
+    const escaped = findVal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const replaced = html.replace(new RegExp(escaped, 'g'), replaceVal);
+    editor.commands.setContent(replaced, { emitUpdate: true });
+  };
+
   return (
     <div className="border-b border-dark-800 shrink-0 select-none">
-      {/* Ligne 1 — Police (ordre Word : Historique → Style → Formatage → Couleurs) */}
+
+      {/* ══ LIGNE 1 — POLICE ══════════════════════════════════════════════════ */}
       <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5">
-        {/* Groupe Historique */}
+
+        {/* Historique */}
         {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
         {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
         <SEP />
-        {/* Groupe Style */}
+
+        {/* Famille de police */}
+        <select
+          title="Famille de police"
+          value={editor.getAttributes('textStyle').fontFamily ?? ''}
+          onChange={e => {
+            if (!e.target.value) editor.chain().focus().unsetFontFamily().run();
+            else editor.chain().focus().setFontFamily(e.target.value).run();
+          }}
+          className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer max-w-[120px]"
+          style={{ fontFamily: editor.getAttributes('textStyle').fontFamily || 'inherit' }}
+        >
+          {FONT_FAMILIES.map(f => (
+            <option key={f.value} value={f.value} style={{ fontFamily: f.value || 'inherit' }}>{f.label}</option>
+          ))}
+        </select>
+
+        {/* Taille de police */}
+        <div className="flex items-center gap-0.5">
+          <select
+            title="Taille de police"
+            value={currentFontSize}
+            onChange={e => {
+              if (!e.target.value) editor.chain().focus().unsetFontSize().run();
+              else editor.chain().focus().setFontSize(`${e.target.value}pt`).run();
+            }}
+            className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1 py-1 focus:outline-none cursor-pointer w-[52px]"
+          >
+            <option value="">—</option>
+            {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+        <SEP />
+
+        {/* Style de paragraphe */}
         <select
           title="Style de paragraphe"
           value={
@@ -586,7 +758,8 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
           <option value="3">Titre 3</option>
         </select>
         <SEP />
-        {/* Groupe Formatage caractère */}
+
+        {/* Formatage caractère */}
         {TB(editor.isActive('bold'),        'Gras (Ctrl+B)',      () => editor.chain().focus().toggleBold().run(),        <Bold size={13} />)}
         {TB(editor.isActive('italic'),      'Italique (Ctrl+I)',  () => editor.chain().focus().toggleItalic().run(),      <Italic size={13} />)}
         {TB(editor.isActive('underline'),   'Souligné (Ctrl+U)', () => editor.chain().focus().toggleUnderline().run(),   <UnderlineIcon size={13} />)}
@@ -594,8 +767,49 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         {TB(editor.isActive('superscript'), 'Exposant',          () => editor.chain().focus().toggleSuperscript().run(), <SupIcon size={13} />)}
         {TB(editor.isActive('subscript'),   'Indice',            () => editor.chain().focus().toggleSubscript().run(),   <SubIcon size={13} />)}
         <SEP />
-        {/* Groupe Couleurs — Surbrillance + Texte côte à côte, sans séparateur entre eux */}
-        {/* Surbrillance — Word-style dropdown */}
+
+        {/* Effacer le formatage — supprime marks + reset indent/lineHeight */}
+        {TB(false, 'Effacer le formatage', () => {
+          editor.chain().focus().clearNodes().unsetAllMarks().run();
+          // Reset aussi les attributs de nœud (indent custom, lineHeight)
+          const { from, to } = editor.state.selection;
+          editor.state.doc.nodesBetween(from, to, (node, pos) => {
+            if (['paragraph', 'heading', 'blockquote'].includes(node.type.name) && node.attrs.indent) {
+              editor.chain().updateAttributes(node.type.name, { indent: 0 }).run();
+            }
+          });
+          editor.chain().focus().unsetLineHeight().run();
+        }, <Eraser size={13} />)}
+
+        {/* Changer la casse */}
+        <div className="relative shrink-0" ref={caseRef}>
+          <button type="button" title="Changer la casse"
+            onClick={() => setCaseOpen(o => !o)}
+            className={`p-1.5 rounded transition-colors flex items-center gap-0.5 ${caseOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
+            <CaseSensitive size={13} />
+            <ChevronDown size={9} />
+          </button>
+          {caseOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-1 min-w-[160px]"
+              onMouseDown={e => e.stopPropagation()}>
+              {[
+                { mode: 'upper'    as const, label: 'MAJUSCULES' },
+                { mode: 'lower'    as const, label: 'minuscules' },
+                { mode: 'title'    as const, label: 'Chaque Mot' },
+                { mode: 'sentence' as const, label: 'Première lettre' },
+              ].map(({ mode, label }) => (
+                <button key={mode} type="button" onClick={() => changeCase(mode)}
+                  className="w-full text-left text-[11px] text-gray-300 hover:bg-dark-700 px-3 py-1.5 rounded transition-colors">
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <SEP />
+
+        {/* Couleurs */}
+        {/* Surbrillance */}
         <div className="relative shrink-0" ref={highlightRef}>
           <button type="button" title="Surbrillance"
             onClick={() => { setHighlightOpen(o => !o); setTextColorOpen(false); }}
@@ -624,8 +838,8 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             </div>
           )}
         </div>
-        <SEP />
-        {/* Couleur du texte — Word-style dropdown avec grille 6×10 */}
+
+        {/* Couleur du texte */}
         <div className="relative shrink-0" ref={textColorRef}>
           <button type="button" title="Couleur du texte"
             onClick={() => { setTextColorOpen(o => !o); setHighlightOpen(false); }}
@@ -666,22 +880,50 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
         </div>
       </div>
 
-      {/* Ligne 2 — Paragraphe + Insertion + Vue (ordre Word) */}
+      {/* ══ LIGNE 2 — PARAGRAPHE ══════════════════════════════════════════════ */}
       <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 border-t border-dark-900">
-        {TB(editor.isActive({ textAlign: 'left' }),    'Aligner gauche', () => editor.chain().focus().setTextAlign('left').run(),    <AlignLeft size={13} />)}
-        {TB(editor.isActive({ textAlign: 'center' }),  'Centrer',        () => editor.chain().focus().setTextAlign('center').run(),  <AlignCenter size={13} />)}
-        {TB(editor.isActive({ textAlign: 'right' }),   'Aligner droite', () => editor.chain().focus().setTextAlign('right').run(),   <AlignRight size={13} />)}
-        {TB(editor.isActive({ textAlign: 'justify' }), 'Justifier',      () => editor.chain().focus().setTextAlign('justify').run(), <AlignJustify size={13} />)}
+
+        {/* Alignement */}
+        {TB(editor.isActive({ textAlign: 'left' }),    'Aligner gauche (Ctrl+L)', () => editor.chain().focus().setTextAlign('left').run(),    <AlignLeft size={13} />)}
+        {TB(editor.isActive({ textAlign: 'center' }),  'Centrer (Ctrl+E)',        () => editor.chain().focus().setTextAlign('center').run(),  <AlignCenter size={13} />)}
+        {TB(editor.isActive({ textAlign: 'right' }),   'Aligner droite (Ctrl+R)', () => editor.chain().focus().setTextAlign('right').run(),   <AlignRight size={13} />)}
+        {TB(editor.isActive({ textAlign: 'justify' }), 'Justifier (Ctrl+J)',      () => editor.chain().focus().setTextAlign('justify').run(), <AlignJustify size={13} />)}
         <SEP />
+
+        {/* Retrait */}
+        {TB(false, 'Diminuer le retrait (Shift+Tab)', () => editor.chain().focus().outdent().run(), <IndentDecrease size={13} />)}
+        {TB(false, 'Augmenter le retrait (Tab)',      () => editor.chain().focus().indent().run(),  <IndentIncrease size={13} />)}
+        <SEP />
+
+        {/* Interligne */}
+        <select
+          title="Interligne"
+          value={lineSpacing}
+          onChange={e => applyLineSpacing(e.target.value)}
+          className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer w-[60px]"
+        >
+          {LINE_SPACINGS.map(ls => (
+            <option key={ls.value} value={ls.value}>{ls.label}</option>
+          ))}
+        </select>
+        <SEP />
+
+        {/* Listes */}
         {TB(editor.isActive('bulletList'),  'Liste à puces',   () => editor.chain().focus().toggleBulletList().run(),  <List size={13} />)}
         {TB(editor.isActive('orderedList'), 'Liste numérotée', () => editor.chain().focus().toggleOrderedList().run(), <ListOrdered size={13} />)}
         {TB(editor.isActive('taskList'),    'Liste de tâches', () => editor.chain().focus().toggleTaskList().run(),    <ListChecks size={13} />)}
         <SEP />
+
+        {/* Blocs */}
         {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
         {TB(editor.isActive('codeBlock'),  'Bloc de code',          onCodeBlockClick,  <Code2 size={13} />)}
-        {TB(false,                         'Dessin (Excalidraw)',   onDrawClick,       <Pencil size={13} />)}
         {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
-        {/* Grid picker tableau — style Word/Google Docs */}
+      </div>
+
+      {/* ══ LIGNE 3 — INSERTION + VUE ════════════════════════════════════════ */}
+      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 border-t border-dark-900">
+
+        {/* Tableau — grid picker */}
         <div className="relative" ref={tableRef}>
           <button
             type="button"
@@ -698,8 +940,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
                 {Array.from({ length: 8 }).map((_, ri) => (
                   <div key={ri} className="flex gap-0.5">
                     {Array.from({ length: 8 }).map((_, ci) => (
-                      <div
-                        key={ci}
+                      <div key={ci}
                         className={`w-5 h-5 border rounded-sm cursor-pointer transition-colors ${
                           ri < tableHover.r && ci < tableHover.c
                             ? 'bg-yellow-500/30 border-yellow-500/60'
@@ -708,8 +949,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
                         onMouseEnter={() => setTableHover({ r: ri + 1, c: ci + 1 })}
                         onClick={() => {
                           editor.chain().focus().insertTable({ rows: tableHover.r, cols: tableHover.c, withHeaderRow: true }).run();
-                          setTableOpen(false);
-                          setTableHover({ r: 0, c: 0 });
+                          setTableOpen(false); setTableHover({ r: 0, c: 0 });
                         }}
                       />
                     ))}
@@ -724,8 +964,8 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             </div>
           )}
         </div>
-        <SEP />
-        {/* Groupe Insertion — Lien + Image + Fichier côte à côte */}
+
+        {/* Lien */}
         <div className="relative">
           {TB(editor.isActive('link'), 'Lien hypertexte', () => {
             if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); setLinkOpen(false); }
@@ -744,8 +984,45 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             </div>
           )}
         </div>
+
+        {/* Image + Fichier */}
         {TB(false, 'Insérer une image',  onImageClick, <ImageIcon size={13} />)}
         {TB(false, 'Joindre un fichier', onFileClick,  <FileUp size={13} />)}
+
+        {/* Dessin Excalidraw */}
+        {TB(false, 'Dessin (Excalidraw)', onDrawClick, <Pencil size={13} />)}
+
+        {/* Équation LaTeX — commande officielle insertInlineMath */}
+        {TB(false, 'Équation LaTeX (cliquer puis éditer)', () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (editor.chain().focus() as any).insertInlineMath({ latex: 'E=mc^2' }).run();
+        }, <Sigma size={13} />)}
+
+        {/* Symboles spéciaux */}
+        <div className="relative shrink-0" ref={symbolsRef}>
+          <button type="button" title="Symboles spéciaux"
+            onClick={() => setSymbolsOpen(o => !o)}
+            className={`p-1.5 rounded transition-colors ${symbolsOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
+            <span className="text-[12px] font-semibold leading-none">Ω</span>
+          </button>
+          {symbolsOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5"
+              style={{ width: '272px' }}
+              onMouseDown={e => e.stopPropagation()}>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Symboles spéciaux</p>
+              <div className="grid grid-cols-10 gap-0.5">
+                {SPECIAL_SYMBOLS.map(sym => (
+                  <button key={sym} type="button" title={sym}
+                    onClick={() => { editor.chain().focus().insertContent(sym).run(); setSymbolsOpen(false); }}
+                    className="w-6 h-6 text-sm text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300 rounded transition-colors flex items-center justify-center">
+                    {sym}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         {uploadProgress !== null && (
           <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-1">
             <div className="w-16 h-1 bg-dark-700 rounded-full overflow-hidden">
@@ -754,11 +1031,59 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             <span>{uploadProgress}%</span>
           </div>
         )}
-        {/* Groupe Vue — poussé à droite comme dans Word */}
-        <div className="ml-auto flex items-center gap-0.5">
-          <SEP />
-          {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
-          {TB(false, 'Imprimer / PDF',       onExportPdf, <Download size={13} />)}
+        <SEP />
+
+        {/* Recherche & Remplacement */}
+        <div className="relative shrink-0">
+          {TB(findOpen, 'Rechercher & Remplacer (Ctrl+H)', () => setFindOpen(o => !o), <SearchCode size={13} />)}
+          {findOpen && (
+            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-3 min-w-[260px]"
+              onMouseDown={e => e.stopPropagation()}>
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Rechercher & Remplacer</p>
+              <div className="flex gap-1.5 mb-1.5">
+                <input value={findVal} onChange={e => setFindVal(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && doFind()}
+                  placeholder="Rechercher…"
+                  className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500/50"
+                />
+                <button type="button" onClick={doFind}
+                  className="text-xs bg-dark-700 text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-dark-600 transition-colors">
+                  Trouver
+                </button>
+              </div>
+              <div className="flex gap-1.5">
+                <input value={replaceVal} onChange={e => setReplaceVal(e.target.value)}
+                  placeholder="Remplacer par…"
+                  className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500/50"
+                />
+                <div className="flex flex-col gap-1">
+                  <button type="button" title="Remplacer" onClick={doReplace}
+                    className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/30 whitespace-nowrap">
+                    <Replace size={11} />
+                  </button>
+                  <button type="button" onClick={doReplaceAll}
+                    className="text-[10px] bg-yellow-500/10 text-yellow-500/70 px-2 py-1 rounded hover:bg-yellow-500/20 whitespace-nowrap">
+                    Tout
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        <SEP />
+
+        {/* Import/Export documents */}
+        {TB(false, 'Importer un fichier Word (.docx)', onImportDocxClick, <FilePlus    size={13} />)}
+        {TB(false, 'Exporter en Word (.docx)',         onExportDocxClick, <FileDown    size={13} />)}
+        {TB(false, 'Importer un PDF (texte)',          onImportPdfClick,  <BookOpen    size={13} />)}
+        {TB(false, 'Remplir un formulaire PDF',        onPdfFormClick,    <CheckCircle size={13} />)}
+        {TB(false, 'Signer un PDF',                    onPdfSignClick,    <PenLine     size={13} />)}
+        <SEP />
+        {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
+        {TB(false, 'Imprimer / PDF',       onExportPdf, <Download size={13} />)}
+
+        {/* Focus + vue — poussé à droite */}
+        <div className="ml-auto">
           {TB(focusMode, focusMode ? 'Quitter le mode focus' : 'Mode focus (plein écran)', onFocusToggle,
             focusMode ? <Minimize2 size={13} /> : <Maximize2 size={13} />)}
         </div>
@@ -1170,6 +1495,17 @@ export default function NotesEditor() {
     initialData?: Record<string, unknown>;
   } | null>(null);
   const excalidrawApiRef  = useRef<ExcalidrawImperativeAPI | null>(null);
+
+  // ── PDF / DOCX modals ─────────────────────────────────────────────
+  const [pdfFile,          setPdfFile]         = useState<File | null>(null);
+  const [pdfModal,         setPdfModal]         = useState<'form' | 'sign' | null>(null);
+  const [pdfFormFields,    setPdfFormFields]    = useState<{ name: string; type: string; value: string }[]>([]);
+  const [pdfFormData,      setPdfFormData]      = useState<Record<string, string>>({});
+  const [signaturePadRef]  = useState(() => ({ current: null as import('signature_pad').default | null }));
+  const sigCanvasRef       = useRef<HTMLCanvasElement>(null);
+  const docxInputRef       = useRef<HTMLInputElement>(null);
+  const pdfInputRef        = useRef<HTMLInputElement>(null);
+  const pdfInputModeRef    = useRef<'import' | 'form' | 'sign'>('import');
   // Import dynamique (SSR-incompatible)
   const ExcalidrawComponent = useMemo(() => dynamic(
     () => import('@excalidraw/excalidraw').then(m => ({ default: m.Excalidraw })),
@@ -1266,6 +1602,19 @@ export default function NotesEditor() {
     return Array.from(words);
   }, [notes]);
 
+  // Ref pour la suggestion ghost text (mis à jour quand wordIndex change)
+  const ghostSuggestionRef = useRef<(text: string) => string>(() => '');
+  useEffect(() => {
+    ghostSuggestionRef.current = (textBefore: string) => {
+      const wordMatch = textBefore.match(/[a-zA-Z\u00C0-\u024F]{3,}$/);
+      if (!wordMatch) return '';
+      const partial = wordMatch[0].toLowerCase();
+      const match   = wordIndex.find(w => w.startsWith(partial) && w.length > partial.length);
+      if (!match) return '';
+      return match.slice(partial.length); // seulement le suffixe
+    };
+  }, [wordIndex]);
+
   const smartModalInitial = useMemo(() => {
     if (!editingSmartId) return undefined;
     const f = folders.find(x => x.id === editingSmartId);
@@ -1304,8 +1653,9 @@ export default function NotesEditor() {
       setContent(note.content);
       prevTitle.current   = note.title;
       prevContent.current = note.content;
-      if (editor && !editor.isDestroyed) {
-        editor.commands.setContent(note.content);
+      // Ne jamais écraser si l'utilisateur est en train d'écrire → pas de saut de curseur
+      if (editor && !editor.isDestroyed && !editor.view.hasFocus()) {
+        editor.commands.setContent(note.content, { emitUpdate: false });
       }
     }
   }, [notes]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1437,6 +1787,7 @@ export default function NotesEditor() {
 
   // ── TipTap editor ─────────────────────────────────────────────────────────
   const editor = useEditor({
+    immediatelyRender: false, // SSR Next.js — évite les hydration errors (TipTap 3 best practice)
     extensions: [
       StarterKit.configure({ codeBlock: false }),
       CodeBlockLowlight.configure({ lowlight }),
@@ -1459,6 +1810,16 @@ export default function NotesEditor() {
       Superscript,
       Subscript,
       CharacterCount,
+      FontFamily,
+      FontSize,
+      LineHeight,
+      Indent,
+      Mathematics,
+      SpellCheckExtension,
+      GhostTextExtension.configure({
+        // ghostSuggestionRef est mis à jour après useEditor
+        getSuggestion: (text) => ghostSuggestionRef.current(text),
+      }),
     ],
     editorProps: {
       attributes: { class: 'tiptap-editor' },
@@ -1705,6 +2066,79 @@ export default function NotesEditor() {
     editor.setEditable(!isReadOnly);
   }, [editor, isReadOnly]);
 
+  // ── Import DOCX ────────────────────────────────────────────────────────────
+  const handleImportDocx = useCallback(async (file: File) => {
+    if (!editor) return;
+    try {
+      const html = await importDocx(file);
+      editor.commands.setContent(html, { emitUpdate: false });
+      const newHtml = editor.getHTML();
+      setContent(newHtml);
+      scheduleAutoSave(title, newHtml);
+    } catch (err) { console.error('Import DOCX:', err); }
+  }, [editor, title, scheduleAutoSave]);
+
+  // ── Export DOCX ────────────────────────────────────────────────────────────
+  const handleExportDocx = useCallback(async () => {
+    if (!editor) return;
+    try { await exportDocx(editor.getHTML(), title || 'note'); }
+    catch (err) { console.error('Export DOCX:', err); }
+  }, [editor, title]);
+
+  // ── Import PDF — extraction texte ─────────────────────────────────────────
+  const handleImportPdf = useCallback(async (file: File) => {
+    if (!editor) return;
+    try {
+      setUploadProgress(0);
+      const text = await extractTextFromPdf(file);
+      setUploadProgress(50);
+      const paragraphs = text.split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+      editor.commands.setContent(paragraphs || '<p></p>', { emitUpdate: false });
+      const html = editor.getHTML();
+      setContent(html);
+      scheduleAutoSave(title, html);
+    } catch (err) { console.error('Import PDF:', err); }
+    finally { setUploadProgress(null); }
+  }, [editor, title, scheduleAutoSave]);
+
+  // ── PDF Form / Sign ────────────────────────────────────────────────────────
+  const handleOpenPdfForm = useCallback(async (file: File) => {
+    try {
+      const fields = await readPdfFormFields(file);
+      setPdfFile(file);
+      setPdfFormFields(fields);
+      const defaults: Record<string, string> = {};
+      fields.forEach(f => { defaults[f.name] = f.value; });
+      setPdfFormData(defaults);
+      setPdfModal('form');
+    } catch (err) { console.error('Lecture champs PDF:', err); }
+  }, []);
+
+  const handleFillPdf = useCallback(async () => {
+    if (!pdfFile) return;
+    await fillAndDownloadPdf(pdfFile, pdfFormData, title || 'formulaire');
+    setPdfModal(null);
+  }, [pdfFile, pdfFormData, title]);
+
+  const handleSignPdf = useCallback(async () => {
+    if (!pdfFile || !signaturePadRef.current) return;
+    if (signaturePadRef.current.isEmpty()) return;
+    const dataUrl = signaturePadRef.current.toDataURL('image/png');
+    await signAndDownloadPdf(pdfFile, dataUrl, { x: 50, y: 650, width: 200, height: 80, page: 0 }, title || 'document');
+    setPdfModal(null);
+  }, [pdfFile, title, signaturePadRef]);
+
+  // Initialiser signature_pad quand le canvas est monté
+  useEffect(() => {
+    if (pdfModal !== 'sign' || !sigCanvasRef.current) return;
+    import('signature_pad').then(({ default: SignaturePad }) => {
+      signaturePadRef.current = new SignaturePad(sigCanvasRef.current!, {
+        backgroundColor: 'rgb(255,255,255)',
+        penColor:        'rgb(0,0,0)',
+      });
+    });
+  }, [pdfModal, signaturePadRef]);
+
   // ── Upload image (paste / drag-drop / bouton) ─────────────────────────────
   const handleImageInsert = useCallback(async (file: File) => {
     if (!editor || !selectedId) return;
@@ -1731,9 +2165,11 @@ export default function NotesEditor() {
     try {
       setUploadProgress(0);
       const { url, name } = await uploadNoteFile(file, selectedId, pct => setUploadProgress(pct));
-      editor.chain().focus().insertContent(
-        `<a href="${url}" target="_blank" rel="noopener noreferrer">${name}</a> `
-      ).run();
+      // Nœud ProseMirror JSON — plus fiable qu'une chaîne HTML brute avec l'extension Link
+      editor.chain().focus().insertContent([
+        { type: 'text', text: `📎 ${name}`, marks: [{ type: 'link', attrs: { href: url, target: '_blank', rel: 'noopener noreferrer' } }] },
+        { type: 'text', text: ' ' },
+      ]).run();
       const html = editor.getHTML();
       setContent(html);
       scheduleAutoSave(title, html);
@@ -2325,6 +2761,11 @@ export default function NotesEditor() {
                     onExportPdf={handleExportPDF}
                     onCodeBlockClick={openCodeModal}
                     onDrawClick={() => setExcalidrawModal({ open: true })}
+                    onImportDocxClick={() => docxInputRef.current?.click()}
+                    onExportDocxClick={handleExportDocx}
+                    onImportPdfClick={() => { pdfInputModeRef.current = 'import'; pdfInputRef.current?.click(); }}
+                    onPdfFormClick={() => { pdfInputModeRef.current = 'form';   pdfInputRef.current?.click(); }}
+                    onPdfSignClick={() => { pdfInputModeRef.current = 'sign';   pdfInputRef.current?.click(); }}
                   />
                 )}
 
@@ -2374,6 +2815,20 @@ export default function NotesEditor() {
                 <input ref={fileInputRef} type="file" className="hidden"
                   aria-label="Joindre un fichier"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFileInsert(f); e.target.value = ''; }} />
+                <input ref={docxInputRef} type="file" accept=".docx" className="hidden"
+                  aria-label="Importer un fichier Word"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleImportDocx(f); e.target.value = ''; }} />
+                <input ref={pdfInputRef} type="file" accept=".pdf" className="hidden"
+                  aria-label="Ouvrir un fichier PDF"
+                  onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (!f) { e.target.value = ''; return; }
+                    e.target.value = '';
+                    const mode = pdfInputModeRef.current;
+                    if (mode === 'import') handleImportPdf(f);
+                    else if (mode === 'form') handleOpenPdfForm(f);
+                    else { setPdfFile(f); setPdfModal('sign'); }
+                  }} />
                 {/* Barre contextuelle bloc de code — s'affiche quand curseur est dans un bloc */}
                 {isInCodeBlock && !isReadOnly && editor && (
                   <div className="px-3 py-1.5 border-b border-dark-800 flex items-center gap-2 bg-dark-900 shrink-0">
@@ -2727,6 +3182,97 @@ export default function NotesEditor() {
                   {codeModal.isEdit ? 'Mettre à jour' : 'Insérer'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal formulaire PDF ─────────────────────────────────────────────── */}
+      {pdfModal === 'form' && pdfFile && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setPdfModal(null)}>
+          <div className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-[600px] max-w-[95vw] flex flex-col max-h-[85vh]"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-dark-800 shrink-0">
+              <CheckCircle size={14} className="text-yellow-400" />
+              <span className="text-sm font-semibold text-gray-200">Remplir un formulaire PDF</span>
+              <span className="text-xs text-gray-500 ml-1 truncate">{pdfFile.name}</span>
+              <button type="button" title="Fermer" onClick={() => setPdfModal(null)}
+                className="ml-auto p-1 text-gray-500 hover:text-white rounded transition-colors">
+                <X size={15} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {pdfFormFields.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">Aucun champ de formulaire détecté dans ce PDF.</p>
+              ) : pdfFormFields.map(field => (
+                <div key={field.name} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-400">{field.name}
+                    <span className="text-gray-600 ml-1">({field.type})</span>
+                  </label>
+                  {field.type === 'CheckBox' ? (
+                    <input type="checkbox"
+                      title={field.name}
+                      aria-label={field.name}
+                      checked={pdfFormData[field.name] === 'true'}
+                      onChange={e => setPdfFormData(d => ({ ...d, [field.name]: e.target.checked ? 'true' : 'false' }))}
+                      className="w-4 h-4 accent-yellow-400" />
+                  ) : (
+                    <input type="text"
+                      title={field.name}
+                      placeholder={field.name}
+                      value={pdfFormData[field.name] ?? ''}
+                      onChange={e => setPdfFormData(d => ({ ...d, [field.name]: e.target.value }))}
+                      className="text-sm bg-dark-800 border border-dark-700 text-gray-200 rounded px-3 py-1.5 focus:outline-none focus:border-yellow-500/50" />
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-dark-800 shrink-0">
+              <button type="button" onClick={() => setPdfModal(null)}
+                className="text-xs px-3 py-1.5 rounded text-gray-400 hover:text-white hover:bg-dark-800 transition-colors">Annuler</button>
+              <button type="button" onClick={handleFillPdf}
+                className="text-xs px-3 py-1.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 font-medium transition-colors">
+                Télécharger le PDF rempli
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal signature PDF ───────────────────────────────────────────────── */}
+      {pdfModal === 'sign' && pdfFile && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => setPdfModal(null)}>
+          <div className="bg-dark-900 border border-dark-700 rounded-xl shadow-2xl w-[500px] max-w-[95vw] flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-4 py-3 border-b border-dark-800 shrink-0">
+              <PenLine size={14} className="text-yellow-400" />
+              <span className="text-sm font-semibold text-gray-200">Signer un PDF</span>
+              <span className="text-xs text-gray-500 ml-1 truncate">{pdfFile.name}</span>
+              <button type="button" title="Fermer" onClick={() => setPdfModal(null)}
+                className="ml-auto p-1 text-gray-500 hover:text-white rounded transition-colors">
+                <X size={15} />
+              </button>
+            </div>
+            <div className="p-4 flex flex-col gap-3">
+              <p className="text-xs text-gray-500">Dessinez votre signature dans le cadre ci-dessous :</p>
+              <canvas ref={sigCanvasRef} width={460} height={160}
+                className="w-full border border-dark-600 rounded-lg bg-white cursor-crosshair"
+                style={{ touchAction: 'none' }}
+              />
+              <button type="button" onClick={() => signaturePadRef.current?.clear()}
+                className="text-xs text-gray-500 hover:text-gray-300 self-start transition-colors">
+                Effacer
+              </button>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-dark-800 shrink-0">
+              <button type="button" onClick={() => setPdfModal(null)}
+                className="text-xs px-3 py-1.5 rounded text-gray-400 hover:text-white hover:bg-dark-800 transition-colors">Annuler</button>
+              <button type="button" onClick={handleSignPdf}
+                className="text-xs px-3 py-1.5 rounded bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 font-medium transition-colors">
+                Télécharger le PDF signé
+              </button>
             </div>
           </div>
         </div>

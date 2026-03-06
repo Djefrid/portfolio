@@ -48,9 +48,16 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 | **Styling** | Tailwind CSS 3.4, framer-motion 12 |
 | **Thème** | next-themes (mode clair / sombre) |
 | **Composants UI** | Radix UI (Label, Slot), lucide-react, CVA |
-| **Backend / BDD** | Firebase 12 (Authentication + Firestore) |
+| **Backend / BDD** | Firebase 12 (Authentication + Firestore + Storage) |
 | **Emails** | Resend (formulaire de contact) |
 | **Traduction** | MyMemory API (automatique FR↔EN) |
+| **Éditeur riche** | TipTap 3 (26 extensions — police, taille, retrait, espacement, LaTeX, symboles, rechercher/remplacer…) |
+| **Dessin** | Excalidraw (modal plein écran, export PNG → Firebase Storage) |
+| **Documents** | mammoth (DOCX→HTML), @turbodocx/html-to-docx (HTML→DOCX) |
+| **PDF** | pdfjs-dist (extraction texte), pdf-lib (formulaires AcroForm, signature) |
+| **Signature** | signature_pad (canvas manuscrit) |
+| **Orthographe** | LanguageTool API (proxy `/api/spellcheck`), ProseMirror Decorations |
+| **Ghost text** | GhostTextExtension (suggestion suffixe, Tab pour accepter) |
 | **Linting** | ESLint 8 |
 | **Déploiement** | Vercel (standalone output) |
 
@@ -386,6 +393,14 @@ portfolio/
 ├── lib/                              # Bibliothèques et utilitaires
 │   ├── utils.ts                      # cn() — clsx + tailwind-merge
 │   ├── notes-service.ts              # CRUD Firestore : Note, Folder, SmartFolder, Tags
+│   ├── upload-image.ts               # uploadNoteImage + uploadNoteFile (Firebase Storage)
+│   ├── docx-utils.ts                 # importDocx (mammoth) + exportDocx (@turbodocx)
+│   ├── pdf-utils.ts                  # extractTextFromPdf + fillAndDownloadPdf + signAndDownloadPdf
+│   ├── tiptap-extensions/
+│   │   ├── spell-check.ts            # SpellCheckExtension (LanguageTool + Decorations)
+│   │   ├── ghost-text.ts             # GhostTextExtension (ghost text, Tab=accepter)
+│   │   ├── indent.ts                 # Indent/Outdent (margin-left 40px, Tab/Shift-Tab hors listes)
+│   │   └── font-size.ts              # FontSize custom (remplacé par @tiptap/extension-text-style)
 │   └── firebase/
 │       ├── index.ts                  # Barrel exports
 │       ├── config.ts                 # Init Firebase, isFirebaseConfigured
@@ -481,21 +496,22 @@ Quand vous cliquez sur **"Enregistrer"** :
 
 ## Système de Notes
 
-L'onglet **Notes** est un système de prise de notes privées réservé à l'admin, inspiré d'Apple Notes. Il fonctionne en temps réel via Firestore.
+L'onglet **Notes** est un système de prise de notes privées réservé à l'admin, inspiré d'Apple Notes et aussi puissant que Word. Il fonctionne en temps réel via Firestore.
 
 ### Interface 3 panneaux
 
 ```
 ┌─────────────────┬──────────────────┬───────────────────────────────────┐
-│    SIDEBAR      │   LISTE NOTES    │           ÉDITEUR                 │
+│    SIDEBAR      │   LISTE NOTES    │           ÉDITEUR RICHE           │
 │                 │                  │                                   │
-│ • Toutes mes    │ • Recherche      │ • Titre (avec autocomplete)       │
-│   notes         │   temps réel     │ • Contenu (avec autocomplete)     │
-│ • Dossiers      │   (Ctrl+F)       │ • Autosave 1s après frappe        │
-│ • Smart Folders │ • Épinglées /    │ • Tags en bas de l'éditeur        │
-│ • Tags          │   Non épinglées  │ • Mode lecture seule (corbeille)  │
-│ • Corbeille     │ • Jours restants │                                   │
-│                 │   (corbeille)    │                                   │
+│ • Toutes mes    │ • Recherche      │ • Barre d'outils 3 lignes (Word)  │
+│   notes         │   temps réel     │ • Titre (avec autocomplete)       │
+│ • Dossiers      │   (Ctrl+F)       │ • Contenu TipTap riche            │
+│ • Smart Folders │ • Épinglées /    │ • Autosave 1s après frappe        │
+│ • Tags          │   Non épinglées  │ • Ghost text (Tab pour accepter)  │
+│ • Corbeille     │ • Jours restants │ • Orthographe FR (soulignement)   │
+│                 │   (corbeille)    │ • Tags en bas de l'éditeur        │
+│                 │                  │ • Mode focus plein écran          │
 └─────────────────┴──────────────────┴───────────────────────────────────┘
 ```
 
@@ -518,10 +534,80 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Tri** | Par date de modification, date de création, ou titre |
 | **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
 | **Jours restants** | Affichés en orange dans la corbeille |
-| **Sync temps réel** | 3 `onSnapshot` Firestore — multi-appareils |
+| **Sync temps réel** | 3 `onSnapshot` Firestore — multi-appareils, sans saut de curseur |
 | **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
 | **Animation suppression** | Ghost card vole vers la corbeille (framer-motion) · icône tremble à la réception · `AnimatePresence` sur la liste |
 | **Corbeille permanente** | Toujours visible dans la sidebar, même vide — compteur masqué si 0 |
+| **Persistance session** | Vue + note sélectionnée restaurées au rechargement (localStorage) |
+
+### Éditeur riche TipTap (style Word)
+
+La barre d'outils est organisée en **3 lignes thématiques** :
+- **Ligne 1 — Police** : Historique · Famille de police · Taille · Gras/Italic/Souligné/Barré · Effacer · Casse · Couleurs
+- **Ligne 2 — Paragraphe** : Alignement · Retrait (Tab/Maj-Tab) · Interligne · Listes · Titres/Citation/Code
+- **Ligne 3 — Insertion & Vue** : Tableau · Lien · Image · Fichier · Dessin · LaTeX · Symboles · Rechercher/Remplacer · Import/Export · Focus
+
+| Fonctionnalité | Détail |
+|----------------|--------|
+| **Formatage texte** | Gras, italique, souligné, barré, exposant, indice |
+| **Famille de police** | 11 polices (Arial, Georgia, Courier New, Comic Sans, etc.) via `FontFamily` |
+| **Taille de police** | 16 tailles (8pt → 72pt) via `FontSize` |
+| **Effacer la mise en forme** | Supprime marques + retrait + interligne (un seul clic) |
+| **Couleurs** | Grille 60 couleurs Word-style + surbrillance multicolore |
+| **Changer la casse** | MAJUSCULES · minuscules · Chaque Mot · Première lettre |
+| **Retrait** | Indent/Outdent par pas de 40 px (max 280 px) · Tab/Maj-Tab hors listes |
+| **Interligne** | Normal · 1.0 · 1.15 · 1.5 · 2.0 · 2.5 · 3.0 (via `LineHeight`) |
+| **Titres** | H1 · H2 · H3 via select ou slash command `/h1` |
+| **Listes** | À puces, numérotées, cases à cocher (taskList nestée) |
+| **Tableaux** | Grid picker 8×8, outils contextuels (ajout ligne/col, fusion, scission) |
+| **Code** | Bloc de code avec coloration syntaxique (lowlight — 20 langages), modal d'édition |
+| **LaTeX / Équations** | `@tiptap/extension-mathematics` + KaTeX — rendu inline temps réel |
+| **Symboles spéciaux** | Popup 66 caractères Unicode (©, ®, ™, flèches, maths, devises…) |
+| **Rechercher / Remplacer** | Panneau intégré dans la toolbar — remplacement unique ou global (regex) |
+| **Liens** | Insertion via toolbar et BubbleMenu au survol de sélection |
+| **Images** | Upload Firebase Storage + coller depuis presse-papiers + drag & drop |
+| **Fichiers joints** | Upload multi-types (PDF, DOCX, etc.) → lien cliquable dans la note |
+| **Drag & drop multi-fichiers** | Glisser N fichiers depuis l'explorateur Windows → tous insérés en séquentiel |
+| **BubbleMenu formatage** | Apparaît sur sélection de texte (gras, italique, lien) |
+| **BubbleMenu tableau** | Apparaît dans les cellules (lignes, colonnes, fusion, en-tête) |
+| **Barre contextuelle code** | S'affiche quand le curseur est dans un bloc de code (langage, copier, modifier) |
+| **Slash commands** | `/` en début de paragraphe → menu 10 commandes filtrable |
+| **Mode focus** | Plein écran (`Maximize2`/`Minimize2`) sans duplication de l'éditeur |
+| **Compteur** | Mots + caractères en bas de l'éditeur |
+| **SSR Next.js** | `immediatelyRender: false` — pas d'erreur d'hydratation (TipTap 3 best practice) |
+
+### Dessin (Excalidraw)
+
+- Bouton **Dessin** dans la toolbar → modal plein écran Excalidraw (thème sombre)
+- Export PNG → Firebase Storage → inséré comme image dans la note
+- Drag & drop d'un fichier `.excalidraw` → ouvre le dessin dans le modal
+
+### Documents Word (DOCX)
+
+| Action | Détail |
+|--------|--------|
+| **Import .docx** | Mammoth.js → HTML TipTap (styles Heading, Code préservés) |
+| **Export .docx** | @turbodocx/html-to-docx → téléchargement `.docx` |
+
+### PDF
+
+| Action | Détail |
+|--------|--------|
+| **Import PDF (texte)** | pdfjs-dist → extraction texte → inséré dans l'éditeur |
+| **Remplir un formulaire** | pdf-lib → champs AcroForm → téléchargement PDF rempli |
+| **Signer un PDF** | signature_pad (canvas) → PNG embarqué → téléchargement PDF signé |
+
+### Correcteur orthographique français
+
+- Appel à `/api/spellcheck` (proxy LanguageTool) après 1200 ms de pause
+- Soulignement rouge pointillé `text-decoration: underline wavy` style Word
+- ProseMirror `Decoration.inline()` — non intrusif dans le document
+
+### Ghost text (autocomplétion style Copilot)
+
+- Texte fantôme en gris italique après le curseur (hors document)
+- Basé sur l'index de tous les mots (≥ 4 lettres) de toutes les notes
+- **Tab** pour accepter · **Escape** pour refuser · toute autre touche = refus silencieux
 
 ### Dossiers intelligents (Smart Folders)
 
@@ -605,6 +691,25 @@ Caractéristiques :
 - Découpage automatique en chunks de 450 caractères
 - Délai de 100ms entre requêtes (anti rate-limiting)
 - Nettoyage des entités HTML dans les réponses
+
+---
+
+### `POST /api/spellcheck`
+
+Proxy LanguageTool pour le correcteur orthographique français.
+
+```json
+// Requête
+{ "text": "Bonjour le monde" }
+
+// Réponse
+{ "matches": [{ "offset": 0, "length": 7, "message": "...", "replacements": [{"value": "..."}] }] }
+```
+
+Caractéristiques :
+- Langue : `fr-FR` (niveau `picky`)
+- Timeout : 8 secondes
+- Source : `https://api.languagetool.org/v2/check` (gratuit, sans clé)
 
 ---
 
@@ -847,4 +952,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 3 mars 2026 — animation fly-to-trash + corbeille permanente + recherche Ctrl+F + autocomplete titre complet*
+*Documentation mise à jour le 6 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, PDF (texte/formulaires/signature), correcteur orthographique français (LanguageTool), ghost text autocomplétion style Copilot*

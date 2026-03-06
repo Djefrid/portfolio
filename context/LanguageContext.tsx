@@ -57,12 +57,12 @@ const translations: Record<Language, Translations> = {
     // Contact
     contact: {
       title: 'Contact',
-      subtitle: 'Opportunité de travail ou idée de projet ? Je suis disponible — discutons !',
+      subtitle: 'Opportunité de travail ou idée de projet ? Je suis disponible — discutons-en !',
       email: 'Email',
       github: 'Voir mes projets',
       linkedin: 'Mon profil professionnel',
       form: {
-        title: 'Envoie-moi un message',
+        title: 'Laissez-moi un message',
         name: 'Votre nom',
         email: 'Votre email',
         message: 'Votre message',
@@ -129,12 +129,12 @@ const translations: Record<Language, Translations> = {
     // Contact
     contact: {
       title: 'Contact',
-      subtitle: 'Open to work & new projects — let\'s talk.',
+      subtitle: 'Open to work & new projects — let\'s discuss it!',
       email: 'Email',
       github: 'View my projects',
       linkedin: 'My professional profile',
       form: {
-        title: 'Send me a message',
+        title: 'Leave me a message',
         name: 'Your name',
         email: 'Your email',
         message: 'Your message',
