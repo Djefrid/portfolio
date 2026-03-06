@@ -2143,17 +2143,21 @@ export default function NotesEditor() {
   // Fermer le menu contextuel orthographe sur clic ou touche Escape
   useEffect(() => {
     if (!spellMenu) return;
-    const close = (e: MouseEvent | KeyboardEvent) => {
-      if ('key' in e && e.key !== 'Escape') return;
-      setSpellMenu(null);
-    };
-    document.addEventListener('mousedown', close as EventListener);
-    document.addEventListener('keydown',   close as EventListener);
+    const closeClick = () => setSpellMenu(null);
+    const closeKey   = (e: KeyboardEvent) => { if (e.key === 'Escape') setSpellMenu(null); };
+    // capture:true → prioritaire sur ProseMirror (qui peut intercepter la phase bubble)
+    document.addEventListener('mousedown',   closeClick, true);
+    document.addEventListener('contextmenu', closeClick, true);
+    document.addEventListener('keydown',     closeKey,   true);
+    // Fermer aussi quand le curseur bouge dans l'éditeur
+    if (editor) editor.on('selectionUpdate', closeClick);
     return () => {
-      document.removeEventListener('mousedown', close as EventListener);
-      document.removeEventListener('keydown',   close as EventListener);
+      document.removeEventListener('mousedown',   closeClick, true);
+      document.removeEventListener('contextmenu', closeClick, true);
+      document.removeEventListener('keydown',     closeKey,   true);
+      if (editor) editor.off('selectionUpdate', closeClick);
     };
-  }, [spellMenu]);
+  }, [spellMenu, editor]);
 
   // ── Upload fichier joint ───────────────────────────────────────────────────
   const handleFileInsert = useCallback(async (file: File) => {
