@@ -1612,14 +1612,17 @@ export default function NotesEditor() {
     if (!selectedId || saveStatus !== 'saved') return;
     const note = notes.find(n => n.id === selectedId);
     if (!note) return;
+    // Ne jamais écraser si l'utilisateur est en train d'éditer (focus dans l'éditeur)
+    const editorFocused = !!(editor && !editor.isDestroyed && editor.view.hasFocus());
     if (note.title !== title || note.content !== content) {
       setTitle(note.title);
-      setContent(note.content);
-      prevTitle.current   = note.title;
-      prevContent.current = note.content;
-      // Ne jamais écraser si l'utilisateur est en train d'écrire → pas de saut de curseur
-      if (editor && !editor.isDestroyed && !editor.view.hasFocus()) {
-        editor.commands.setContent(note.content, { emitUpdate: false });
+      if (!editorFocused) {
+        setContent(note.content);
+        prevTitle.current   = note.title;
+        prevContent.current = note.content;
+        if (editor && !editor.isDestroyed) {
+          editor.commands.setContent(note.content, { emitUpdate: false });
+        }
       }
     }
   }, [notes]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1912,7 +1915,7 @@ export default function NotesEditor() {
       setSelectedId(savedId);
       setTitle(note.title);
       setContent(note.content);
-      editor.commands.setContent(note.content);
+      editor.commands.setContent(note.content, { emitUpdate: false });
       setMobilePanel('editor');
     } catch { /* ignore */ }
   }, [loading, editor]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2232,7 +2235,7 @@ export default function NotesEditor() {
 
   const handleSelectNote = (note: Note) => {
     setSelectedId(note.id); setTitle(note.title); setContent(note.content);
-    editor?.commands.setContent(note.content);
+    editor?.commands.setContent(note.content, { emitUpdate: false });
     setSaveStatus('saved'); setMobilePanel('editor');
   };
 
