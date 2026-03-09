@@ -1785,9 +1785,14 @@ export default function NotesEditor() {
       handlePaste(view, event) {
         const items = Array.from(event.clipboardData?.items ?? []);
 
-        // 1. Image binaire (copier une image → coller) → upload Firebase
+        // 1. Image binaire pure (fichier image copié) → upload Firebase
+        // IMPORTANT : Chrome ajoute toujours image/png comme rendu visuel du texte
+        // copié (depuis n'importe quelle page web, VS Code, Claude…).
+        // Si text/html ou text/plain est présent → c'est du texte, pas une image.
+        // On n'intercepte que si le clipboard ne contient PAS de texte.
+        const hasText = items.some(i => i.type === 'text/html' || i.type === 'text/plain');
         const imgItem = items.find(i => i.type.startsWith('image/'));
-        if (imgItem && selectedId) {
+        if (!hasText && imgItem && selectedId) {
           event.preventDefault();
           const file = imgItem.getAsFile();
           if (file) handleImageInsertRef.current(file);
