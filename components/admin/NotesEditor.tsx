@@ -1765,6 +1765,23 @@ export default function NotesEditor() {
     ],
     editorProps: {
       attributes: { class: 'tiptap-editor', spellcheck: 'true' },
+      // Normalise le HTML avant parsing ProseMirror
+      // VS Code produit un <div> englobant avec style="background-color:..." qui
+      // peut empêcher ProseMirror de parser le contenu correctement.
+      transformPastedHTML(html: string): string {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const body = doc.body;
+        const children = Array.from(body.children);
+        // Détecte le wrapper VS Code : un seul <div> avec background-color
+        if (
+          children.length === 1 &&
+          children[0].tagName === 'DIV' &&
+          (children[0] as HTMLElement).style.backgroundColor
+        ) {
+          return (children[0] as HTMLElement).innerHTML;
+        }
+        return html;
+      },
       handlePaste(view, event) {
         const items = Array.from(event.clipboardData?.items ?? []);
 
@@ -1777,31 +1794,8 @@ export default function NotesEditor() {
           return true;
         }
 
-        // 2. HTML collé depuis une page web contenant des <img> → afficher inline
-        const htmlItem = items.find(i => i.type === 'text/html');
-        if (htmlItem) {
-          htmlItem.getAsString(html => {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const imgs = Array.from(doc.querySelectorAll('img'));
-            if (imgs.length > 0) {
-              // Injecter les images depuis leurs URLs d'origine (pas d'upload)
-              imgs.forEach(img => {
-                const src = img.getAttribute('src');
-                if (src && !src.startsWith('data:')) {
-                  view.dispatch(
-                    view.state.tr.replaceSelectionWith(
-                      view.state.schema.nodes.image.create({ src, alt: img.getAttribute('alt') ?? '' })
-                    )
-                  );
-                }
-              });
-            }
-          });
-          // Laisser aussi TipTap gérer le texte du HTML collé
-          return false;
-        }
-
-        return false; // TipTap gère le reste (texte brut, etc.)
+        // 2. Tout le reste → TipTap gère nativement (HTML, texte brut, etc.)
+        return false;
       },
       handleDrop(_, event) {
         const files = Array.from(event.dataTransfer?.files ?? []);
