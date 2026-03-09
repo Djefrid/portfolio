@@ -55,8 +55,7 @@ Portfolio professionnel moderne et bilingue (FR/EN) construit avec Next.js 14, F
 | **Dessin** | Excalidraw (modal plein écran, export PNG → Firebase Storage) |
 | **Documents** | mammoth (DOCX→HTML), @turbodocx/html-to-docx (HTML→DOCX) |
 | **PDF** | pdfjs-dist (extraction texte → insertion dans l'éditeur) |
-| **Orthographe** | LanguageTool API (proxy `/api/spellcheck`), ProseMirror Decorations |
-| **Ghost text** | GhostTextExtension (suggestion suffixe, Tab pour accepter) |
+| **Orthographe** | Correcteur natif du navigateur (`spellcheck="true"` sur le contenteditable) |
 | **Linting** | ESLint 8 |
 | **Déploiement** | Vercel (standalone output) |
 
@@ -509,9 +508,9 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 │   notes         │   temps réel     │ • Titre (avec autocomplete)       │
 │ • Dossiers      │   (Ctrl+F)       │ • Contenu TipTap riche            │
 │ • Smart Folders │ • Épinglées /    │ • Autosave 1s après frappe        │
-│ • Tags          │   Non épinglées  │ • Ghost text (Tab pour accepter)  │
-│ • Corbeille     │ • Jours restants │ • Orthographe FR (soulignement)   │
-│                 │   (corbeille)    │ • Tags en bas de l'éditeur        │
+│ • Tags          │   Non épinglées  │ • Correcteur natif navigateur     │
+│ • Corbeille     │ • Jours restants │ • Tags en bas de l'éditeur        │
+│                 │   (corbeille)    │ • Suggestions #tags (autocomplete)│
 │                 │                  │ • Mode focus plein écran          │
 └─────────────────┴──────────────────┴───────────────────────────────────┘
 ```
@@ -535,7 +534,7 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Tri** | Par date de modification, date de création, ou titre |
 | **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
 | **Jours restants** | Affichés en orange dans la corbeille |
-| **Sync temps réel** | 3 `onSnapshot` Firestore — notes, dossiers, tags — multi-appareils |
+| **Sync temps réel** | 3 `onSnapshot` Firestore — notes, dossiers, tags — multi-appareils (guard focus éditeur) |
 | **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
 | **Animation suppression** | Ghost card vole vers la corbeille (framer-motion) · icône tremble à la réception · `AnimatePresence` sur la liste |
 | **Corbeille permanente** | Toujours visible dans la sidebar, même vide — compteur masqué si 0 |
@@ -598,8 +597,9 @@ La barre d'outils est organisée en **3 lignes thématiques** :
 
 ### Correcteur orthographique
 
-- Correcteur **natif du navigateur** (`spellcheck="true"` sur le contenteditable)
-- Clic droit natif sur un mot souligné → suggestions du navigateur
+- Correcteur **natif du navigateur** (`spellcheck="true"` sur le contenteditable TipTap)
+- Clic droit sur un mot souligné → suggestions natives du navigateur
+- Aucune dépendance externe, aucun appel API
 
 ### Dossiers intelligents (Smart Folders)
 
@@ -620,26 +620,19 @@ Les **Smart Folders** (icône ⚡) filtrent dynamiquement les notes selon des cr
 - **Vue filtrée** : clic sur un tag dans la sidebar → filtre la liste
 - **Fréquence** : tags triés par nombre d'utilisations
 
-### Autocomplete moderne
+### Autocomplete tags
 
-L'éditeur propose une autocomplétion intelligente en temps réel :
+L'éditeur propose une autocomplétion de tags en temps réel :
 
-**Dans le contenu (textarea) :**
+**Dans le contenu (TipTap) :**
 | Déclencheur | Comportement |
 |-------------|--------------|
 | `#` seul | Affiche tous les tags disponibles |
 | `#abc` | Fuzzy matching (`includes`) sur les tags existants |
-| Mot ≥ 3 lettres | `startsWith` sur l'index de tous les mots de toutes les notes |
 
 **Dans le titre :**
 - `#` seul ou `#partial` → fuzzy matching sur les tags (s'insère au curseur)
-- Mot ≥ 3 lettres → complétion `startsWith` depuis l'index de mots (comme le contenu)
-- ≥ 2 lettres sans `#` → titres similaires existants (priorité 3)
-- Application intelligente au curseur : le mot partiel est remplacé, pas tout le titre
-
-**Dans la sidebar (nouveau tag) :**
-- Dès la 1ère lettre → suggestions parmi les tags existants
-- Focus sur champ vide → affiche les 5 premiers tags
+- Application intelligente au curseur : le tag partiel est remplacé, pas tout le titre
 
 **Navigation popup :** ↑↓ · Tab (1er item) · Enter (item sélectionné) · Escape
 
@@ -683,25 +676,6 @@ Caractéristiques :
 - Découpage automatique en chunks de 450 caractères
 - Délai de 100ms entre requêtes (anti rate-limiting)
 - Nettoyage des entités HTML dans les réponses
-
----
-
-### `POST /api/spellcheck`
-
-Proxy LanguageTool pour le correcteur orthographique français.
-
-```json
-// Requête
-{ "text": "Bonjour le monde" }
-
-// Réponse
-{ "matches": [{ "offset": 0, "length": 7, "message": "...", "replacements": [{"value": "..."}] }] }
-```
-
-Caractéristiques :
-- Langue : `fr-FR` (niveau `picky`)
-- Timeout : 8 secondes
-- Source : `https://api.languagetool.org/v2/check` (gratuit, sans clé)
 
 ---
 
@@ -944,4 +918,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 6 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète*
+*Documentation mise à jour le 8 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore)*
