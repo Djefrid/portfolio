@@ -37,7 +37,7 @@
 "use client";
 
 import { useRef } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion, useInView, useReducedMotion } from "framer-motion";
 
 /**
  * Props du composant FadeInSection.
@@ -72,14 +72,27 @@ export function FadeInSection({ children, delay = 0, className }: FadeInSectionP
    */
   const isInView = useInView(ref, { once: false, margin: "-80px" });
 
+  /**
+   * Respecte la préférence système "Réduire les animations" (WCAG 2.1 — 2.3.3).
+   * Si l'utilisateur a activé "Reduce Motion" dans ses paramètres d'accessibilité,
+   * on affiche le contenu immédiatement sans animation de déplacement (y: 0)
+   * et sans délai. L'opacité reste animée en fondu très court pour éviter un
+   * flash brusque, mais le mouvement (transform) est supprimé.
+   */
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <motion.div
       ref={ref}
-      /* État initial : invisible et décalé vers le bas */
-      initial={{ opacity: 0, y: 30 }}
+      /* État initial : invisible (et décalé vers le bas si motion autorisé) */
+      initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
       /* État cible : selon visibilité — animé si visible, réinitialisé sinon */
-      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
-      transition={{ duration: 0.6, delay, ease: "easeOut" }}
+      animate={isInView ? { opacity: 1, y: 0 } : { opacity: 0, y: shouldReduceMotion ? 0 : 30 }}
+      transition={{
+        duration: shouldReduceMotion ? 0.15 : 0.6,
+        delay: shouldReduceMotion ? 0 : delay,
+        ease: "easeOut",
+      }}
       className={className}
     >
       {children}

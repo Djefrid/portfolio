@@ -133,7 +133,25 @@ import { BubbleMenu } from '@tiptap/react/menus';
 import type { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-import { all, createLowlight } from 'lowlight';
+import { createLowlight } from 'lowlight';
+// Langages importés individuellement — Haskell exclu (bug regex Next.js prod)
+// highlightAuto() n'est jamais appelé grâce à defaultLanguage: 'plaintext'
+import langJs         from 'highlight.js/lib/languages/javascript';
+import langTs         from 'highlight.js/lib/languages/typescript';
+import langPy         from 'highlight.js/lib/languages/python';
+import langCss        from 'highlight.js/lib/languages/css';
+import langHtml       from 'highlight.js/lib/languages/xml';
+import langBash       from 'highlight.js/lib/languages/bash';
+import langJson       from 'highlight.js/lib/languages/json';
+import langSql        from 'highlight.js/lib/languages/sql';
+import langGo         from 'highlight.js/lib/languages/go';
+import langRust       from 'highlight.js/lib/languages/rust';
+import langJava       from 'highlight.js/lib/languages/java';
+import langPhp        from 'highlight.js/lib/languages/php';
+import langCsharp     from 'highlight.js/lib/languages/csharp';
+import langCpp        from 'highlight.js/lib/languages/cpp';
+import langMarkdown   from 'highlight.js/lib/languages/markdown';
+import langPlaintext  from 'highlight.js/lib/languages/plaintext';
 import ImageExtension from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
@@ -162,7 +180,28 @@ import {
 } from '@/lib/notes-service';
 
 // ── Lowlight instance (module-level pour éviter recréation) ───────────────────
-const lowlight = createLowlight(all);
+// Liste sélective de langages — Haskell exclu (crash Next.js prod : regex invalide)
+// defaultLanguage: 'plaintext' → les blocs sans langage explicite (paste, etc.)
+// utilisent plaintext au lieu de highlightAuto() qui crashait
+const lowlight = createLowlight();
+lowlight.register({
+  javascript: langJs,
+  typescript: langTs,
+  python:     langPy,
+  css:        langCss,
+  xml:        langHtml,   // html est un alias de xml dans highlight.js
+  bash:       langBash,
+  json:       langJson,
+  sql:        langSql,
+  go:         langGo,
+  rust:       langRust,
+  java:       langJava,
+  php:        langPhp,
+  csharp:     langCsharp,
+  cpp:        langCpp,
+  markdown:   langMarkdown,
+  plaintext:  langPlaintext,
+});
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 const AUTOSAVE_DELAY_MS = 1000;
@@ -1971,7 +2010,12 @@ export default function NotesEditor() {
     immediatelyRender: false, // SSR Next.js — évite les hydration errors (TipTap 3 best practice)
     extensions: [
       StarterKit.configure({ codeBlock: false }),
-      CodeBlockLowlight.configure({ lowlight }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        // Blocs sans langage explicite → plaintext (jamais highlightAuto → jamais de crash)
+        // La colorisation fonctionne normalement quand le langage est choisi via toolbar
+        defaultLanguage: 'plaintext',
+      }),
       ImageExtension.configure({ inline: true, allowBase64: true }),
       Placeholder.configure({
         placeholder: 'Commence à écrire...\n\nUtilise #tag pour créer des tags automatiquement.',

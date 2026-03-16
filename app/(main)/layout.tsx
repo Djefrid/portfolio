@@ -38,8 +38,9 @@ export default function MainLayout({
       {/* Barre de navigation fixe en haut de page */}
       <Header />
 
-      {/* Zone de contenu principal — reçoit les pages enfants */}
-      <main>{children}</main>
+      {/* Zone de contenu principal — id="main-content" est la cible du skip link
+       *  défini dans app/layout.tsx (WCAG 2.4.1 — Bypass Blocks) */}
+      <main id="main-content">{children}</main>
 
       {/* Pied de page avec copyright, liens sociaux et mentions légales */}
       <Footer />

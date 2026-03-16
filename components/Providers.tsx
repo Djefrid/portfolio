@@ -44,6 +44,19 @@ export default function Providers({ children }: { children: ReactNode }) {
   // Initialise Firebase App Check au montage (côté client uniquement)
   useEffect(() => { initAppCheck(); }, []);
 
+  /**
+   * Enregistre le Service Worker PWA au montage (côté client uniquement).
+   * Requis par Chrome pour afficher le bouton d'installation de la PWA.
+   * Silencieux en cas d'erreur (environnements sans SW support ou HTTP non-localhost).
+   */
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .catch(() => { /* silencieux — SW optionnel */ });
+    }
+  }, []);
+
   return (
     // ThemeProvider : gestion du mode sombre/clair via next-themes
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>

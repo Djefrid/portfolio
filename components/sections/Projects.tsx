@@ -467,15 +467,24 @@ export default function Projects() {
               </button>
             )}
 
-            {/* Conteneur scroll horizontal avec snap */}
-            {/* scrollbar-none : masque la scrollbar CSS (look plus propre) */}
+            {/* Conteneur scroll horizontal avec snap.
+             *  role="list" + tabIndex={0} + onKeyDown : navigation clavier ←/→
+             *  (WCAG 2.1.1 — Keyboard). scrollbar-none masque la scrollbar CSS. */}
             <div
               ref={scrollRef}
-              className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-none"
+              role="list"
+              aria-label={t("projects.title")}
+              tabIndex={0}
+              className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-none outline-none"
+              onKeyDown={(e) => {
+                if (e.key === "ArrowRight") { e.preventDefault(); scroll("next"); }
+                if (e.key === "ArrowLeft")  { e.preventDefault(); scroll("prev"); }
+              }}
             >
               {projects.map((project, index) => (
                 <div
                   key={project.id}
+                  role="listitem"
                   className="flex-shrink-0 w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] snap-start"
                 >
                   <ProjectCard

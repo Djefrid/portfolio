@@ -190,6 +190,17 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans antialiased">
+        {/* Skip link — premier élément focusable de la page (WCAG 2.4.1 — niveau A).
+         *  Invisible par défaut (sr-only), visible uniquement au focus clavier.
+         *  Permet aux utilisateurs naviguant au clavier de sauter directement au
+         *  contenu principal sans traverser la navbar et tous ses liens. */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:z-[9999] focus:top-4 focus:left-4 focus:px-4 focus:py-2 focus:bg-primary-600 focus:text-white focus:rounded-lg focus:shadow-lg focus:outline-none"
+        >
+          Aller au contenu principal
+        </a>
+
         {/* Providers : wraps ThemeProvider, LanguageProvider, PortfolioProvider */}
         <Providers>
           {children}

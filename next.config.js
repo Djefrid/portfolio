@@ -7,7 +7,15 @@
 // Note CSP : le Content-Security-Policy avec nonce est géré par middleware.ts
 // et non ici. Le middleware génère un nonce aléatoire par requête, ce qui
 // renforce la protection XSS en éliminant 'unsafe-inline' des scripts.
+//
+// Bundle analyzer : ANALYZE=true npm run build → ouvre un rapport HTML visuel
+// des chunks JS (client + server + edge) pour identifier les dépendances lourdes.
 // ============================================================================
+
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: true,
+});
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -51,4 +59,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withBundleAnalyzer(nextConfig);

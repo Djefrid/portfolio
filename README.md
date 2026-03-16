@@ -469,8 +469,13 @@ portfolio/
 │
 ├── public/                           # Fichiers statiques publics
 │   ├── favicon.svg                   # Icône du site
+│   ├── icon-192.png                  # Icône PWA 192×192 (Chrome install prompt)
+│   ├── icon-512.png                  # Icône PWA 512×512 (splash screen Android)
+│   ├── sw.js                         # Service Worker PWA (Network First strategy)
 │   └── *.pdf                         # CV téléchargeable
 │
+├── app/
+│   └── manifest.ts                   # Manifest PWA → /manifest.webmanifest (Next.js 14)
 ├── middleware.ts                      # Sécurité : CSP nonce par requête + CSRF check /api/*
 ├── .env.local                        # Variables d'environnement (NON COMMITÉ)
 ├── .env.local.example                # Modèle de configuration (commité, sans secrets)
@@ -494,6 +499,7 @@ portfolio/
 | **Bilingue FR/EN** | Changement instantané via boutons, persisté en localStorage |
 | **Mode clair / sombre** | Toggle animé Moon↔Sun (next-themes, framer-motion) |
 | **Animations scroll** | FadeIn bidirectionnel à l'entrée dans le viewport (framer-motion) |
+| **Respect prefers-reduced-motion** | WCAG 2.1 §2.3.3 — `useReducedMotion()` framer-motion : durée 0.15s, déplacement Y=0 si l'OS désactive les animations |
 | **Design responsive** | Mobile, tablette, desktop |
 | **Hero** | Nom, titre animé, stack, badge "Open to Work", liens sociaux, CV |
 | **À propos** | Accordion expand/collapse avec dégradé de fondu |
@@ -501,7 +507,8 @@ portfolio/
 | **Compétences** | Carousel horizontal par catégorie |
 | **Contact** | Formulaire d'envoi d'email via Resend + liens Email/GitHub/LinkedIn |
 | **SEO** | Sitemap XML, robots.txt, OpenGraph, Twitter Card, canonical URL, OG image |
-| **Accessibilité** | `aria-label` + `aria-hidden` SVGs décoratifs, `aria-live` formulaire contact, focus trap modal projets, Ctrl+S/Ctrl+N dans les notes |
+| **PWA (Progressive Web App)** | Installable sur desktop et mobile — manifest.webmanifest + icônes PNG 192/512 + Service Worker (Network First) |
+| **Accessibilité** | `aria-label` + `aria-hidden` SVGs décoratifs, `aria-live` formulaire contact, focus trap modal projets, skip link WCAG 2.4.1, navigation clavier carousel (←/→), `role="list/listitem"`, Ctrl+S/Ctrl+N dans les notes |
 
 ### Panneau Admin (`/admin`)
 
@@ -620,7 +627,7 @@ La barre d'outils est un **Ribbon style Microsoft Word** — 4 onglets thématiq
 | **Titres** | H1 · H2 · H3 via select ou slash command `/h1` |
 | **Listes** | À puces, numérotées, cases à cocher (taskList nestée) |
 | **Tableaux** | Grid picker 8×8, outils contextuels (ajout ligne/col, fusion, scission) |
-| **Code** | Bloc de code avec coloration syntaxique (lowlight — 20 langages), modal d'édition |
+| **Code** | Bloc de code avec coloration syntaxique (lowlight — 16 langages sélectifs : JS/TS/Python/CSS/HTML/Bash/JSON/SQL/Go/Rust/Java/PHP/C#/C++/Markdown/Plaintext), modal d'édition |
 | **LaTeX / Équations** | `@tiptap/extension-mathematics` + KaTeX — rendu inline temps réel |
 | **Symboles spéciaux** | Popup 66 caractères Unicode (©, ®, ™, flèches, maths, devises…) |
 | **Rechercher / Remplacer** | Panneau intégré dans la toolbar — remplacement unique ou global (regex) |
@@ -632,7 +639,7 @@ La barre d'outils est un **Ribbon style Microsoft Word** — 4 onglets thématiq
 | **BubbleMenu tableau** | Apparaît dans les cellules (lignes, colonnes, fusion, en-tête) |
 | **Barre contextuelle code** | S'affiche quand le curseur est dans un bloc de code (langage, copier, modifier) |
 | **Slash commands** | `/` en début de paragraphe → menu 10 commandes filtrable |
-| **Mode focus** | Plein écran (`Maximize2`/`Minimize2`) — zone d'édition centrée style Word (max-w-760px, margin auto, scroll externe) |
+| **Mode focus** | Plein écran (`Maximize2`/`Minimize2`) — zone d'édition centrée style Word (max-w-1080px, margin auto, scroll externe, sans dégradés latéraux) |
 | **Compteur** | Mots + caractères en bas de l'éditeur |
 | **SSR Next.js** | `immediatelyRender: false` — pas d'erreur d'hydratation (TipTap 3 best practice) |
 
@@ -843,6 +850,7 @@ COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
 |--------|---------|--------|
 | ✅ **CSP nonce-based** | `middleware.ts` | Nonce UUID aléatoire par requête — élimine `unsafe-inline` pour scripts |
 | ✅ **CSRF protection** | `middleware.ts` | Vérifie `Origin == Host` sur tous les `POST /api/*` — retourne 403 si mismatch |
+| ✅ **worker-src 'self' blob:** | `middleware.ts` | Autorise le Service Worker (self) + les web workers Excalidraw (blob:) — interdit tout worker depuis un CDN externe |
 | ✅ **Headers HTTP** | `next.config.js` | HSTS 2 ans + preload, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
 | ✅ **frame-ancestors none** | `middleware.ts` | Interdit toute intégration en iframe — renforce X-Frame-Options |
 | ✅ **upgrade-insecure-requests** | `middleware.ts` | Force HTTPS pour toutes les ressources |
@@ -901,6 +909,51 @@ function isAdmin() {
 
 > **Pourquoi la liste dans les règles et pas seulement dans le code ?**
 > Le code Next.js s'exécute dans le navigateur — n'importe qui peut faire une requête directe à l'API Firebase en utilisant tes clés publiques (normales, elles sont dans le bundle JS). Les règles Firestore s'exécutent côté Google — elles sont la seule barrière impossible à contourner côté client.
+
+---
+
+## PWA — Progressive Web App
+
+Le portfolio est installable comme application native sur desktop (Chrome/Edge) et mobile (Android/iOS).
+
+### Critères d'installation (Chrome)
+
+| Critère | Fichier | État |
+|---------|---------|------|
+| Manifest valide | `app/manifest.ts` → `/manifest.webmanifest` | ✅ |
+| Icône 192×192 PNG | `public/icon-192.png` | ✅ |
+| Icône 512×512 PNG (maskable) | `public/icon-512.png` | ✅ |
+| Service Worker actif | `public/sw.js` (enregistré dans `Providers.tsx`) | ✅ |
+| HTTPS (ou localhost) | Vercel / dev | ✅ |
+
+### Service Worker — stratégie Network First
+
+- **Install** : pré-cache `'/'`, `'/favicon.svg'`, `'/icon-192.png'`, `'/icon-512.png'`
+- **Fetch** : réseau prioritaire → cache en fallback offline
+- **Exclusions** : Firebase, Firestore, googleapis, Vercel — jamais mis en cache
+- **Activation** : `skipWaiting()` + `clients.claim()` — actif immédiatement sans fermer les onglets
+
+### Vérifier le statut PWA (DevTools)
+
+1. Chrome DevTools → onglet **Application**
+2. Section **Service Workers** → vérifier `Status: activated and is running`
+3. Section **Manifest** → vérifier que les champs sont chargés correctement
+
+---
+
+## Accessibilité
+
+### Mesures WCAG implémentées
+
+| Mesure | Standard | Fichier | Détail |
+|--------|----------|---------|--------|
+| **Skip link** | WCAG 2.4.1 (Bypass Blocks) | `app/layout.tsx` | Lien "Aller au contenu principal" visible au focus clavier — `href="#main-content"` |
+| **prefers-reduced-motion** | WCAG 2.3.3 (Animation from Interactions) | `components/ui/FadeInSection.tsx`, `components/sections/Hero.tsx` | `useReducedMotion()` framer-motion : animations réduites à 0.15s, déplacement Y=0 si l'OS a "Réduire les animations" activé |
+| **Carousel clavier** | WCAG 2.1.1 (Keyboard) | `components/sections/Projects.tsx` | `←` / `→` sur le carousel projets, `role="list"` + `role="listitem"`, `tabIndex={0}` |
+| **aria-label SVGs** | WCAG 1.1.1 (Non-text Content) | `components/sections/Hero.tsx`, `Contact.tsx` | `aria-hidden="true"` sur SVGs décoratifs, `aria-label` sur liens fonctionnels |
+| **aria-live formulaire** | WCAG 4.1.3 (Status Messages) | `components/sections/Contact.tsx` | `aria-live="polite" aria-atomic="true"` sur les messages de succès/erreur |
+| **Focus trap modal** | WCAG 2.1.2 (No Keyboard Trap) | `components/sections/Projects.tsx` | Tab/Shift-Tab piégé dans la modale, focus restauré à la fermeture |
+| **Pas de button imbriqué** | HTML spec | `components/admin/NotesEditor.tsx` | `<div role="button" tabIndex={0}>` sur les containers externes — `<button>` uniquement pour les contrôles internes |
 
 ---
 
@@ -982,6 +1035,8 @@ npm run dev -- -p 3001
 | `npm run build` | Build production optimisé |
 | `npm run start` | Serveur de production |
 | `npm run lint` | Vérification ESLint |
+| `ANALYZE=true npm run build` | Analyse des chunks JavaScript (bundle-analyzer) — ouvre un rapport HTML interactif |
+| `npm run deploy:rules` | Déploiement des règles Firestore/Storage vers Firebase (lit `.env.local`, substitue `__ADMIN_EMAIL__`/`__PROJECT_ID__`, déploie, puis restaure les placeholders) |
 
 ---
 

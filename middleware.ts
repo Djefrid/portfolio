@@ -70,8 +70,9 @@ export function middleware(request: NextRequest) {
     // + www.google.com : requêtes fetch reCAPTCHA v3 (App Check token)
     "connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com wss://*.firebaseio.com https://www.google.com",
 
-    // Excalidraw utilise des web workers (blob:) pour la compression et l'export
-    "worker-src blob:",
+    // 'self' : Service Worker PWA (sw.js servi depuis la racine)
+    // blob: : Excalidraw utilise des web workers blob: pour la compression et l'export
+    "worker-src 'self' blob:",
 
     // accounts.google.com : Google OAuth (signInWithPopup)
     // www.google.com + recaptcha.google.com : iframes reCAPTCHA v3 (App Check)

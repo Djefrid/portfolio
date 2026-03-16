@@ -33,7 +33,7 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { MapPin, Briefcase } from "lucide-react";
 import { usePortfolio } from "@/context/PortfolioContext";
 import { useLanguage } from "@/context/LanguageContext";
@@ -45,6 +45,13 @@ import { Badge } from "@/components/ui/badge";
 export default function Hero() {
   const { profile } = usePortfolio();
   const { t } = useLanguage();
+
+  /**
+   * Respecte la préférence système "Réduire les animations" (WCAG 2.1 — 2.3.3).
+   * Si activé, les animations d'entrée n'ont pas de déplacement (y: 0) et
+   * s'affichent instantanément (duration: 0) pour éviter tout mouvement parasite.
+   */
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <section
@@ -64,9 +71,9 @@ export default function Hero() {
         {/* Badge "Open to Work" — visible uniquement si profile.openToWork est true */}
         {profile.openToWork && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: shouldReduceMotion ? 0.15 : 0.5 }}
             className="flex justify-center mb-6"
           >
             <Badge className="bg-green-500/20 text-green-400 border border-green-500/40 px-4 py-1.5 text-sm font-medium flex items-center gap-2 hover:bg-green-500/30 transition-colors">
@@ -82,9 +89,9 @@ export default function Hero() {
 
         {/* Nom complet — titre h1 principal de la page */}
         <motion.h1
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.1 }}
+          transition={{ duration: shouldReduceMotion ? 0.15 : 0.6, delay: shouldReduceMotion ? 0 : 0.1 }}
           className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4"
         >
           {profile.name}
@@ -92,9 +99,9 @@ export default function Hero() {
 
         {/* Titre professionnel — h2 sémantique (sous-titre du h1) */}
         <motion.h2
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.2 }}
+          transition={{ duration: shouldReduceMotion ? 0.15 : 0.6, delay: shouldReduceMotion ? 0 : 0.2 }}
           className="text-xl sm:text-2xl lg:text-3xl text-primary-400 font-medium mb-4"
         >
           {profile.title}
@@ -103,9 +110,9 @@ export default function Hero() {
         {/* Localisation + indicateur de disponibilité (affiché si l'un des deux est renseigné) */}
         {(profile.location || profile.openToWork) && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
+            transition={{ duration: shouldReduceMotion ? 0.15 : 0.5, delay: shouldReduceMotion ? 0 : 0.3 }}
             className="flex items-center justify-center gap-4 mb-8 text-gray-400 text-sm flex-wrap"
           >
             {/* Localisation avec icône MapPin */}
@@ -127,9 +134,9 @@ export default function Hero() {
 
         {/* Boutons d'action : GitHub, LinkedIn, CV */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{ duration: shouldReduceMotion ? 0.15 : 0.6, delay: shouldReduceMotion ? 0 : 0.4 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
           {/* Bouton GitHub */}
