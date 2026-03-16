@@ -8,8 +8,9 @@
  * - Fournit les fonctions signIn() et signOut()
  * - Vérifie si l'utilisateur connecté est l'admin autorisé
  *
- * L'email admin autorisé est défini dans .env.local :
- *   NEXT_PUBLIC_ADMIN_EMAIL=djeffkuate@gmail.com
+ * Les emails admins autorisés sont définis dans .env.local :
+ *   NEXT_PUBLIC_ADMIN_EMAIL   — admin principal
+ *   NEXT_PUBLIC_ADMIN_EMAIL_2 — admin secondaire (optionnel)
  * ============================================================================
  */
 
@@ -22,6 +23,7 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
+  sendEmailVerification,
   User
 } from 'firebase/auth';
 import { auth, isFirebaseConfigured } from './config';
@@ -92,6 +94,24 @@ export function useAuth() {
   };
 
   /**
+   * Envoie un email de vérification à l'utilisateur connecté.
+   * Utilisé quand un compte email/mot de passe vient d'être créé ou
+   * quand email_verified === false après connexion.
+   * @returns { error } - null si succès, message d'erreur sinon
+   */
+  const sendVerificationEmail = async () => {
+    if (!auth?.currentUser) {
+      return { error: 'Aucun utilisateur connecté' };
+    }
+    try {
+      await sendEmailVerification(auth.currentUser);
+      return { error: null };
+    } catch (error) {
+      return { error: (error as Error).message };
+    }
+  };
+
+  /**
    * Déconnecte l'utilisateur actuel.
    * @returns { error } - null si succès, message d'erreur sinon
    */
@@ -107,8 +127,14 @@ export function useAuth() {
     }
   };
 
-  // Vérifie si l'utilisateur connecté est l'admin autorisé
-  const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+  // Vérifie si l'utilisateur connecté est l'un des admins autorisés
+  // NEXT_PUBLIC_ADMIN_EMAIL  = admin principal
+  // NEXT_PUBLIC_ADMIN_EMAIL_2 = admin secondaire (optionnel)
+  const adminEmails = [
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL,
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL_2,
+  ].filter(Boolean); // retire les valeurs undefined/vides
+  const isAdmin = !!user?.email && adminEmails.includes(user.email);
 
-  return { user, loading, signIn, signInWithGoogle, signOut, isAdmin };
+  return { user, loading, signIn, signInWithGoogle, signOut, sendVerificationEmail, isAdmin };
 }

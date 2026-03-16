@@ -1,6 +1,40 @@
+/**
+ * ============================================================================
+ * SECTION PROJETS — components/sections/Projects.tsx
+ * ============================================================================
+ *
+ * Troisième section du portfolio, affichant les projets en carousel horizontal.
+ *
+ * Architecture de ce fichier :
+ *   - ProjectModal   : modale de détail d'un projet (accessibilité complète)
+ *   - ProjectCard    : carte compacte dans le carousel (hover animé)
+ *   - ProjectSkeleton: carte placeholder pendant le chargement (shimmer)
+ *   - Projects       : composant principal avec le carousel et la modale
+ *
+ * Carousel :
+ *   - CSS scroll-snap (snap-x snap-mandatory) pour le snap natif
+ *   - Boutons flèche pour navigation programmatique (scrollBy)
+ *   - Responsive : 1 carte/mobile, 2 cartes/sm, 3 cartes/lg
+ *   - La largeur de défilement est calculée depuis la première carte
+ *
+ * Modale (ProjectModal) :
+ *   - Focus trap : Tab et Shift-Tab restent dans la modale
+ *   - Focus automatique sur le bouton fermer à l'ouverture
+ *   - Restauration du focus sur l'élément déclencheur à la fermeture
+ *   - Touche Échap pour fermer
+ *   - Scroll de la page bloqué (overflow:hidden) pendant l'ouverture
+ *   - role="dialog" aria-modal="true" pour les lecteurs d'écran
+ *
+ * États :
+ *   - loading : affiche 3 skeletons shimmer
+ *   - projects.length === 0 : retourne null (section masquée)
+ *   - selected : { project, index } de la modale ouverte, ou null
+ * ============================================================================
+ */
+
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { usePortfolio } from "@/context/PortfolioContext";
@@ -8,7 +42,16 @@ import { useLanguage } from "@/context/LanguageContext";
 import { FadeInSection } from "@/components/ui/FadeInSection";
 import type { Project } from "@/types";
 
-/* ─── Modale détail projet ─── */
+/**
+ * Modale affichant les détails complets d'un projet.
+ * Gère l'accessibilité : focus trap, Échap, restauration du focus.
+ *
+ * @param project    - Le projet à afficher
+ * @param index      - Position du projet (0, 1, 2) pour le badge médaille
+ * @param t          - Fonction de traduction
+ * @param onClose    - Callback pour fermer la modale
+ * @param triggerRef - Ref de l'élément qui a ouvert la modale (pour restaurer le focus)
+ */
 function ProjectModal({
   project,
   index,
@@ -22,24 +65,38 @@ function ProjectModal({
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }) {
+  /** Badges médailles pour les 3 premiers projets */
   const badges = ["🥇", "🥈", "🥉"];
   const badge = badges[index] || "";
+
+  /** Ref sur le panneau de la modale (pour le focus trap) */
   const panelRef = useRef<HTMLDivElement>(null);
+  /** Ref sur le bouton fermer (pour y mettre le focus à l'ouverture) */
   const closeBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Focus sur le bouton fermer à l'ouverture
+  /** Met le focus sur le bouton fermer à l'ouverture pour les utilisateurs clavier */
   useEffect(() => {
     closeBtnRef.current?.focus();
   }, []);
 
-  // Restaurer le focus sur l'élément déclencheur à la fermeture
+  /**
+   * Restaure le focus sur l'élément qui a ouvert la modale à sa fermeture.
+   * Le retour de useEffect (cleanup) s'exécute quand le composant est démonté.
+   */
   useEffect(() => {
     return () => {
       (triggerRef?.current as HTMLElement | null)?.focus();
     };
   }, [triggerRef]);
 
-  // Fermer avec la touche Échap + focus trap (Tab/Shift-Tab restent dans la modale)
+  /**
+   * Gestion clavier :
+   *   - Échap : ferme la modale
+   *   - Tab / Shift-Tab : cycle entre les éléments focusables (focus trap)
+   *
+   * Le focus trap est essentiel pour l'accessibilité : sans lui, Tab sortirait
+   * de la modale et les utilisateurs clavier perdraient le contexte.
+   */
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape") { onClose(); return; }
@@ -50,8 +107,10 @@ function ProjectModal({
         const first = focusable[0];
         const last  = focusable[focusable.length - 1];
         if (e.shiftKey) {
+          // Shift+Tab depuis le premier élément → aller au dernier
           if (document.activeElement === first) { e.preventDefault(); last?.focus(); }
         } else {
+          // Tab depuis le dernier élément → aller au premier
           if (document.activeElement === last) { e.preventDefault(); first?.focus(); }
         }
       }
@@ -60,14 +119,14 @@ function ProjectModal({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
-  // Bloquer le scroll de la page pendant que la modale est ouverte
+  /** Bloque le scroll de la page pendant que la modale est ouverte */
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
 
   return (
-    /* Backdrop */
+    /* Backdrop semi-transparent — clic en dehors ferme la modale */
     <div
       role="dialog"
       aria-modal="true"
@@ -75,13 +134,13 @@ function ProjectModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
       onClick={onClose}
     >
-      {/* Panneau */}
+      {/* Panneau de la modale — stopPropagation évite la fermeture au clic intérieur */}
       <div
         ref={panelRef}
         className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl bg-dark-800 border border-dark-600 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Bouton fermer */}
+        {/* Bouton fermer — positionné en absolu en haut à droite */}
         <button
           ref={closeBtnRef}
           type="button"
@@ -95,7 +154,7 @@ function ProjectModal({
         </button>
 
         <div className="p-6 sm:p-8">
-          {/* Titre */}
+          {/* Titre avec badge médaille */}
           <div className="flex items-start gap-3 mb-4 pr-10">
             {badge && <span className="text-2xl flex-shrink-0">{badge}</span>}
             <h3 className="text-xl font-bold text-white leading-tight">{project.title}</h3>
@@ -104,12 +163,12 @@ function ProjectModal({
           {/* Description courte */}
           <p className="text-gray-300 mb-3 text-justify">{project.description}</p>
 
-          {/* Description longue */}
+          {/* Description longue — whitespace-pre-line respecte les sauts de ligne */}
           {project.longDescription && (
             <p className="text-gray-400 text-sm mb-6 whitespace-pre-line text-justify">{project.longDescription}</p>
           )}
 
-          {/* Stack */}
+          {/* Stack technique — badges de technologies */}
           {project.stack.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-400 mb-2">{t("projects.stack")}</h4>
@@ -121,7 +180,7 @@ function ProjectModal({
             </div>
           )}
 
-          {/* Features */}
+          {/* Fonctionnalités — grille 2 colonnes sur sm */}
           {project.features?.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-400 mb-2">{t("projects.features")}</h4>
@@ -138,7 +197,7 @@ function ProjectModal({
             </div>
           )}
 
-          {/* Challenges */}
+          {/* Défis techniques — liste verticale avec icône éclair */}
           {project.challenges?.length > 0 && (
             <div className="mb-6">
               <h4 className="text-sm font-medium text-gray-400 mb-2">{t("projects.challenges")}</h4>
@@ -155,7 +214,7 @@ function ProjectModal({
             </div>
           )}
 
-          {/* Liens */}
+          {/* Liens vers GitHub et la démo live */}
           <div className="flex flex-wrap gap-3 pt-4 border-t border-dark-700">
             {project.githubUrl && (
               <Link
@@ -190,7 +249,16 @@ function ProjectModal({
   );
 }
 
-/* ─── Carte compacte avec hover framer-motion ─── */
+/**
+ * Carte compacte d'un projet dans le carousel.
+ * Affiche : badge, titre, description courte, 6 technologies max, liens.
+ * Effet hover Framer Motion : élévation (y: -6) + glow indigo.
+ *
+ * @param project - Les données du projet
+ * @param index   - Position pour le badge médaille
+ * @param t       - Fonction de traduction
+ * @param onOpen  - Callback appelé avec l'élément HTML déclencheur (pour le focus trap)
+ */
 function ProjectCard({
   project,
   index,
@@ -210,13 +278,13 @@ function ProjectCard({
       className="card group h-full flex flex-col cursor-pointer"
       whileHover={{
         y: -6,
-        boxShadow: "0 0 24px rgba(99, 102, 241, 0.25)",
+        boxShadow: "0 0 24px rgba(99, 102, 241, 0.25)", // Glow indigo au survol
         borderColor: "rgba(99, 102, 241, 0.5)",
       }}
       transition={{ type: "spring", stiffness: 300, damping: 20 }}
       onClick={(e) => onOpen(e.currentTarget as HTMLElement)}
     >
-      {/* Header */}
+      {/* En-tête : badge + titre */}
       <div className="flex items-start gap-2 mb-3">
         {badge && <span className="text-xl flex-shrink-0">{badge}</span>}
         <h3 className="text-lg font-semibold text-white group-hover:text-primary-400 transition-colors leading-tight">
@@ -224,16 +292,17 @@ function ProjectCard({
         </h3>
       </div>
 
-      {/* Description */}
+      {/* Description courte — 3 lignes max (line-clamp) */}
       <p className="text-gray-400 text-sm mb-4 flex-1 line-clamp-3">{project.description}</p>
 
-      {/* Stack */}
+      {/* Stack technique — 6 badges max + compteur "+N" si plus */}
       {project.stack.length > 0 && (
         <div className="mb-4">
           <div className="flex flex-wrap gap-1.5">
             {project.stack.slice(0, 6).map((tech) => (
               <span key={tech} className="skill-tag">{tech}</span>
             ))}
+            {/* Badge "+N" pour indiquer les technologies supplémentaires non affichées */}
             {project.stack.length > 6 && (
               <span className="skill-tag">+{project.stack.length - 6}</span>
             )}
@@ -241,10 +310,10 @@ function ProjectCard({
         </div>
       )}
 
-      {/* Footer */}
+      {/* Pied de carte : liens + bouton "Voir plus" */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-3 mt-auto border-t border-dark-700">
-        {/* Liens */}
         <div className="flex gap-3">
+          {/* Lien GitHub — stopPropagation évite d'ouvrir la modale au clic */}
           {project.githubUrl && (
             <Link
               href={project.githubUrl}
@@ -259,6 +328,7 @@ function ProjectCard({
               {t("projects.sourceCode")}
             </Link>
           )}
+          {/* Lien démo — stopPropagation évite d'ouvrir la modale au clic */}
           {project.demoUrl && (
             <Link
               href={project.demoUrl}
@@ -275,7 +345,7 @@ function ProjectCard({
           )}
         </div>
 
-        {/* Bouton détails */}
+        {/* Bouton "Voir plus" → ouvre la modale de détail */}
         <button
           type="button"
           onClick={(e) => onOpen(e.currentTarget)}
@@ -291,7 +361,10 @@ function ProjectCard({
   );
 }
 
-/* ─── Skeleton shimmer card ─── */
+/**
+ * Carte skeleton animée (shimmer) affichée pendant le chargement des projets.
+ * Reproduit la structure d'une ProjectCard avec des blocs gris animés.
+ */
 function ProjectSkeleton() {
   return (
     <div className="card h-full flex flex-col animate-pulse">
@@ -317,22 +390,36 @@ function ProjectSkeleton() {
   );
 }
 
-/* ─── Section principale ─── */
+/**
+ * Composant principal de la section Projets.
+ * Gère le carousel, les skeletons de chargement et l'ouverture de la modale.
+ */
 export default function Projects() {
   const { projects, loading } = usePortfolio();
   const { t } = useLanguage();
+
+  /** Ref sur le conteneur du carousel pour le défilement programmatique */
   const scrollRef = useRef<HTMLDivElement>(null);
+  /** Projet et index actuellement affiché dans la modale (null = modale fermée) */
   const [selected, setSelected] = useState<{ project: Project; index: number } | null>(null);
+  /** Ref de l'élément déclencheur de la modale (pour restaurer le focus à la fermeture) */
   const openBtnRef = useRef<HTMLElement | null>(null);
 
+  /**
+   * Fait défiler le carousel d'une carte dans la direction donnée.
+   * Calcule la largeur à partir de la première carte + gap-6 (24px).
+   *
+   * @param dir - 'prev' pour aller à gauche, 'next' pour aller à droite
+   */
   const scroll = (dir: "prev" | "next") => {
     const el = scrollRef.current;
     if (!el) return;
     const card = el.firstElementChild as HTMLElement | null;
-    const cardWidth = card ? card.offsetWidth + 24 : 320;
+    const cardWidth = card ? card.offsetWidth + 24 : 320; // 24px = gap-6
     el.scrollBy({ left: dir === "next" ? cardWidth : -cardWidth, behavior: "smooth" });
   };
 
+  // État de chargement : affiche des skeletons shimmer
   if (loading) {
     return (
       <section className="py-20">
@@ -353,6 +440,7 @@ export default function Projects() {
     );
   }
 
+  // Aucun projet → section masquée entièrement
   if (projects.length === 0) return null;
 
   return (
@@ -365,7 +453,7 @@ export default function Projects() {
 
         <FadeInSection delay={0.15}>
           <div className="relative">
-            {/* Flèche gauche */}
+            {/* Flèche de navigation gauche (masquée s'il n'y a qu'un seul projet) */}
             {projects.length > 1 && (
               <button
                 type="button"
@@ -379,7 +467,8 @@ export default function Projects() {
               </button>
             )}
 
-            {/* Conteneur scroll */}
+            {/* Conteneur scroll horizontal avec snap */}
+            {/* scrollbar-none : masque la scrollbar CSS (look plus propre) */}
             <div
               ref={scrollRef}
               className="flex gap-6 overflow-x-auto snap-x snap-mandatory pb-2 scrollbar-none"
@@ -393,13 +482,17 @@ export default function Projects() {
                     project={project}
                     index={index}
                     t={t}
-                    onOpen={(el: HTMLElement) => { openBtnRef.current = el; setSelected({ project, index }); }}
+                    onOpen={(el: HTMLElement) => {
+                      // Sauvegarde l'élément déclencheur avant d'ouvrir la modale
+                      openBtnRef.current = el;
+                      setSelected({ project, index });
+                    }}
                   />
                 </div>
               ))}
             </div>
 
-            {/* Flèche droite */}
+            {/* Flèche de navigation droite */}
             {projects.length > 1 && (
               <button
                 type="button"
@@ -416,7 +509,7 @@ export default function Projects() {
         </FadeInSection>
       </div>
 
-      {/* Modale */}
+      {/* Modale de détail — rendu conditionnel (null quand fermée) */}
       {selected && (
         <ProjectModal
           project={selected.project}

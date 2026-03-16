@@ -1,16 +1,55 @@
+/**
+ * ============================================================================
+ * CONTEXTE DE LANGUE — LanguageContext.tsx
+ * ============================================================================
+ *
+ * Ce fichier gère le système de traduction (i18n) du portfolio.
+ * Il fournit :
+ *   1. La langue active ('fr' | 'en') et une fonction pour la changer
+ *   2. La fonction t(key) pour accéder aux traductions de l'interface
+ *      (labels de navigation, boutons, messages, etc.)
+ *
+ * Note importante : ce contexte gère les TRADUCTIONS DE L'INTERFACE uniquement.
+ * Le contenu du portfolio (textes du profil, descriptions de projets, etc.)
+ * est géré séparément dans usePortfolioData via portfolio-data.ts et Firebase.
+ *
+ * Persistance de la langue :
+ *   - Au chargement, la langue est lue depuis localStorage
+ *   - Si absent, la langue du navigateur est détectée automatiquement
+ *   - Par défaut : français
+ *
+ * Structure des clés de traduction (notation pointée) :
+ *   "nav.home"           → translations.fr.nav.home
+ *   "contact.form.send"  → translations.fr.contact.form.send
+ * ============================================================================
+ */
+
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
+/** Les deux langues supportées par le portfolio */
 type Language = 'fr' | 'en';
 
+/**
+ * Type récursif pour la structure des traductions.
+ * Permet d'imbriquer les clés à plusieurs niveaux (ex: nav.home, contact.form.send).
+ */
 interface Translations {
   [key: string]: string | Translations;
 }
 
+/**
+ * Dictionnaire complet de toutes les traductions de l'interface.
+ * Organisé par section (nav, hero, about, projects, skills, contact, footer).
+ *
+ * À étendre ici si un nouveau texte d'interface doit être traduit.
+ * Ne pas mettre ici le contenu du portfolio (profil, projets, etc.) —
+ * ces données sont dans portfolio-data.ts.
+ */
 const translations: Record<Language, Translations> = {
   fr: {
-    // Navigation
+    // Navigation principale
     nav: {
       home: 'Accueil',
       about: 'À propos',
@@ -18,14 +57,14 @@ const translations: Record<Language, Translations> = {
       skills: 'Compétences',
       contact: 'Contact',
     },
-    // Hero
+    // Section Hero (bannière principale)
     hero: {
       downloadCV: 'Télécharger CV',
       scrollDown: 'Défiler vers la section À propos',
       openToWork: 'Disponible pour travailler',
       availableForWork: 'Ouvert aux opportunités',
     },
-    // About
+    // Section À propos
     about: {
       title: 'À propos',
       subtitle: 'Mon parcours et ce qui me motive',
@@ -33,7 +72,7 @@ const translations: Record<Language, Translations> = {
       readMore: 'Lire la suite',
       readLess: 'Réduire',
     },
-    // Projects
+    // Section Projets
     projects: {
       title: 'Projets',
       subtitle: 'Une sélection de projets concrets avec des technologies modernes',
@@ -45,7 +84,7 @@ const translations: Record<Language, Translations> = {
       viewMore: 'Voir plus',
       close: 'Fermer',
     },
-    // Skills
+    // Section Compétences
     skills: {
       title: 'Compétences',
       subtitle: 'Technologies et outils que je maîtrise',
@@ -54,7 +93,7 @@ const translations: Record<Language, Translations> = {
       databases: 'Bases de données',
       devops: 'DevOps / Environnement',
     },
-    // Contact
+    // Section Contact
     contact: {
       title: 'Contact',
       subtitle: 'Opportunité de travail ou idée de projet ? Je suis disponible — discutons-en !',
@@ -75,14 +114,14 @@ const translations: Record<Language, Translations> = {
         error: '✗ Erreur lors de l\'envoi. Essayez par email directement.',
       },
     },
-    // Footer
+    // Pied de page
     footer: {
       rights: 'Tous droits réservés.',
       legal: 'Mentions légales',
     },
   },
   en: {
-    // Navigation
+    // Main navigation
     nav: {
       home: 'Home',
       about: 'About',
@@ -90,14 +129,14 @@ const translations: Record<Language, Translations> = {
       skills: 'Skills',
       contact: 'Contact',
     },
-    // Hero
+    // Hero section
     hero: {
       downloadCV: 'Download CV',
       scrollDown: 'Scroll to About section',
       openToWork: 'Open to Work',
       availableForWork: 'Available for opportunities',
     },
-    // About
+    // About section
     about: {
       title: 'About',
       subtitle: 'My background & what drives me',
@@ -105,7 +144,7 @@ const translations: Record<Language, Translations> = {
       readMore: 'Read more',
       readLess: 'Show less',
     },
-    // Projects
+    // Projects section
     projects: {
       title: 'Projects',
       subtitle: 'A selection of projects built with modern web technologies',
@@ -117,7 +156,7 @@ const translations: Record<Language, Translations> = {
       viewMore: 'View more',
       close: 'Close',
     },
-    // Skills
+    // Skills section
     skills: {
       title: 'Skills',
       subtitle: 'Technologies and tools I work with',
@@ -126,7 +165,7 @@ const translations: Record<Language, Translations> = {
       databases: 'Databases',
       devops: 'DevOps / Environment',
     },
-    // Contact
+    // Contact section
     contact: {
       title: 'Contact',
       subtitle: 'Open to work & new projects — let\'s discuss it!',
@@ -155,38 +194,80 @@ const translations: Record<Language, Translations> = {
   },
 };
 
+/**
+ * Type du contexte de langue exposé aux composants.
+ */
 interface LanguageContextType {
+  /** Langue active ('fr' ou 'en') */
   language: Language;
+  /** Fonction pour changer la langue (persiste en localStorage) */
   setLanguage: (lang: Language) => void;
+  /**
+   * Fonction de traduction.
+   * @param key - Clé pointée (ex: 'nav.home', 'contact.form.send')
+   * @returns La traduction ou la clé si introuvable
+   */
   t: (key: string) => string;
 }
 
+/**
+ * Instance du contexte React.
+ * undefined par défaut pour détecter les usages hors Provider.
+ */
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
+/**
+ * Provider du contexte de langue.
+ * Gère la détection automatique et la persistance de la langue préférée.
+ *
+ * @param children - Composants enfants ayant accès aux traductions
+ */
 export function LanguageProvider({ children }: { children: ReactNode }) {
+  // Langue par défaut : français (peut changer après détection du navigateur)
   const [language, setLanguage] = useState<Language>('fr');
 
-  // Load language preference from localStorage
+  /**
+   * Au montage, lit la préférence sauvegardée ou détecte la langue du navigateur.
+   * Ce useEffect s'exécute côté client uniquement (pas de localStorage en SSR).
+   */
   useEffect(() => {
     const saved = localStorage.getItem('portfolio-language') as Language;
     if (saved && (saved === 'fr' || saved === 'en')) {
+      // Préférence explicite de l'utilisateur
       setLanguage(saved);
     } else {
-      // Detect browser language
+      // Pas de préférence sauvegardée → détecte la langue du navigateur
       const browserLang = navigator.language.slice(0, 2);
       if (browserLang === 'en') {
         setLanguage('en');
       }
+      // Si browserLang n'est ni 'en' ni 'fr', on reste en français par défaut
     }
   }, []);
 
-  // Save language preference
+  /**
+   * Change la langue active et sauvegarde la préférence en localStorage.
+   * La sauvegarde permet de retrouver la même langue à la prochaine visite.
+   *
+   * @param lang - La nouvelle langue ('fr' ou 'en')
+   */
   const handleSetLanguage = (lang: Language) => {
     setLanguage(lang);
     localStorage.setItem('portfolio-language', lang);
   };
 
-  // Translation function
+  /**
+   * Fonction de traduction : récupère le texte correspondant à une clé pointée.
+   *
+   * Parcourt l'objet de traductions niveau par niveau en suivant les points.
+   * Ex: t('contact.form.send') → translations['fr']['contact']['form']['send']
+   *
+   * Si une clé est introuvable (traduction manquante), retourne la clé elle-même.
+   * Cela évite les erreurs silencieuses et facilite le débogage.
+   *
+   * @param key - Clé pointée de la traduction
+   * @returns Le texte traduit ou la clé si introuvable
+   */
   const t = (key: string): string => {
     const keys = key.split('.');
     let value: string | Translations = translations[language];
@@ -195,10 +276,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
       if (typeof value === 'object' && value !== null && k in value) {
         value = value[k];
       } else {
-        return key; // Return key if translation not found
+        return key; // Clé introuvable → retourne la clé comme fallback visible
       }
     }
 
+    // Si la valeur finale est un objet (clé partielle), retourne la clé
     return typeof value === 'string' ? value : key;
   };
 
@@ -209,6 +291,17 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Hook consommateur du contexte de langue.
+ * À utiliser dans tout composant nécessitant des traductions ou le changement de langue.
+ *
+ * @returns { language, setLanguage, t }
+ * @throws Error si utilisé hors de LanguageProvider
+ *
+ * @example
+ *   const { t, language, setLanguage } = useLanguage();
+ *   <h2>{t('about.title')}</h2>
+ */
 export function useLanguage() {
   const context = useContext(LanguageContext);
   if (context === undefined) {

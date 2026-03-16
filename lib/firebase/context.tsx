@@ -29,6 +29,8 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<{ user: User | null; error: string | null }>;
   signInWithGoogle: () => Promise<{ user: User | null; error: string | null }>;
   signOut: () => Promise<{ error: string | null }>;
+  /** Envoie un email de vérification à l'utilisateur connecté */
+  sendVerificationEmail: () => Promise<{ error: string | null }>;
 }
 
 /** Contexte React (undefined par défaut, initialisé par AuthProvider) */

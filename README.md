@@ -183,55 +183,99 @@ Permet de se connecter à l'admin avec un compte Google.
 2. Choisir **"Start in production mode"**
 3. Sélectionner une région (ex: `nam5 (us-central)` pour le Canada)
 
-### Étape 7 : Configurer les règles de sécurité Firestore
+### Étape 7 : Configurer les règles de sécurité Firebase
 
-1. **Firestore → Règles**
-2. Remplacer par :
+> Les règles se gèrent directement dans la Firebase Console — aucun fichier local nécessaire.
+
+#### Principe des règles — Défense en profondeur
+
+Les règles Firebase sont la **dernière ligne de défense** côté serveur. Même si un attaquant contourne le code Next.js ou l'App Check, les règles Firestore/Storage bloquent toute opération non autorisée directement dans la base de données, côté Google.
+
+**Ce que vérifient les règles :**
+1. `request.auth != null` — l'utilisateur est bien connecté (token Firebase valide)
+2. `request.auth.token.email_verified == true` — l'email est vérifié (pas un compte temporaire)
+3. `request.auth.token.email in [...]` — l'email est dans la liste des admins autorisés
+
+> **Pourquoi la liste d'emails dans les règles plutôt que dans le code ?**
+> Le code Next.js s'exécute dans le navigateur — il peut être contourné par n'importe qui via les DevTools ou une requête directe à l'API Firebase. Les règles Firebase s'exécutent côté Google, hors de portée du client. C'est la seule protection infalsifiable.
+
+#### Firestore — règles de sécurité
+
+Dans **Firebase Console → Firestore → Règles**, remplacer tout le contenu par :
 
 ```javascript
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Lecture publique (site public)
-    match /{document=**} {
-      allow read: if true;
+    // Admins autorisés — ajouter/retirer des emails ici pour gérer les accès
+    // Note : email_verified retiré des règles (inutile avec email/mdp Firebase)
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.token.email in [
+               'VOTRE_EMAIL_ADMIN_1',
+               'VOTRE_EMAIL_ADMIN_2'
+             ];
     }
 
-    // Écriture uniquement pour l'admin authentifié
-    match /settings/{document} {
-      allow write: if request.auth != null
-        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
-    }
+    // Données publiques du portfolio — lecture libre, écriture admin
+    match /settings/{document}  { allow read: if true; allow write: if isAdmin(); }
+    match /projects/{document}  { allow read: if true; allow write: if isAdmin(); }
 
-    match /projects/{document} {
-      allow write: if request.auth != null
-        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
-    }
+    // Notes privées — accès complet admin uniquement, jamais public
+    match /adminNotes/{document}   { allow read, write: if isAdmin(); }
+    match /adminFolders/{document} { allow read, write: if isAdmin(); }
+    match /adminTags/{document}    { allow read, write: if isAdmin(); }
 
-    // Notes privées (admin uniquement)
-    match /adminNotes/{document} {
-      allow write: if request.auth != null
-        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
-    }
-
-    match /adminFolders/{document} {
-      allow write: if request.auth != null
-        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
-    }
-
-    match /adminTags/{document} {
-      allow write: if request.auth != null
-        && request.auth.token.email == 'VOTRE_EMAIL_ADMIN';
-    }
-
+    // Tout le reste refusé par défaut
+    match /{document=**} { allow read, write: if false; }
   }
 }
 ```
 
-3. Remplacer `VOTRE_EMAIL_ADMIN` par votre email
-4. Cliquer sur **"Publier"**
+#### Storage — règles de sécurité
+
+Dans **Firebase Console → Storage → Règles**, remplacer tout le contenu par :
+
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Même liste d'admins que Firestore
+    function isAdmin() {
+      return request.auth != null
+          && request.auth.token.email_verified == true
+          && request.auth.token.email in [
+               'VOTRE_EMAIL_ADMIN_1',
+               'VOTRE_EMAIL_ADMIN_2'
+             ];
+    }
+
+    // Images des notes — lecture publique (URLs directes), upload admin max 10 MB
+    match /notes/images/{fileName} {
+      allow read: if true;
+      allow create: if isAdmin()
+          && request.resource.size <= 10 * 1024 * 1024
+          && request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    // Fichiers des notes — admin uniquement, max 25 MB
+    match /notes/files/{fileName} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+          && request.resource.size <= 25 * 1024 * 1024;
+      allow delete: if isAdmin();
+    }
+
+    // Tout le reste refusé
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}
+```
+
+Cliquer sur **"Publier"** dans chaque onglet.
 
 ### Étape 8 : Récupérer les clés Firebase
 
@@ -272,6 +316,13 @@ NEXT_PUBLIC_SITE_URL=https://portfolio.djefrid.ca
 # Clé API Resend — côté serveur uniquement (SANS préfixe NEXT_PUBLIC_)
 RESEND_API_KEY=re_XXXXXXXXXXXXXXXXXXXX
 CONTACT_EMAIL=votre@email.com
+
+# ================================
+# Firebase App Check — reCAPTCHA v3
+# ================================
+# Clé PUBLIQUE du site reCAPTCHA v3 (obtenir sur google.com/recaptcha/admin)
+# Nécessaire pour que App Check génère des tokens d'attestation
+NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6Les...votre_cle_ici
 ```
 
 ### Tableau récapitulatif
@@ -286,10 +337,11 @@ CONTACT_EMAIL=votre@email.com
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | ID de l'application | Client + Serveur |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | Email autorisé pour l'admin | Client + Serveur |
 | `NEXT_PUBLIC_SITE_URL` | URL du site en production | Client + Serveur |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clé publique reCAPTCHA v3 (App Check) | Client + Serveur |
 | `RESEND_API_KEY` | Clé API Resend (emails) | **Serveur uniquement** |
 | `CONTACT_EMAIL` | Email destinataire des contacts | **Serveur uniquement** |
 
-> **Sécurité** : `RESEND_API_KEY` et `CONTACT_EMAIL` n'ont pas le préfixe `NEXT_PUBLIC_` — ils ne sont jamais exposés au navigateur.
+> **Sécurité** : `RESEND_API_KEY` et `CONTACT_EMAIL` n'ont pas le préfixe `NEXT_PUBLIC_` — ils ne sont jamais exposés au navigateur. Les clés Firebase `NEXT_PUBLIC_*` sont publiques par design — elles identifient le projet, pas l'authentifient. La sécurité réelle est dans les règles Firestore/Storage.
 
 ---
 
@@ -403,6 +455,7 @@ portfolio/
 │   └── firebase/
 │       ├── index.ts                  # Barrel exports
 │       ├── config.ts                 # Init Firebase, isFirebaseConfigured
+│       ├── app-check.ts              # Firebase App Check reCAPTCHA v3 (initAppCheck)
 │       ├── hooks.ts                  # useAuth() — signIn, signOut, signInWithGoogle, isAdmin
 │       ├── context.tsx               # AuthProvider, useAuthContext()
 │       └── firestore.ts              # CRUD Firestore (profil, projets, compétences)
@@ -418,11 +471,12 @@ portfolio/
 │   ├── favicon.svg                   # Icône du site
 │   └── *.pdf                         # CV téléchargeable
 │
+├── middleware.ts                      # Sécurité : CSP nonce par requête + CSRF check /api/*
 ├── .env.local                        # Variables d'environnement (NON COMMITÉ)
 ├── .env.local.example                # Modèle de configuration (commité, sans secrets)
 ├── .gitignore                        # Fichiers ignorés par Git
 ├── components.json                   # Config shadcn/ui
-├── next.config.js                    # Config Next.js (standalone + headers sécurité)
+├── next.config.js                    # Config Next.js (standalone + headers sécurité + CSP)
 ├── tailwind.config.js                # Config Tailwind (couleurs primary/dark, polices)
 ├── tsconfig.json                     # Config TypeScript strict + alias @/*
 ├── package.json                      # Dépendances et scripts npm
@@ -504,16 +558,20 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 ┌─────────────────┬──────────────────┬───────────────────────────────────┐
 │    SIDEBAR      │   LISTE NOTES    │           ÉDITEUR RICHE           │
 │                 │                  │                                   │
-│ • Toutes mes    │ • Recherche      │ • Barre d'outils 3 lignes (Word)  │
-│   notes         │   temps réel     │ • Titre (avec autocomplete)       │
-│ • Dossiers      │   (Ctrl+F)       │ • Contenu TipTap riche            │
-│ • Smart Folders │ • Épinglées /    │ • Autosave 1s après frappe        │
-│ • Tags          │   Non épinglées  │ • Correcteur natif navigateur     │
-│ • Corbeille     │ • Jours restants │ • Tags en bas de l'éditeur        │
-│                 │   (corbeille)    │ • Suggestions #tags (autocomplete)│
-│                 │                  │ • Mode focus plein écran          │
+│ • Toutes mes    │ 🔍 Recherche      │ ┌─[Accueil][Insertion][Para.][⤢]┐ │
+│   notes         │   temps réel     │ │ Ribbon toolbar style Word     │ │
+│ 🔍 Dossiers,    │   (Ctrl+F)       │ └───────────────────────────────┘ │
+│   tags…         │ • Épinglées /    │ • Titre (avec autocomplete)       │
+│ • Dossiers      │   Non épinglées  │ • Contenu TipTap riche            │
+│ • Smart Folders │ • Jours restants │ • Autosave 1s après frappe        │
+│ • Tags          │   (corbeille)    │ • Tags en bas de l'éditeur        │
+│ • Corbeille     │                  │ • Mode focus plein écran centré   │
 └─────────────────┴──────────────────┴───────────────────────────────────┘
 ```
+
+> Les deux barres de recherche sont **indépendantes** :
+> - 🔍 **Sidebar** (« Dossiers, tags… ») → liste plate des dossiers + tags correspondants (tous niveaux), disparaît à la sélection. Escape vide la recherche.
+> - 🔍 **Liste notes** (Ctrl+F) → filtre uniquement les notes par titre + contenu.
 
 ### Collections Firestore
 
@@ -535,17 +593,19 @@ L'onglet **Notes** est un système de prise de notes privées réservé à l'adm
 | **Lecture seule** | Notes dans la corbeille non modifiables + badge orange |
 | **Jours restants** | Affichés en orange dans la corbeille |
 | **Sync temps réel** | 3 `onSnapshot` Firestore — notes, dossiers, tags — multi-appareils (guard focus éditeur) |
-| **Recherche temps réel** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
+| **Recherche notes** | Filtre titre + contenu instantanément · `Ctrl+F` / `Escape` · compteur de résultats |
+| **Recherche dossiers/tags** | Barre dédiée dans la sidebar → liste plate de tous les dossiers (tous niveaux) + tags correspondants · `Escape` pour vider · clic navigue et vide la recherche |
 | **Animation suppression** | Ghost card vole vers la corbeille (framer-motion) · icône tremble à la réception · `AnimatePresence` sur la liste |
 | **Corbeille permanente** | Toujours visible dans la sidebar, même vide — compteur masqué si 0 |
 | **Persistance session** | Vue + note sélectionnée restaurées au rechargement (localStorage) |
 
 ### Éditeur riche TipTap (style Word)
 
-La barre d'outils est organisée en **3 lignes thématiques** :
-- **Ligne 1 — Police** : Historique · Famille de police · Taille · Gras/Italic/Souligné/Barré · Effacer · Casse · Couleurs
-- **Ligne 2 — Paragraphe** : Alignement · Retrait (Tab/Maj-Tab) · Interligne · Listes · Titres/Citation/Code
-- **Ligne 3 — Insertion & Vue** : Tableau · Lien · Image · Fichier · Dessin · LaTeX · Symboles · Rechercher/Remplacer · Import/Export · Focus
+La barre d'outils est un **Ribbon style Microsoft Word** — 4 onglets thématiques + bouton Focus toujours visible :
+- **Accueil** : Historique · Famille de police · Taille · Style · Gras/Italic/Souligné/Barré/Exposant/Indice · Effacer · Casse · Surbrillance · Couleur texte
+- **Insertion** : Tableau (grid picker) · Lien · Image · Fichier · Dessin (Excalidraw) · Équation LaTeX · Symboles spéciaux
+- **Paragraphe** : Alignement · Retrait (Tab/Maj-Tab) · Interligne · Listes · Citation · Bloc de code · Séparateur
+- **Outils** : Rechercher/Remplacer · Import/Export DOCX · Import PDF · Export Markdown · Imprimer/PDF
 
 | Fonctionnalité | Détail |
 |----------------|--------|
@@ -572,7 +632,7 @@ La barre d'outils est organisée en **3 lignes thématiques** :
 | **BubbleMenu tableau** | Apparaît dans les cellules (lignes, colonnes, fusion, en-tête) |
 | **Barre contextuelle code** | S'affiche quand le curseur est dans un bloc de code (langage, copier, modifier) |
 | **Slash commands** | `/` en début de paragraphe → menu 10 commandes filtrable |
-| **Mode focus** | Plein écran (`Maximize2`/`Minimize2`) sans duplication de l'éditeur |
+| **Mode focus** | Plein écran (`Maximize2`/`Minimize2`) — zone d'édition centrée style Word (max-w-760px, margin auto, scroll externe) |
 | **Compteur** | Mots + caractères en bas de l'éditeur |
 | **SSR Next.js** | `immediatelyRender: false` — pas d'erreur d'hydratation (TipTap 3 best practice) |
 
@@ -729,6 +789,7 @@ Dans **Settings → Environment Variables** :
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | App ID Firebase |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | Email admin |
 | `NEXT_PUBLIC_SITE_URL` | URL du site (ex: `https://portfolio.djefrid.ca`) |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clé publique reCAPTCHA v3 (App Check) |
 | `RESEND_API_KEY` | Clé API Resend |
 | `CONTACT_EMAIL` | Email destinataire des contacts |
 
@@ -745,16 +806,101 @@ Cliquer sur **"Deploy"**. Chaque `git push` sur `main` déclenche un redéploiem
 
 ## Sécurité
 
-- ✅ **Next.js 14.2.35** — CVE-2025-29927 corrigée (bypass d'autorisation middleware critique)
-- ✅ **Headers HTTP** : HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy
-- ✅ **Authentification Firebase** — Email/password + Google OAuth (signInWithPopup)
-- ✅ **Vérification admin stricte** — `user.email === NEXT_PUBLIC_ADMIN_EMAIL` pour toute méthode d'auth
-- ✅ **Règles Firestore** restrictives — écriture réservée à l'admin authentifié (profil, projets, notes, dossiers, tags)
-- ✅ **Variables d'environnement** non commitées (`.gitignore`)
-- ✅ **`RESEND_API_KEY`** côté serveur uniquement (jamais exposé au navigateur)
-- ✅ **Domaines Firebase** autorisés explicitement
-- ✅ **`.gitignore` renforcé** : certificats SSL (`*.pem`, `*.key`), clés Firebase Admin SDK, `.vercel/`
-- ✅ **Dégradation gracieuse** : fonctionne sans Firebase (données statiques en fallback)
+### Architecture de sécurité — Défense en profondeur
+
+Le projet applique le principe de **défense en profondeur** : 5 couches indépendantes. Si l'une est contournée, les autres tiennent.
+
+```
+COUCHE 1 — Réseau / HTTP
+  CSP nonce       → bloque tout script non autorisé (XSS)
+  HSTS            → force HTTPS, empêche le downgrade
+  X-Frame-Options → interdit les iframes (clickjacking)
+
+COUCHE 2 — Middleware Next.js
+  CSRF check      → Origin == Host sur tous les POST /api/*
+  CSP dynamique   → nonce UUID aléatoire par requête
+
+COUCHE 3 — Firebase App Check
+  reCAPTCHA v3    → vérifie que les requêtes viennent d'un vrai navigateur
+  Token Firebase  → joint à chaque appel Firestore/Auth/Storage
+
+COUCHE 4 — Authentification Firebase
+  Email/mot passe → signInWithEmailAndPassword (Firebase Auth)
+  Google OAuth    → signInWithPopup (popup Firebase)
+  Email Enum Prot → erreurs génériques (auth/invalid-credential)
+  Password Policy → min 8 chars + majuscule + chiffre
+  Quota API       → max 1 000 req/min (anti brute-force)
+
+COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
+  Liste email     → seuls ADMIN_EMAIL_1 et ADMIN_EMAIL_2 peuvent écrire
+  Collections     → settings/projects publiques en lecture, notes privées
+  Storage         → types MIME validés, taille max 10/25 MB
+```
+
+### Mesures en place (code)
+
+| Mesure | Fichier | Détail |
+|--------|---------|--------|
+| ✅ **CSP nonce-based** | `middleware.ts` | Nonce UUID aléatoire par requête — élimine `unsafe-inline` pour scripts |
+| ✅ **CSRF protection** | `middleware.ts` | Vérifie `Origin == Host` sur tous les `POST /api/*` — retourne 403 si mismatch |
+| ✅ **Headers HTTP** | `next.config.js` | HSTS 2 ans + preload, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
+| ✅ **frame-ancestors none** | `middleware.ts` | Interdit toute intégration en iframe — renforce X-Frame-Options |
+| ✅ **upgrade-insecure-requests** | `middleware.ts` | Force HTTPS pour toutes les ressources |
+| ✅ **App Check reCAPTCHA v3** | `lib/firebase/app-check.ts` | Token d'attestation joint à chaque requête Firebase — bloque bots et scripts externes |
+| ✅ **CSP reCAPTCHA** | `middleware.ts` | `script-src`, `frame-src`, `connect-src` étendus pour `www.google.com` + `gstatic.com` |
+| ✅ **Authentification Firebase** | `lib/firebase/hooks.ts` | Email/password + Google OAuth — liste blanche d'emails admins dans les règles Firestore |
+| ✅ **Vérification admin stricte** | `app/admin/layout.tsx` | Double garde : `isAdmin` (email dans liste `NEXT_PUBLIC_ADMIN_EMAIL` / `NEXT_PUBLIC_ADMIN_EMAIL_2`) ET utilisateur connecté — toute méthode d'auth |
+| ✅ **Variables d'environnement** | `.env.local` / `.gitignore` | Non commitées — `RESEND_API_KEY` côté serveur uniquement |
+| ✅ **XSS emails** | `app/api/contact/route.ts` | Données utilisateur échappées HTML avant insertion email Resend |
+
+### Mesures en place (Firebase Console)
+
+| Mesure | État | Détail |
+|--------|------|--------|
+| ✅ **Règles Firestore** | Actif | 2 emails admins autorisés, collections notes privées, catch-all deny |
+| ✅ **Règles Storage** | Actif | 2 emails admins, types MIME validés, tailles max 10/25 MB |
+| ✅ **App Check Monitor** | Actif | Storage + Firestore en surveillance — enforcement dans 24h |
+| ✅ **Email Enumeration Protection** | Actif | Erreurs auth génériques (pas de `user-not-found`) |
+| ✅ **Password Policy** | Actif | Min 8 chars + majuscule + minuscule + chiffre — mode "Exiger" |
+| ✅ **Inscription publique désactivée** | Actif | `Activer la création` décoché — seul l'admin crée les comptes |
+| ⏳ **App Check Enforcement** | Dans 24h | Activer après vérification métriques (>90% requêtes validées) |
+
+### Actions manuelles restantes (dans 24h)
+
+**App Check — Activer l'enforcement** une fois les métriques vérifiées :
+> Firebase Console → App Check → API → pour chaque ligne :
+> - **Storage** → `⋮` → **Appliquer**
+> - **Cloud Firestore** → `⋮` → **Appliquer**
+> - **Authentication** → `⋮` → **Appliquer**
+
+**Quota identitytoolkit** (anti brute-force) :
+> Google Cloud Console → APIs & Services → Identity Toolkit API → Quotas
+> - `Queries per minute` → réduire à **1 000**
+> - `Custom Token Sign In per minute` → réduire à **50**
+> - `QueryUserInfo per minute` → réduire à **100**
+
+### Règles Firestore expliquées ligne par ligne
+
+```javascript
+function isAdmin() {
+  return request.auth != null                    // 1. Token Firebase présent
+      && request.auth.token.email in [           // 2. Email dans la liste blanche
+           'VOTRE_EMAIL_ADMIN_1',
+           'VOTRE_EMAIL_ADMIN_2'
+         ];
+}
+```
+
+> **Note :** `email_verified` a été retiré des règles — inutile avec Firebase Auth email/password
+> (l'inscription publique est désactivée dans la Console, seul l'admin crée les comptes).
+
+| Condition | Ce qu'elle empêche |
+|-----------|-------------------|
+| `request.auth != null` | Accès anonyme sans connexion |
+| `email in [...]` | Tout compte connecté qui n'est pas dans la liste — même un compte Firebase valide |
+
+> **Pourquoi la liste dans les règles et pas seulement dans le code ?**
+> Le code Next.js s'exécute dans le navigateur — n'importe qui peut faire une requête directe à l'API Firebase en utilisant tes clés publiques (normales, elles sont dans le bundle JS). Les règles Firestore s'exécutent côté Google — elles sont la seule barrière impossible à contourner côté client.
 
 ---
 
@@ -912,10 +1058,10 @@ MIT — Libre d'utilisation, modification et distribution.
 
 **Djefrid Byli Fotue Kuate** — Développeur Web Full-Stack Junior
 
-- Email : [djeffkuate@gmail.com](mailto:djeffkuate@gmail.com)
+- Email : [VOTRE_EMAIL_ADMIN_1](mailto:VOTRE_EMAIL_ADMIN_1)
 - GitHub : [github.com/Djefrid](https://github.com/Djefrid)
 - LinkedIn : [linkedin.com/in/djefrid-byli-fotue-kuate-a30633225](https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/)
 
 ---
 
-*Documentation mise à jour le 8 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore)*
+*Documentation mise à jour le 16 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore + VS Code HTML + Chrome image/png clipboard), layout Word centré en focusMode, toolbar Ribbon 4 onglets style Word, règles Firebase (2 admins : VOTRE_EMAIL_ADMIN_2 + VOTRE_EMAIL_ADMIN_1), CSP nonce-based via middleware.ts, protection CSRF /api/*, Firebase App Check reCAPTCHA v3 intégré (lib/firebase/app-check.ts), CSP étendu pour reCAPTCHA (frame-src + script-src + connect-src), Email Enumeration Protection activé, Password Policy configurée, inscription publique désactivée, commentaires français sur tous les fichiers*

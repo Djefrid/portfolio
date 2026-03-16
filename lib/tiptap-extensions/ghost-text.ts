@@ -1,7 +1,43 @@
+/**
+ * ============================================================================
+ * EXTENSION TIPTAP — lib/tiptap-extensions/ghost-text.ts
+ * ============================================================================
+ *
+ * Extension de texte fantôme (ghost text / autosuggestion inline) pour TipTap.
+ * Affiche une suggestion grisée après le curseur, acceptée par Tab.
+ *
+ * Fonctionnement :
+ *   1. À chaque changement de document ou de sélection, `getSuggestion(textBefore)`
+ *      est appelé avec le texte du paragraphe courant avant le curseur
+ *   2. Si une suggestion est retournée, elle est stockée dans le state ProseMirror
+ *      via `tr.setMeta(GHOST_KEY, { suggestion, pos })`
+ *   3. Un `Decoration.widget` ProseMirror affiche un `<span class="ghost-text-suggestion">`
+ *      après le curseur — purement visuel, pas dans le document réel
+ *   4. Tab → insère le texte suggéré à la position du curseur
+ *   5. Escape ou toute autre touche → efface la suggestion
+ *
+ * Debounce (`debounceMs`) :
+ *   Permet de délayer l'appel à `getSuggestion` pour éviter des calculs
+ *   trop fréquents (ex: appels réseau). Défaut : 0 (immédiat).
+ *
+ * Plugin ProseMirror (bas niveau) :
+ *   - `state.apply(tr)` : gère les transitions d'état du plugin
+ *     (meta = nouvelle suggestion, docChanged = efface la suggestion)
+ *   - `view()` : démarre le watcher sur les changements doc/sélection
+ *   - `props.decorations` : calcule les décorations à chaque rendu
+ *   - `props.handleKeyDown` : intercepte Tab/Escape avant TipTap
+ *
+ * Note : Cette extension est définie mais n'est plus utilisée dans l'éditeur
+ * (supprimée au profit du correcteur natif du navigateur + autocomplétion #tags).
+ * Elle reste disponible pour usage futur si besoin de suggestions IA.
+ * ============================================================================
+ */
+
 import { Extension } from '@tiptap/core';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 
+/** Clé unique du plugin ProseMirror — identifie le state du ghost text */
 const GHOST_KEY = new PluginKey<{ suggestion: string; pos: number }>('ghostText');
 
 interface GhostTextOptions {
@@ -26,6 +62,14 @@ export const GhostTextExtension = Extension.create<GhostTextOptions>({
       new Plugin({
         key: GHOST_KEY,
 
+        /**
+         * State du plugin :
+         * - init : suggestion vide au départ
+         * - apply :
+         *   - si meta (résultat async de getSuggestion) → met à jour la suggestion
+         *   - si docChanged → efface la suggestion (le curseur a bougé)
+         *   - sinon → conserve l'état actuel
+         */
         state: {
           init: () => ({ suggestion: '', pos: 0 }),
           apply(tr, state) {
@@ -37,6 +81,10 @@ export const GhostTextExtension = Extension.create<GhostTextOptions>({
           },
         },
 
+        /**
+         * Vue du plugin : s'abonne aux mises à jour de l'éditeur.
+         * Ne recalcule la suggestion que si le doc ou la sélection a changé.
+         */
         view(editorView) {
           const update = () => {
             const { state } = editorView;
@@ -71,7 +119,11 @@ export const GhostTextExtension = Extension.create<GhostTextOptions>({
         },
 
         props: {
-          // Afficher le ghost text via une décoration widget
+          /**
+           * Rendu des décorations : affiche le ghost text via un widget.
+           * `side: 1` place le widget APRÈS le curseur (pas avant).
+           * Le span reçoit `className='ghost-text-suggestion'` pour le CSS.
+           */
           decorations(state) {
             const { suggestion, pos } = GHOST_KEY.getState(state) ?? { suggestion: '', pos: 0 };
             if (!suggestion) return DecorationSet.empty;
@@ -89,7 +141,12 @@ export const GhostTextExtension = Extension.create<GhostTextOptions>({
             return DecorationSet.create(state.doc, [widget]);
           },
 
-          // Tab = accepter, Escape = effacer
+          /**
+           * Gestion des touches :
+           * - Tab     → accepte la suggestion (insère le texte, efface le widget)
+           * - Escape  → efface la suggestion sans bloquer la touche
+           * - Autre   → efface la suggestion (pour ne pas bloquer la frappe)
+           */
           handleKeyDown(view, event) {
             const { suggestion, pos } = GHOST_KEY.getState(view.state) ?? { suggestion: '', pos: 0 };
             if (!suggestion) return false;

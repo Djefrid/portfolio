@@ -1,7 +1,110 @@
+/**
+ * ============================================================================
+ * ÉDITEUR DE NOTES — components/admin/NotesEditor.tsx
+ * ============================================================================
+ *
+ * Éditeur de notes riche style Apple Notes/Notion pour le panneau admin.
+ * 3 colonnes : sidebar (dossiers/tags) · liste des notes · éditeur TipTap.
+ *
+ * ── Composants internes ────────────────────────────────────────────────────
+ *
+ * SmartFolderModal   : modal de création/édition des dossiers intelligents
+ *                      (filtres par tags, épinglées, dates)
+ * FolderTreeItem     : item récursif de l'arbre de dossiers (depth-first)
+ * EditorToolbar      : barre d'outils Ribbon style Word (4 onglets)
+ *                      Accueil    : police, taille, style, formatage, couleurs
+ *                      Insertion  : tableau, lien, image, fichier, dessin, LaTeX, symboles
+ *                      Paragraphe : alignement, retrait, interligne, listes, blocs
+ *                      Outils     : recherche/remplace, import/export, imprimer
+ * NotesSidebar       : panneau gauche avec vues, dossiers, dossiers intelligents,
+ *                      tags et corbeille
+ * NotesEditor        : composant principal (export default)
+ * NoteCard           : carte de note dans la liste (framer-motion + layout)
+ *
+ * ── TipTap Editor (useEditor) ──────────────────────────────────────────────
+ *
+ * 26 extensions configurées :
+ *   StarterKit (sans codeBlock), CodeBlockLowlight (lowlight v3, tous langages),
+ *   ImageExtension, Placeholder, Underline, Link, Table+Row+Header+Cell,
+ *   TextAlign, Highlight (multicolor), TextStyle, Color, TaskList, TaskItem,
+ *   Superscript, Subscript, CharacterCount, FontFamily, FontSize, LineHeight,
+ *   Indent (custom), Mathematics (LaTeX inline via KaTeX)
+ *
+ * Options critiques :
+ *   - `immediatelyRender: false` → obligatoire TipTap 3 + Next.js SSR
+ *   - `spellcheck: 'true'` → correcteur natif du navigateur
+ *   - `transformPastedHTML` → normalise le wrapper VS Code
+ *   - `handlePaste` → détecte image pure vs texte (Chrome ajoute image/png
+ *     même sur du texte copié, on ne l'intercepete que si pas de text/*)
+ *   - `handleDrop` → images inline ou fichiers joints via Firebase Storage
+ *   - `handleKeyDown` → navigation dans slash commands + autocomplétion tags
+ *
+ * ── Autosave ───────────────────────────────────────────────────────────────
+ *
+ * Délai : AUTOSAVE_DELAY_MS = 1000ms après la dernière frappe.
+ * Ctrl+S : sauvegarde immédiate (bypass du délai).
+ * Guard : si `isReadOnly` (note dans la corbeille) → pas de sauvegarde.
+ *
+ * ── Sync Firestore multi-appareils ─────────────────────────────────────────
+ *
+ * Un useEffect surveille `notes` (onSnapshot Firestore via useAdminNotes).
+ * Si la note ouverte a changé sur un autre appareil ET que l'éditeur n'a
+ * pas le focus → met à jour l'éditeur sans écraser la frappe locale.
+ * Si l'éditeur a le focus (`editor.view.hasFocus()`) → ignore la mise à jour.
+ *
+ * ── Autocomplétion ─────────────────────────────────────────────────────────
+ *
+ * Contenu : détectAtCursor() analyse le texte avant le curseur.
+ *   - "/" ou "/partial" en début de paragraphe → menu slash commands (SLASH_CMDS)
+ *   - "#" ou "#partial" → popup de tags (allTags filtré par fuzzy match)
+ * Titre  : même logique dans handleTitleChange
+ * Navigation popup : ↑↓ · Tab/Enter (accepte) · Escape (ferme)
+ *
+ * ── Refs anti-stale-closure ────────────────────────────────────────────────
+ *
+ * Les callbacks utilisés dans `editorProps` de `useEditor` sont créés une seule
+ * fois (pas de recréation sur rerenders). Pour qu'ils accèdent aux valeurs les
+ * plus récentes de state/callbacks, on utilise des refs "proxy" :
+ *   suggestionsRef, suggestionIdxRef, applySuggestionRef,
+ *   handleImageInsertRef, scheduleAutoSaveRef, applySlashRef, detectAtCursorRef
+ *
+ * ── Slash Commands ─────────────────────────────────────────────────────────
+ *
+ * Tapez "/" en début de paragraphe → menu contextuel SLASH_CMDS.
+ * Enter/Tab → applique la commande sélectionnée.
+ * La commande supprime d'abord le texte "/" + filtre avant d'insérer le nœud.
+ *
+ * ── Persistance localStorage ───────────────────────────────────────────────
+ *
+ * `notes_view`       : dernier filtre actif (inbox, dossier, tag...)
+ * `notes_selectedId` : dernière note ouverte
+ * Restauration au montage, après que Firestore ET l'éditeur soient prêts
+ * (`hasRestoredRef` garantit l'exécution unique).
+ *
+ * ── Suppression douce des notes vides ──────────────────────────────────────
+ *
+ * Quand l'utilisateur change de note, si l'ancienne était vide (titre vide
+ * ET contenu vide après strip HTML), elle est supprimée silencieusement.
+ * Comportement Apple Notes : pas de note vide qui traîne dans la liste.
+ *
+ * ── Animation "fly to trash" ───────────────────────────────────────────────
+ *
+ * Quand une note est supprimée, une copie fantôme de la carte de note
+ * vole vers le bouton Corbeille (framer-motion), puis le bouton tremble.
+ * Position calculée via getBoundingClientRect().
+ *
+ * ── Modes mobile ───────────────────────────────────────────────────────────
+ *
+ * `mobilePanel` : 'sidebar' | 'list' | 'editor'
+ * Sur mobile, une seule colonne est visible à la fois.
+ * `focusMode`   : plein écran de l'éditeur (masque sidebar + liste).
+ * ============================================================================
+ */
+
 "use client";
 
 import {
-  useState, useEffect, useRef, useCallback, useMemo,
+  useState, useEffect, useRef, useCallback, useMemo, forwardRef,
 } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -399,11 +502,14 @@ function FolderTreeItem({
             className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none my-0.5"
           />
         ) : (
-          <button
-            type="button"
+          /* div role="button" — évite le nesting <button>/<button> invalide en HTML */
+          <div
+            role="button"
+            tabIndex={0}
             title={node.name}
-            className={`${rowCls} px-1.5 py-1.5`}
+            className={`${rowCls} px-1.5 py-1.5 cursor-pointer`}
             onClick={() => onSelectView({ type: 'folder', id: node.id })}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectView({ type: 'folder', id: node.id }); } }}
           >
             <span className="flex items-center gap-1 truncate min-w-0">
               <button
@@ -428,7 +534,7 @@ function FolderTreeItem({
                 <MoreHorizontal size={11} />
               </button>
             </span>
-          </button>
+          </div>
         )}
 
         {menuId === node.id && (
@@ -481,7 +587,7 @@ function FolderTreeItem({
   );
 }
 
-// ── EditorToolbar ─────────────────────────────────────────────────────────────
+// ── EditorToolbar — Ribbon style Word (4 onglets) ────────────────────────────
 
 // Polices disponibles (style Word)
 const FONT_FAMILIES = [
@@ -544,6 +650,11 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
   onExportDocxClick:  () => void;
   onImportPdfClick:   () => void;
 }) {
+  // ── État des onglets du Ribbon ─────────────────────────────────────────────
+  type RibbonTab = 'accueil' | 'insertion' | 'paragraphe' | 'outils';
+  const [activeTab,      setActiveTab]      = useState<RibbonTab>('accueil');
+
+  // ── État des dropdowns ─────────────────────────────────────────────────────
   const [linkOpen,       setLinkOpen]       = useState(false);
   const [linkVal,        setLinkVal]        = useState('');
   const [textColorOpen,  setTextColorOpen]  = useState(false);
@@ -559,6 +670,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
   const [lineSpacing,    setLineSpacing]    = useState('normal');
   const [caseOpen,       setCaseOpen]       = useState(false);
 
+  // ── Refs pour fermeture au clic extérieur ──────────────────────────────────
   const textColorRef = useRef<HTMLDivElement>(null);
   const highlightRef  = useRef<HTMLDivElement>(null);
   const tableRef      = useRef<HTMLDivElement>(null);
@@ -567,6 +679,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
 
   if (!editor) return null;
 
+  // ── Bouton toolbar générique ───────────────────────────────────────────────
   const TB = (
     active:   boolean,
     title:    string,
@@ -582,8 +695,10 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     >{icon}</button>
   );
 
+  // ── Séparateur vertical ────────────────────────────────────────────────────
   const SEP = () => <div className="w-px h-4 bg-dark-700 mx-0.5 shrink-0" />;
 
+  // ── Fermeture dropdowns au clic extérieur ──────────────────────────────────
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (textColorRef.current && !textColorRef.current.contains(e.target as Node)) setTextColorOpen(false);
@@ -596,7 +711,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Grille 6×10 couleurs — style Word
+  // ── Grille de couleurs 6×10 (style Word) ──────────────────────────────────
   const COLOR_GRID = [
     ['#000000','#1a1a1a','#333333','#4d4d4d','#666666','#808080','#999999','#b3b3b3','#cccccc','#ffffff'],
     ['#1e3a5f','#1e40af','#1d4ed8','#2563eb','#3b82f6','#60a5fa','#93c5fd','#bfdbfe','#dbeafe','#eff6ff'],
@@ -606,6 +721,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     ['#4c1d95','#6d28d9','#7c3aed','#8b5cf6','#a78bfa','#c4b5fd','#be185d','#ec4899','#fbcfe8','#fdf4ff'],
   ];
 
+  // ── Couleurs de surbrillance ───────────────────────────────────────────────
   const HIGHLIGHT_COLORS = [
     '#fef08a','#fde68a','#fcd34d','#fbbf24',
     '#bbf7d0','#86efac','#4ade80','#22c55e',
@@ -616,6 +732,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     '#fed7aa','#fdba74','#fb923c','#f97316',
   ];
 
+  // ── Appliquer un lien ──────────────────────────────────────────────────────
   const handleSetLink = () => {
     if (!linkVal.trim()) {
       editor.chain().focus().unsetLink().run();
@@ -627,10 +744,10 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     setLinkVal('');
   };
 
-  // Lire la taille de police courante
+  // ── Taille de police courante ──────────────────────────────────────────────
   const currentFontSize = editor.getAttributes('textStyle').fontSize?.replace('pt','') ?? '';
 
-  // Appliquer l'interligne via CSS inline sur les paragraphes
+  // ── Appliquer l'interligne ─────────────────────────────────────────────────
   const applyLineSpacing = (value: string) => {
     setLineSpacing(value);
     if (value === 'normal') {
@@ -640,7 +757,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     }
   };
 
-  // Changer la casse du texte sélectionné
+  // ── Changer la casse du texte sélectionné ─────────────────────────────────
   const changeCase = (mode: 'upper' | 'lower' | 'title' | 'sentence') => {
     const { from, to } = editor.state.selection;
     if (from === to) return;
@@ -654,18 +771,17 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     setCaseOpen(false);
   };
 
-  // Rechercher dans le document (highlight natif ProseMirror)
+  // ── Rechercher dans le document ────────────────────────────────────────────
   const doFind = () => {
     if (!findVal) return;
     const content = editor.state.doc.textContent;
     const idx = content.indexOf(findVal);
     if (idx >= 0) {
-      // Sélectionner la première occurrence
       editor.chain().focus().setTextSelection({ from: idx + 1, to: idx + 1 + findVal.length }).run();
     }
   };
 
-  // Remplacer la première occurrence
+  // ── Remplacer la première occurrence ──────────────────────────────────────
   const doReplace = () => {
     if (!findVal) return;
     const { doc } = editor.state;
@@ -683,7 +799,7 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     });
   };
 
-  // Remplacer toutes les occurrences
+  // ── Remplacer toutes les occurrences ──────────────────────────────────────
   const doReplaceAll = () => {
     if (!findVal) return;
     const html = editor.getHTML();
@@ -692,35 +808,69 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
     editor.commands.setContent(replaced, { emitUpdate: true });
   };
 
+  // ── Style des onglets du Ribbon ────────────────────────────────────────────
+  const tabCls = (tab: RibbonTab) =>
+    `px-3 py-1.5 text-[11px] font-medium transition-colors border-b-2 -mb-px ${
+      activeTab === tab
+        ? 'text-yellow-400 border-yellow-500'
+        : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-dark-600'
+    }`;
+
   return (
     <div className="border-b border-dark-800 shrink-0 select-none">
 
-      {/* ══ LIGNE 1 — POLICE ══════════════════════════════════════════════════ */}
-      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5">
+      {/* ══ BARRE D'ONGLETS ═══════════════════════════════════════════════════ */}
+      <div className="flex items-center border-b border-dark-900 px-1">
+        {/* Onglets Ribbon */}
+        <button type="button" className={tabCls('accueil')}    onClick={() => setActiveTab('accueil')}>Accueil</button>
+        <button type="button" className={tabCls('insertion')}  onClick={() => setActiveTab('insertion')}>Insertion</button>
+        <button type="button" className={tabCls('paragraphe')} onClick={() => setActiveTab('paragraphe')}>Paragraphe</button>
+        <button type="button" className={tabCls('outils')}     onClick={() => setActiveTab('outils')}>Outils</button>
 
-        {/* Historique */}
-        {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
-        {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
-        <SEP />
+        {/* Barre de progression upload — toujours visible à droite des onglets */}
+        {uploadProgress !== null && (
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-3">
+            <div className="w-16 h-1 bg-dark-700 rounded-full overflow-hidden">
+              <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+            </div>
+            <span>{uploadProgress}%</span>
+          </div>
+        )}
 
-        {/* Famille de police */}
-        <select
-          title="Famille de police"
-          value={editor.getAttributes('textStyle').fontFamily ?? ''}
-          onChange={e => {
-            if (!e.target.value) editor.chain().focus().unsetFontFamily().run();
-            else editor.chain().focus().setFontFamily(e.target.value).run();
-          }}
-          className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer max-w-[120px]"
-          style={{ fontFamily: editor.getAttributes('textStyle').fontFamily || 'inherit' }}
-        >
-          {FONT_FAMILIES.map(f => (
-            <option key={f.value} value={f.value} style={{ fontFamily: f.value || 'inherit' }}>{f.label}</option>
-          ))}
-        </select>
+        {/* Bouton Focus — toujours visible, poussé à droite */}
+        <div className="ml-auto pr-1">
+          {TB(focusMode, focusMode ? 'Quitter le mode focus' : 'Mode focus (plein écran)', onFocusToggle,
+            focusMode ? <Minimize2 size={13} /> : <Maximize2 size={13} />)}
+        </div>
+      </div>
 
-        {/* Taille de police */}
-        <div className="flex items-center gap-0.5">
+      {/* ══ CONTENU DE L'ONGLET ACTIF ════════════════════════════════════════ */}
+      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1.5 min-h-[36px]">
+
+        {/* ─── Onglet ACCUEIL ──────────────────────────────────────────────── */}
+        {activeTab === 'accueil' && <>
+          {/* Historique */}
+          {TB(false, 'Annuler (Ctrl+Z)', () => editor.chain().focus().undo().run(), <Undo2 size={13} />, !editor.can().undo())}
+          {TB(false, 'Refaire (Ctrl+Y)', () => editor.chain().focus().redo().run(), <Redo2 size={13} />, !editor.can().redo())}
+          <SEP />
+
+          {/* Famille de police */}
+          <select
+            title="Famille de police"
+            value={editor.getAttributes('textStyle').fontFamily ?? ''}
+            onChange={e => {
+              if (!e.target.value) editor.chain().focus().unsetFontFamily().run();
+              else editor.chain().focus().setFontFamily(e.target.value).run();
+            }}
+            className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer max-w-[120px]"
+            style={{ fontFamily: editor.getAttributes('textStyle').fontFamily || 'inherit' }}
+          >
+            {FONT_FAMILIES.map(f => (
+              <option key={f.value} value={f.value} style={{ fontFamily: f.value || 'inherit' }}>{f.label}</option>
+            ))}
+          </select>
+
+          {/* Taille de police */}
           <select
             title="Taille de police"
             value={currentFontSize}
@@ -733,357 +883,339 @@ function EditorToolbar({ editor, onImageClick, onFileClick, uploadProgress, focu
             <option value="">—</option>
             {FONT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-        </div>
-        <SEP />
 
-        {/* Style de paragraphe */}
-        <select
-          title="Style de paragraphe"
-          value={
-            editor.isActive('heading', { level: 1 }) ? '1' :
-            editor.isActive('heading', { level: 2 }) ? '2' :
-            editor.isActive('heading', { level: 3 }) ? '3' : '0'
-          }
-          onChange={e => {
-            const v = Number(e.target.value);
-            if (v === 0) editor.chain().focus().setParagraph().run();
-            else editor.chain().focus().toggleHeading({ level: v as 1|2|3 }).run();
-          }}
-          className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer"
-        >
-          <option value="0">Normal</option>
-          <option value="1">Titre 1</option>
-          <option value="2">Titre 2</option>
-          <option value="3">Titre 3</option>
-        </select>
-        <SEP />
-
-        {/* Formatage caractère */}
-        {TB(editor.isActive('bold'),        'Gras (Ctrl+B)',      () => editor.chain().focus().toggleBold().run(),        <Bold size={13} />)}
-        {TB(editor.isActive('italic'),      'Italique (Ctrl+I)',  () => editor.chain().focus().toggleItalic().run(),      <Italic size={13} />)}
-        {TB(editor.isActive('underline'),   'Souligné (Ctrl+U)', () => editor.chain().focus().toggleUnderline().run(),   <UnderlineIcon size={13} />)}
-        {TB(editor.isActive('strike'),      'Barré',             () => editor.chain().focus().toggleStrike().run(),      <Strikethrough size={13} />)}
-        {TB(editor.isActive('superscript'), 'Exposant',          () => editor.chain().focus().toggleSuperscript().run(), <SupIcon size={13} />)}
-        {TB(editor.isActive('subscript'),   'Indice',            () => editor.chain().focus().toggleSubscript().run(),   <SubIcon size={13} />)}
-        <SEP />
-
-        {/* Effacer le formatage — supprime marks + reset indent/lineHeight */}
-        {TB(false, 'Effacer le formatage', () => {
-          editor.chain().focus().clearNodes().unsetAllMarks().run();
-          // Reset aussi les attributs de nœud (indent custom, lineHeight)
-          const { from, to } = editor.state.selection;
-          editor.state.doc.nodesBetween(from, to, (node, pos) => {
-            if (['paragraph', 'heading', 'blockquote'].includes(node.type.name) && node.attrs.indent) {
-              editor.chain().updateAttributes(node.type.name, { indent: 0 }).run();
+          {/* Style de paragraphe */}
+          <select
+            title="Style de paragraphe"
+            value={
+              editor.isActive('heading', { level: 1 }) ? '1' :
+              editor.isActive('heading', { level: 2 }) ? '2' :
+              editor.isActive('heading', { level: 3 }) ? '3' : '0'
             }
-          });
-          editor.chain().focus().unsetLineHeight().run();
-        }, <Eraser size={13} />)}
-
-        {/* Changer la casse */}
-        <div className="relative shrink-0" ref={caseRef}>
-          <button type="button" title="Changer la casse"
-            onClick={() => setCaseOpen(o => !o)}
-            className={`p-1.5 rounded transition-colors flex items-center gap-0.5 ${caseOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
-            <CaseSensitive size={13} />
-            <ChevronDown size={9} />
-          </button>
-          {caseOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-1 min-w-[160px]"
-              onMouseDown={e => e.stopPropagation()}>
-              {[
-                { mode: 'upper'    as const, label: 'MAJUSCULES' },
-                { mode: 'lower'    as const, label: 'minuscules' },
-                { mode: 'title'    as const, label: 'Chaque Mot' },
-                { mode: 'sentence' as const, label: 'Première lettre' },
-              ].map(({ mode, label }) => (
-                <button key={mode} type="button" onClick={() => changeCase(mode)}
-                  className="w-full text-left text-[11px] text-gray-300 hover:bg-dark-700 px-3 py-1.5 rounded transition-colors">
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <SEP />
-
-        {/* Couleurs */}
-        {/* Surbrillance */}
-        <div className="relative shrink-0" ref={highlightRef}>
-          <button type="button" title="Surbrillance"
-            onClick={() => { setHighlightOpen(o => !o); setTextColorOpen(false); }}
-            className="flex flex-col items-center p-1 rounded hover:bg-dark-700 transition-colors">
-            <Highlighter size={12} className="text-gray-300" />
-            <div className="w-3.5 h-[3px] rounded-full mt-0.5 border border-dark-600" style={{ background: lastHighlight }} />
-          </button>
-          {highlightOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5 min-w-max"
-              onMouseDown={e => e.stopPropagation()}>
-              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Surbrillance</p>
-              <div className="grid grid-cols-4 gap-1">
-                {HIGHLIGHT_COLORS.map(c => (
-                  <button key={c} type="button" title={c}
-                    onClick={() => { editor.chain().focus().toggleHighlight({ color: c }).run(); setLastHighlight(c); setHighlightOpen(false); }}
-                    style={{ background: c }}
-                    className="w-5 h-5 rounded border border-dark-600 hover:scale-110 transition-transform"
-                  />
-                ))}
-              </div>
-              <button type="button"
-                onClick={() => { editor.chain().focus().unsetHighlight().run(); setHighlightOpen(false); }}
-                className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-200 py-1 border-t border-dark-700 hover:bg-dark-700 rounded transition-colors">
-                ✕ Aucune surbrillance
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Couleur du texte */}
-        <div className="relative shrink-0" ref={textColorRef}>
-          <button type="button" title="Couleur du texte"
-            onClick={() => { setTextColorOpen(o => !o); setHighlightOpen(false); }}
-            className="flex flex-col items-center p-1 rounded hover:bg-dark-700 transition-colors">
-            <span className="text-[13px] font-bold text-gray-300 leading-none">A</span>
-            <div className="w-3.5 h-[3px] rounded-full mt-0.5 border border-dark-600" style={{ background: lastTextColor }} />
-          </button>
-          {textColorOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5 min-w-max"
-              onMouseDown={e => e.stopPropagation()}>
-              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Couleur du texte</p>
-              <div className="grid grid-cols-10 gap-0.5">
-                {COLOR_GRID.flat().map(c => (
-                  <button key={c} type="button" title={c}
-                    onClick={() => { editor.chain().focus().setColor(c).run(); setLastTextColor(c); setTextColorOpen(false); }}
-                    style={{ background: c }}
-                    className="w-5 h-5 rounded-sm border border-dark-600 hover:scale-110 transition-transform hover:border-gray-400"
-                  />
-                ))}
-              </div>
-              <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-dark-700">
-                <label className="flex items-center gap-1.5 text-[10px] text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
-                  <div className="w-5 h-5 rounded-sm border border-dark-500 bg-gradient-to-br from-red-400 via-yellow-400 to-blue-400 relative overflow-hidden shrink-0">
-                    <input type="color" aria-label="Couleur personnalisée du texte"
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
-                      onChange={e => { editor.chain().focus().setColor(e.target.value).run(); setLastTextColor(e.target.value); }} />
-                  </div>
-                  Personnalisée
-                </label>
-                <button type="button"
-                  onClick={() => { editor.chain().focus().unsetColor().run(); setTextColorOpen(false); }}
-                  className="text-[10px] text-gray-400 hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-dark-700 transition-colors">
-                  ✕ Réinitialiser
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ══ LIGNE 2 — PARAGRAPHE ══════════════════════════════════════════════ */}
-      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 border-t border-dark-900">
-
-        {/* Alignement */}
-        {TB(editor.isActive({ textAlign: 'left' }),    'Aligner gauche (Ctrl+L)', () => editor.chain().focus().setTextAlign('left').run(),    <AlignLeft size={13} />)}
-        {TB(editor.isActive({ textAlign: 'center' }),  'Centrer (Ctrl+E)',        () => editor.chain().focus().setTextAlign('center').run(),  <AlignCenter size={13} />)}
-        {TB(editor.isActive({ textAlign: 'right' }),   'Aligner droite (Ctrl+R)', () => editor.chain().focus().setTextAlign('right').run(),   <AlignRight size={13} />)}
-        {TB(editor.isActive({ textAlign: 'justify' }), 'Justifier (Ctrl+J)',      () => editor.chain().focus().setTextAlign('justify').run(), <AlignJustify size={13} />)}
-        <SEP />
-
-        {/* Retrait */}
-        {TB(false, 'Diminuer le retrait (Shift+Tab)', () => editor.chain().focus().outdent().run(), <IndentDecrease size={13} />)}
-        {TB(false, 'Augmenter le retrait (Tab)',      () => editor.chain().focus().indent().run(),  <IndentIncrease size={13} />)}
-        <SEP />
-
-        {/* Interligne */}
-        <select
-          title="Interligne"
-          value={lineSpacing}
-          onChange={e => applyLineSpacing(e.target.value)}
-          className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer w-[60px]"
-        >
-          {LINE_SPACINGS.map(ls => (
-            <option key={ls.value} value={ls.value}>{ls.label}</option>
-          ))}
-        </select>
-        <SEP />
-
-        {/* Listes */}
-        {TB(editor.isActive('bulletList'),  'Liste à puces',   () => editor.chain().focus().toggleBulletList().run(),  <List size={13} />)}
-        {TB(editor.isActive('orderedList'), 'Liste numérotée', () => editor.chain().focus().toggleOrderedList().run(), <ListOrdered size={13} />)}
-        {TB(editor.isActive('taskList'),    'Liste de tâches', () => editor.chain().focus().toggleTaskList().run(),    <ListChecks size={13} />)}
-        <SEP />
-
-        {/* Blocs */}
-        {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
-        {TB(editor.isActive('codeBlock'),  'Bloc de code',          onCodeBlockClick,  <Code2 size={13} />)}
-        {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
-      </div>
-
-      {/* ══ LIGNE 3 — INSERTION + VUE ════════════════════════════════════════ */}
-      <div className="flex items-center flex-wrap gap-0.5 px-2 py-1 border-t border-dark-900">
-
-        {/* Tableau — grid picker */}
-        <div className="relative" ref={tableRef}>
-          <button
-            type="button"
-            title="Insérer un tableau"
-            onClick={() => setTableOpen(o => !o)}
-            className={`p-1.5 rounded transition-colors ${tableOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}
+            onChange={e => {
+              const v = Number(e.target.value);
+              if (v === 0) editor.chain().focus().setParagraph().run();
+              else editor.chain().focus().toggleHeading({ level: v as 1|2|3 }).run();
+            }}
+            className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer"
           >
-            <TableIcon size={13} />
-          </button>
-          {tableOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-700 rounded-lg p-2.5 shadow-2xl select-none"
-              onMouseLeave={() => setTableHover({ r: 0, c: 0 })}>
-              <div className="flex flex-col gap-0.5 mb-2">
-                {Array.from({ length: 8 }).map((_, ri) => (
-                  <div key={ri} className="flex gap-0.5">
-                    {Array.from({ length: 8 }).map((_, ci) => (
-                      <div key={ci}
-                        className={`w-5 h-5 border rounded-sm cursor-pointer transition-colors ${
-                          ri < tableHover.r && ci < tableHover.c
-                            ? 'bg-yellow-500/30 border-yellow-500/60'
-                            : 'bg-dark-700 border-dark-600 hover:bg-dark-600'
-                        }`}
-                        onMouseEnter={() => setTableHover({ r: ri + 1, c: ci + 1 })}
-                        onClick={() => {
-                          editor.chain().focus().insertTable({ rows: tableHover.r, cols: tableHover.c, withHeaderRow: true }).run();
-                          setTableOpen(false); setTableHover({ r: 0, c: 0 });
-                        }}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-              <p className="text-center text-xs text-gray-400 min-h-[1rem]">
-                {tableHover.r > 0 && tableHover.c > 0
-                  ? `${tableHover.r} × ${tableHover.c} tableau`
-                  : 'Survoler pour choisir'}
-              </p>
-            </div>
-          )}
-        </div>
+            <option value="0">Normal</option>
+            <option value="1">Titre 1</option>
+            <option value="2">Titre 2</option>
+            <option value="3">Titre 3</option>
+          </select>
+          <SEP />
 
-        {/* Lien */}
-        <div className="relative">
-          {TB(editor.isActive('link'), 'Lien hypertexte', () => {
-            if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); setLinkOpen(false); }
-            else { setLinkVal(editor.getAttributes('link').href || ''); setLinkOpen(o => !o); }
-          }, <LinkIcon size={13} />)}
-          {linkOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg p-2 shadow-xl flex gap-1.5 min-w-[210px]"
-              onMouseDown={e => e.stopPropagation()}>
-              <input autoFocus value={linkVal} onChange={e => setLinkVal(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSetLink(); if (e.key === 'Escape') setLinkOpen(false); }}
-                placeholder="https://..."
-                className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-yellow-500/50"
-              />
-              <button type="button" onClick={handleSetLink}
-                className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/30">OK</button>
-            </div>
-          )}
-        </div>
+          {/* Formatage caractère */}
+          {TB(editor.isActive('bold'),        'Gras (Ctrl+B)',      () => editor.chain().focus().toggleBold().run(),        <Bold size={13} />)}
+          {TB(editor.isActive('italic'),      'Italique (Ctrl+I)',  () => editor.chain().focus().toggleItalic().run(),      <Italic size={13} />)}
+          {TB(editor.isActive('underline'),   'Souligné (Ctrl+U)', () => editor.chain().focus().toggleUnderline().run(),   <UnderlineIcon size={13} />)}
+          {TB(editor.isActive('strike'),      'Barré',             () => editor.chain().focus().toggleStrike().run(),      <Strikethrough size={13} />)}
+          {TB(editor.isActive('superscript'), 'Exposant',          () => editor.chain().focus().toggleSuperscript().run(), <SupIcon size={13} />)}
+          {TB(editor.isActive('subscript'),   'Indice',            () => editor.chain().focus().toggleSubscript().run(),   <SubIcon size={13} />)}
+          <SEP />
 
-        {/* Image + Fichier */}
-        {TB(false, 'Insérer une image',  onImageClick, <ImageIcon size={13} />)}
-        {TB(false, 'Joindre un fichier', onFileClick,  <FileUp size={13} />)}
+          {/* Effacer le formatage */}
+          {TB(false, 'Effacer le formatage', () => {
+            editor.chain().focus().clearNodes().unsetAllMarks().run();
+            const { from, to } = editor.state.selection;
+            editor.state.doc.nodesBetween(from, to, (node) => {
+              if (['paragraph', 'heading', 'blockquote'].includes(node.type.name) && node.attrs.indent) {
+                editor.chain().updateAttributes(node.type.name, { indent: 0 }).run();
+              }
+            });
+            editor.chain().focus().unsetLineHeight().run();
+          }, <Eraser size={13} />)}
 
-        {/* Dessin Excalidraw */}
-        {TB(false, 'Dessin (Excalidraw)', onDrawClick, <Pencil size={13} />)}
-
-        {/* Équation LaTeX — commande officielle insertInlineMath */}
-        {TB(false, 'Équation LaTeX (cliquer puis éditer)', () => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (editor.chain().focus() as any).insertInlineMath({ latex: 'E=mc^2' }).run();
-        }, <Sigma size={13} />)}
-
-        {/* Symboles spéciaux */}
-        <div className="relative shrink-0" ref={symbolsRef}>
-          <button type="button" title="Symboles spéciaux"
-            onClick={() => setSymbolsOpen(o => !o)}
-            className={`p-1.5 rounded transition-colors ${symbolsOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
-            <span className="text-[12px] font-semibold leading-none">Ω</span>
-          </button>
-          {symbolsOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5"
-              style={{ width: '272px' }}
-              onMouseDown={e => e.stopPropagation()}>
-              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Symboles spéciaux</p>
-              <div className="grid grid-cols-10 gap-0.5">
-                {SPECIAL_SYMBOLS.map(sym => (
-                  <button key={sym} type="button" title={sym}
-                    onClick={() => { editor.chain().focus().insertContent(sym).run(); setSymbolsOpen(false); }}
-                    className="w-6 h-6 text-sm text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300 rounded transition-colors flex items-center justify-center">
-                    {sym}
+          {/* Changer la casse */}
+          <div className="relative shrink-0" ref={caseRef}>
+            <button type="button" title="Changer la casse"
+              onClick={() => setCaseOpen(o => !o)}
+              className={`p-1.5 rounded transition-colors flex items-center gap-0.5 ${caseOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
+              <CaseSensitive size={13} />
+              <ChevronDown size={9} />
+            </button>
+            {caseOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-1 min-w-[160px]"
+                onMouseDown={e => e.stopPropagation()}>
+                {[
+                  { mode: 'upper'    as const, label: 'MAJUSCULES' },
+                  { mode: 'lower'    as const, label: 'minuscules' },
+                  { mode: 'title'    as const, label: 'Chaque Mot' },
+                  { mode: 'sentence' as const, label: 'Première lettre' },
+                ].map(({ mode, label }) => (
+                  <button key={mode} type="button" onClick={() => changeCase(mode)}
+                    className="w-full text-left text-[11px] text-gray-300 hover:bg-dark-700 px-3 py-1.5 rounded transition-colors">
+                    {label}
                   </button>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-
-        {uploadProgress !== null && (
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 ml-1">
-            <div className="w-16 h-1 bg-dark-700 rounded-full overflow-hidden">
-              <div className="h-full bg-yellow-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
-            </div>
-            <span>{uploadProgress}%</span>
+            )}
           </div>
-        )}
-        <SEP />
+          <SEP />
 
-        {/* Recherche & Remplacement */}
-        <div className="relative shrink-0">
-          {TB(findOpen, 'Rechercher & Remplacer (Ctrl+H)', () => setFindOpen(o => !o), <SearchCode size={13} />)}
-          {findOpen && (
-            <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-3 min-w-[260px]"
-              onMouseDown={e => e.stopPropagation()}>
-              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Rechercher & Remplacer</p>
-              <div className="flex gap-1.5 mb-1.5">
-                <input value={findVal} onChange={e => setFindVal(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && doFind()}
-                  placeholder="Rechercher…"
-                  className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500/50"
-                />
-                <button type="button" onClick={doFind}
-                  className="text-xs bg-dark-700 text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-dark-600 transition-colors">
-                  Trouver
+          {/* Surbrillance */}
+          <div className="relative shrink-0" ref={highlightRef}>
+            <button type="button" title="Surbrillance"
+              onClick={() => { setHighlightOpen(o => !o); setTextColorOpen(false); }}
+              className="flex flex-col items-center p-1 rounded hover:bg-dark-700 transition-colors">
+              <Highlighter size={12} className="text-gray-300" />
+              <div className="w-3.5 h-[3px] rounded-full mt-0.5 border border-dark-600" style={{ background: lastHighlight }} />
+            </button>
+            {highlightOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5 min-w-max"
+                onMouseDown={e => e.stopPropagation()}>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Surbrillance</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {HIGHLIGHT_COLORS.map(c => (
+                    <button key={c} type="button" title={c}
+                      onClick={() => { editor.chain().focus().toggleHighlight({ color: c }).run(); setLastHighlight(c); setHighlightOpen(false); }}
+                      style={{ background: c }}
+                      className="w-5 h-5 rounded border border-dark-600 hover:scale-110 transition-transform"
+                    />
+                  ))}
+                </div>
+                <button type="button"
+                  onClick={() => { editor.chain().focus().unsetHighlight().run(); setHighlightOpen(false); }}
+                  className="mt-2 w-full text-[10px] text-gray-400 hover:text-gray-200 py-1 border-t border-dark-700 hover:bg-dark-700 rounded transition-colors">
+                  ✕ Aucune surbrillance
                 </button>
               </div>
-              <div className="flex gap-1.5">
-                <input value={replaceVal} onChange={e => setReplaceVal(e.target.value)}
-                  placeholder="Remplacer par…"
-                  className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500/50"
-                />
-                <div className="flex flex-col gap-1">
-                  <button type="button" title="Remplacer" onClick={doReplace}
-                    className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/30 whitespace-nowrap">
-                    <Replace size={11} />
-                  </button>
-                  <button type="button" onClick={doReplaceAll}
-                    className="text-[10px] bg-yellow-500/10 text-yellow-500/70 px-2 py-1 rounded hover:bg-yellow-500/20 whitespace-nowrap">
-                    Tout
+            )}
+          </div>
+
+          {/* Couleur du texte */}
+          <div className="relative shrink-0" ref={textColorRef}>
+            <button type="button" title="Couleur du texte"
+              onClick={() => { setTextColorOpen(o => !o); setHighlightOpen(false); }}
+              className="flex flex-col items-center p-1 rounded hover:bg-dark-700 transition-colors">
+              <span className="text-[13px] font-bold text-gray-300 leading-none">A</span>
+              <div className="w-3.5 h-[3px] rounded-full mt-0.5 border border-dark-600" style={{ background: lastTextColor }} />
+            </button>
+            {textColorOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5 min-w-max"
+                onMouseDown={e => e.stopPropagation()}>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Couleur du texte</p>
+                <div className="grid grid-cols-10 gap-0.5">
+                  {COLOR_GRID.flat().map(c => (
+                    <button key={c} type="button" title={c}
+                      onClick={() => { editor.chain().focus().setColor(c).run(); setLastTextColor(c); setTextColorOpen(false); }}
+                      style={{ background: c }}
+                      className="w-5 h-5 rounded-sm border border-dark-600 hover:scale-110 transition-transform hover:border-gray-400"
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-dark-700">
+                  <label className="flex items-center gap-1.5 text-[10px] text-gray-400 cursor-pointer hover:text-gray-200 transition-colors">
+                    <div className="w-5 h-5 rounded-sm border border-dark-500 bg-gradient-to-br from-red-400 via-yellow-400 to-blue-400 relative overflow-hidden shrink-0">
+                      <input type="color" aria-label="Couleur personnalisée du texte"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                        onChange={e => { editor.chain().focus().setColor(e.target.value).run(); setLastTextColor(e.target.value); }} />
+                    </div>
+                    Personnalisée
+                  </label>
+                  <button type="button"
+                    onClick={() => { editor.chain().focus().unsetColor().run(); setTextColorOpen(false); }}
+                    className="text-[10px] text-gray-400 hover:text-gray-200 px-1.5 py-0.5 rounded hover:bg-dark-700 transition-colors">
+                    ✕ Réinitialiser
                   </button>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
-        <SEP />
+            )}
+          </div>
+        </>}
 
-        {/* Import/Export documents */}
-        {TB(false, 'Importer un fichier Word (.docx)', onImportDocxClick, <FilePlus size={13} />)}
-        {TB(false, 'Exporter en Word (.docx)',         onExportDocxClick, <FileDown size={13} />)}
-        {TB(false, 'Importer un PDF (texte)',          onImportPdfClick,  <BookOpen size={13} />)}
-        <SEP />
-        {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
-        {TB(false, 'Imprimer / PDF',       onExportPdf, <Download size={13} />)}
+        {/* ─── Onglet INSERTION ────────────────────────────────────────────── */}
+        {activeTab === 'insertion' && <>
+          {/* Tableau — grid picker */}
+          <div className="relative" ref={tableRef}>
+            <button type="button" title="Insérer un tableau"
+              onClick={() => setTableOpen(o => !o)}
+              className={`p-1.5 rounded transition-colors ${tableOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
+              <TableIcon size={13} />
+            </button>
+            {tableOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-700 rounded-lg p-2.5 shadow-2xl select-none"
+                onMouseLeave={() => setTableHover({ r: 0, c: 0 })}>
+                <div className="flex flex-col gap-0.5 mb-2">
+                  {Array.from({ length: 8 }).map((_, ri) => (
+                    <div key={ri} className="flex gap-0.5">
+                      {Array.from({ length: 8 }).map((_, ci) => (
+                        <div key={ci}
+                          className={`w-5 h-5 border rounded-sm cursor-pointer transition-colors ${
+                            ri < tableHover.r && ci < tableHover.c
+                              ? 'bg-yellow-500/30 border-yellow-500/60'
+                              : 'bg-dark-700 border-dark-600 hover:bg-dark-600'
+                          }`}
+                          onMouseEnter={() => setTableHover({ r: ri + 1, c: ci + 1 })}
+                          onClick={() => {
+                            editor.chain().focus().insertTable({ rows: tableHover.r, cols: tableHover.c, withHeaderRow: true }).run();
+                            setTableOpen(false); setTableHover({ r: 0, c: 0 });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+                <p className="text-center text-xs text-gray-400 min-h-[1rem]">
+                  {tableHover.r > 0 && tableHover.c > 0
+                    ? `${tableHover.r} × ${tableHover.c} tableau`
+                    : 'Survoler pour choisir'}
+                </p>
+              </div>
+            )}
+          </div>
 
-        {/* Focus + vue — poussé à droite */}
-        <div className="ml-auto">
-          {TB(focusMode, focusMode ? 'Quitter le mode focus' : 'Mode focus (plein écran)', onFocusToggle,
-            focusMode ? <Minimize2 size={13} /> : <Maximize2 size={13} />)}
-        </div>
+          {/* Lien */}
+          <div className="relative">
+            {TB(editor.isActive('link'), 'Lien hypertexte', () => {
+              if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); setLinkOpen(false); }
+              else { setLinkVal(editor.getAttributes('link').href || ''); setLinkOpen(o => !o); }
+            }, <LinkIcon size={13} />)}
+            {linkOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg p-2 shadow-xl flex gap-1.5 min-w-[210px]"
+                onMouseDown={e => e.stopPropagation()}>
+                <input autoFocus value={linkVal} onChange={e => setLinkVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSetLink(); if (e.key === 'Escape') setLinkOpen(false); }}
+                  placeholder="https://..."
+                  className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1 text-gray-300 focus:outline-none focus:border-yellow-500/50"
+                />
+                <button type="button" onClick={handleSetLink}
+                  className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/30">OK</button>
+              </div>
+            )}
+          </div>
+          <SEP />
+
+          {/* Image + Fichier */}
+          {TB(false, 'Insérer une image',  onImageClick, <ImageIcon size={13} />)}
+          {TB(false, 'Joindre un fichier', onFileClick,  <FileUp size={13} />)}
+          <SEP />
+
+          {/* Dessin Excalidraw */}
+          {TB(false, 'Dessin (Excalidraw)', onDrawClick, <Pencil size={13} />)}
+
+          {/* Équation LaTeX */}
+          {TB(false, 'Équation LaTeX (cliquer puis éditer)', () => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (editor.chain().focus() as any).insertInlineMath({ latex: 'E=mc^2' }).run();
+          }, <Sigma size={13} />)}
+
+          {/* Symboles spéciaux */}
+          <div className="relative shrink-0" ref={symbolsRef}>
+            <button type="button" title="Symboles spéciaux"
+              onClick={() => setSymbolsOpen(o => !o)}
+              className={`p-1.5 rounded transition-colors ${symbolsOpen ? 'bg-yellow-500/20 text-yellow-400' : 'text-gray-500 hover:text-gray-300 hover:bg-dark-700'}`}>
+              <span className="text-[12px] font-semibold leading-none">Ω</span>
+            </button>
+            {symbolsOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-2.5"
+                style={{ width: '272px' }}
+                onMouseDown={e => e.stopPropagation()}>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Symboles spéciaux</p>
+                <div className="grid grid-cols-10 gap-0.5">
+                  {SPECIAL_SYMBOLS.map(sym => (
+                    <button key={sym} type="button" title={sym}
+                      onClick={() => { editor.chain().focus().insertContent(sym).run(); setSymbolsOpen(false); }}
+                      className="w-6 h-6 text-sm text-gray-300 hover:bg-yellow-500/20 hover:text-yellow-300 rounded transition-colors flex items-center justify-center">
+                      {sym}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </>}
+
+        {/* ─── Onglet PARAGRAPHE ───────────────────────────────────────────── */}
+        {activeTab === 'paragraphe' && <>
+          {/* Alignement */}
+          {TB(editor.isActive({ textAlign: 'left' }),    'Aligner gauche (Ctrl+L)', () => editor.chain().focus().setTextAlign('left').run(),    <AlignLeft size={13} />)}
+          {TB(editor.isActive({ textAlign: 'center' }),  'Centrer (Ctrl+E)',        () => editor.chain().focus().setTextAlign('center').run(),  <AlignCenter size={13} />)}
+          {TB(editor.isActive({ textAlign: 'right' }),   'Aligner droite (Ctrl+R)', () => editor.chain().focus().setTextAlign('right').run(),   <AlignRight size={13} />)}
+          {TB(editor.isActive({ textAlign: 'justify' }), 'Justifier (Ctrl+J)',      () => editor.chain().focus().setTextAlign('justify').run(), <AlignJustify size={13} />)}
+          <SEP />
+
+          {/* Retrait */}
+          {TB(false, 'Diminuer le retrait (Shift+Tab)', () => editor.chain().focus().outdent().run(), <IndentDecrease size={13} />)}
+          {TB(false, 'Augmenter le retrait (Tab)',      () => editor.chain().focus().indent().run(),  <IndentIncrease size={13} />)}
+          <SEP />
+
+          {/* Interligne */}
+          <select
+            title="Interligne"
+            value={lineSpacing}
+            onChange={e => applyLineSpacing(e.target.value)}
+            className="text-[11px] bg-dark-800 border border-dark-700 text-gray-400 rounded px-1.5 py-1 focus:outline-none cursor-pointer w-[60px]"
+          >
+            {LINE_SPACINGS.map(ls => (
+              <option key={ls.value} value={ls.value}>{ls.label}</option>
+            ))}
+          </select>
+          <SEP />
+
+          {/* Listes */}
+          {TB(editor.isActive('bulletList'),  'Liste à puces',   () => editor.chain().focus().toggleBulletList().run(),  <List size={13} />)}
+          {TB(editor.isActive('orderedList'), 'Liste numérotée', () => editor.chain().focus().toggleOrderedList().run(), <ListOrdered size={13} />)}
+          {TB(editor.isActive('taskList'),    'Liste de tâches', () => editor.chain().focus().toggleTaskList().run(),    <ListChecks size={13} />)}
+          <SEP />
+
+          {/* Blocs */}
+          {TB(editor.isActive('blockquote'), 'Citation',              () => editor.chain().focus().toggleBlockquote().run(), <Quote size={13} />)}
+          {TB(editor.isActive('codeBlock'),  'Bloc de code',          onCodeBlockClick,  <Code2 size={13} />)}
+          {TB(false,                         'Séparateur horizontal', () => editor.chain().focus().setHorizontalRule().run(), <Minus size={13} />)}
+        </>}
+
+        {/* ─── Onglet OUTILS ───────────────────────────────────────────────── */}
+        {activeTab === 'outils' && <>
+          {/* Recherche & Remplacement */}
+          <div className="relative shrink-0">
+            {TB(findOpen, 'Rechercher & Remplacer (Ctrl+H)', () => setFindOpen(o => !o), <SearchCode size={13} />)}
+            {findOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl p-3 min-w-[260px]"
+                onMouseDown={e => e.stopPropagation()}>
+                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Rechercher & Remplacer</p>
+                <div className="flex gap-1.5 mb-1.5">
+                  <input value={findVal} onChange={e => setFindVal(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && doFind()}
+                    placeholder="Rechercher…"
+                    className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500/50"
+                  />
+                  <button type="button" onClick={doFind}
+                    className="text-xs bg-dark-700 text-gray-400 hover:text-gray-200 px-2 py-1 rounded hover:bg-dark-600 transition-colors">
+                    Trouver
+                  </button>
+                </div>
+                <div className="flex gap-1.5">
+                  <input value={replaceVal} onChange={e => setReplaceVal(e.target.value)}
+                    placeholder="Remplacer par…"
+                    className="flex-1 text-xs bg-dark-700 border border-dark-600 rounded px-2 py-1.5 text-gray-300 focus:outline-none focus:border-yellow-500/50"
+                  />
+                  <div className="flex flex-col gap-1">
+                    <button type="button" title="Remplacer" onClick={doReplace}
+                      className="text-[10px] bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded hover:bg-yellow-500/30 whitespace-nowrap">
+                      <Replace size={11} />
+                    </button>
+                    <button type="button" onClick={doReplaceAll}
+                      className="text-[10px] bg-yellow-500/10 text-yellow-500/70 px-2 py-1 rounded hover:bg-yellow-500/20 whitespace-nowrap">
+                      Tout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <SEP />
+
+          {/* Import / Export documents */}
+          {TB(false, 'Importer un fichier Word (.docx)', onImportDocxClick, <FilePlus size={13} />)}
+          {TB(false, 'Exporter en Word (.docx)',         onExportDocxClick, <FileDown size={13} />)}
+          {TB(false, 'Importer un PDF (texte)',          onImportPdfClick,  <BookOpen size={13} />)}
+          <SEP />
+          {TB(false, 'Exporter en Markdown', onExportMd,  <FileText size={13} />)}
+          {TB(false, 'Imprimer / PDF',       onExportPdf, <Download size={13} />)}
+        </>}
+
       </div>
     </div>
   );
@@ -1119,6 +1251,8 @@ function NotesSidebar({
   const [tagInputSuggs,   setTagInputSuggs]   = useState<string[]>([]);
   const [tagInputSuggIdx, setTagInputSuggIdx] = useState(-1);
   const [expandedIds,     setExpandedIds]     = useState<Record<string, boolean>>({});
+  /** Terme de recherche interne à la sidebar — filtre dossiers et tags */
+  const [folderSearch,    setFolderSearch]    = useState('');
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds(prev => ({ ...prev, [id]: !(prev[id] ?? true) }));
   }, []);
@@ -1235,189 +1369,289 @@ function NotesSidebar({
 
       <div className="mx-2 border-t border-dark-700" />
 
-      {/* Dossiers normaux — arbre récursif */}
-      {folderTree.length > 0 && (
-        <div className="pt-1 pb-1">
-          <div className="px-3 mb-1">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Dossiers</span>
-          </div>
-          {folderTree.map(node => (
-            <FolderTreeItem
-              key={node.id}
-              node={node}
-              depth={0}
-              view={view}
-              onSelectView={onSelectView}
-              editingId={editingId}
-              editingName={editingName}
-              setEditingId={setEditingId}
-              setEditingName={setEditingName}
-              commitRename={commitRename}
-              menuId={menuId}
-              setMenuId={setMenuId}
-              counts={counts}
-              onDeleteFolder={handleDeleteFolder}
-              onCreateSubfolder={onCreateSubfolder}
-              expandedIds={expandedIds}
-              toggleExpand={toggleExpand}
-            />
-          ))}
-        </div>
-      )}
+      {/* Barre de recherche dossiers/tags — filtre la sidebar uniquement */}
+      <div className="px-2 pt-2 pb-1 relative">
+        <Search size={11} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        <input
+          type="text"
+          aria-label="Rechercher un dossier ou tag"
+          placeholder="Dossiers, tags…"
+          value={folderSearch}
+          onChange={e => setFolderSearch(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Escape') setFolderSearch(''); }}
+          className="w-full pl-6 pr-6 py-1 bg-dark-800 border border-dark-700 rounded-lg text-[11px] text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-yellow-500/50"
+        />
+        {folderSearch && (
+          <button
+            type="button"
+            onClick={() => setFolderSearch('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+            aria-label="Effacer la recherche"
+          >
+            <X size={10} />
+          </button>
+        )}
+      </div>
 
-      {/* Dossiers intelligents — liste plate */}
-      {smartFolders.length > 0 && (
-        <div className="pt-1 pb-1">
-          <div className="px-3 mb-1">
-            <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Intelligents</span>
-          </div>
-          <div className="space-y-0.5 px-2">
-            {smartFolders.map(f => (
-              <div key={f.id} className="relative group">
-                {editingId === f.id ? (
-                  <input
-                    aria-label="Nom du dossier"
-                    autoFocus
-                    value={editingName}
-                    onChange={e => setEditingName(e.target.value)}
-                    onBlur={() => commitRename(f.id)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter')  commitRename(f.id);
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                    className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none"
-                  />
-                ) : (
-                  <button
-                    type="button"
-                    className={row({ type: 'folder', id: f.id })}
-                    onClick={() => onSelectView({ type: 'folder', id: f.id })}
-                  >
-                    <span className="flex items-center gap-2 truncate min-w-0">
-                      <Zap size={12} className="text-yellow-400 shrink-0" />
-                      <span className="truncate">{f.name}</span>
-                    </span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        title="Options du dossier"
-                        onClick={e => { e.stopPropagation(); setMenuId(menuId === f.id ? null : f.id); }}
-                        className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-dark-600 transition-opacity"
+      {/* Mode recherche : liste plate OU sections normales (dossiers + tags) */}
+      {folderSearch.trim() ? (
+        /* Résultats de recherche — liste plate de tous les dossiers + tags correspondants.
+           Quand folderSearch est non-vide, on remplace les sections normales par cette
+           liste plate (pattern VS Code / Notion "jump to"). Clic → navigue + vide la recherche. */
+        <div className="pt-1 pb-1 px-2 space-y-0.5">
+          {/* Dossiers normaux correspondants (tous niveaux, non-intelligents) */}
+          {folders
+            .filter(f => !f.isSmart && f.name.toLowerCase().includes(folderSearch.toLowerCase()))
+            .map(f => (
+              <button
+                key={f.id}
+                type="button"
+                className={row({ type: 'folder', id: f.id })}
+                onClick={() => { onSelectView({ type: 'folder', id: f.id }); setFolderSearch(''); }}
+              >
+                <span className="flex items-center gap-2 truncate min-w-0">
+                  <FolderOpen size={13} className="shrink-0" />
+                  <span className="truncate">{f.name}</span>
+                </span>
+                <span className="text-xs opacity-50 shrink-0">{counts.byFolder[f.id] ?? 0}</span>
+              </button>
+            ))
+          }
+          {/* Dossiers intelligents correspondants */}
+          {folders
+            .filter(f => f.isSmart && f.name.toLowerCase().includes(folderSearch.toLowerCase()))
+            .map(f => (
+              <button
+                key={f.id}
+                type="button"
+                className={row({ type: 'folder', id: f.id })}
+                onClick={() => { onSelectView({ type: 'folder', id: f.id }); setFolderSearch(''); }}
+              >
+                <span className="flex items-center gap-2 truncate min-w-0">
+                  <Zap size={12} className="text-yellow-400 shrink-0" />
+                  <span className="truncate">{f.name}</span>
+                </span>
+              </button>
+            ))
+          }
+          {/* Tags correspondants */}
+          {allDisplayTags
+            .filter(t => t.toLowerCase().includes(folderSearch.toLowerCase()))
+            .map(tag => (
+              <button
+                key={tag}
+                type="button"
+                className={row({ type: 'tag', tag })}
+                onClick={() => { onSelectView({ type: 'tag', tag }); setFolderSearch(''); }}
+              >
+                <span className="flex items-center gap-2 truncate min-w-0">
+                  <Hash size={12} className="shrink-0" />
+                  <span className="truncate">#{tag}</span>
+                </span>
+                <span className="text-xs opacity-50 shrink-0">{counts.byTag[tag] ?? 0}</span>
+              </button>
+            ))
+          }
+          {/* État vide — aucun résultat */}
+          {folders.filter(f => f.name.toLowerCase().includes(folderSearch.toLowerCase())).length === 0 &&
+           allDisplayTags.filter(t => t.toLowerCase().includes(folderSearch.toLowerCase())).length === 0 && (
+            <p className="text-[11px] text-gray-600 px-1 py-2">Aucun résultat</p>
+          )}
+        </div>
+      ) : (
+        /* Sidebar normale — arbre de dossiers + dossiers intelligents + tags */
+        <>
+          {/* Dossiers normaux — arbre récursif */}
+          {folderTree.length > 0 && (
+            <div className="pt-1 pb-1">
+              <div className="px-3 mb-1">
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Dossiers</span>
+              </div>
+              {folderTree.map(node => (
+                <FolderTreeItem
+                  key={node.id}
+                  node={node}
+                  depth={0}
+                  view={view}
+                  onSelectView={onSelectView}
+                  editingId={editingId}
+                  editingName={editingName}
+                  setEditingId={setEditingId}
+                  setEditingName={setEditingName}
+                  commitRename={commitRename}
+                  menuId={menuId}
+                  setMenuId={setMenuId}
+                  counts={counts}
+                  onDeleteFolder={handleDeleteFolder}
+                  onCreateSubfolder={onCreateSubfolder}
+                  expandedIds={expandedIds}
+                  toggleExpand={toggleExpand}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Dossiers intelligents — liste plate */}
+          {smartFolders.length > 0 && (
+            <div className="pt-1 pb-1">
+              <div className="px-3 mb-1">
+                <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Intelligents</span>
+              </div>
+              <div className="space-y-0.5 px-2">
+                {smartFolders.map(f => (
+                  <div key={f.id} className="relative group">
+                    {editingId === f.id ? (
+                      <input
+                        aria-label="Nom du dossier"
+                        autoFocus
+                        value={editingName}
+                        onChange={e => setEditingName(e.target.value)}
+                        onBlur={() => commitRename(f.id)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter')  commitRename(f.id);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        className="w-full px-2 py-1.5 text-sm bg-dark-700 border border-yellow-500/50 rounded-lg text-white focus:outline-none"
+                      />
+                    ) : (
+                      /* div role="button" — évite <button> imbriqué dans <button> (HTML invalide) */
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className={`${row({ type: 'folder', id: f.id })} cursor-pointer`}
+                        onClick={() => onSelectView({ type: 'folder', id: f.id })}
+                        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectView({ type: 'folder', id: f.id }); } }}
                       >
-                        <MoreHorizontal size={11} />
-                      </button>
-                    </span>
-                  </button>
-                )}
-                {menuId === f.id && (
-                  <div
-                    className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => { onEditSmartFolder(f.id); setMenuId(null); }}
-                      className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700 flex items-center gap-2"
-                    >
-                      <Zap size={12} className="text-yellow-400" /> Modifier les filtres
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFolder(f.id)}
-                      className="w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-dark-700"
-                    >
-                      Supprimer
-                    </button>
+                        <span className="flex items-center gap-2 truncate min-w-0">
+                          <Zap size={12} className="text-yellow-400 shrink-0" />
+                          <span className="truncate">{f.name}</span>
+                        </span>
+                        <span className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            title="Options du dossier"
+                            onClick={e => { e.stopPropagation(); setMenuId(menuId === f.id ? null : f.id); }}
+                            className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-dark-600 transition-opacity"
+                          >
+                            <MoreHorizontal size={11} />
+                          </button>
+                        </span>
+                      </div>
+                    )}
+                    {menuId === f.id && (
+                      <div
+                        className="absolute right-0 top-full z-50 mt-1 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden w-44"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => { onEditSmartFolder(f.id); setMenuId(null); }}
+                          className="w-full px-3 py-2 text-sm text-left text-gray-300 hover:bg-dark-700 flex items-center gap-2"
+                        >
+                          <Zap size={12} className="text-yellow-400" /> Modifier les filtres
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFolder(f.id)}
+                          className="w-full px-3 py-2 text-sm text-left text-red-400 hover:bg-dark-700"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="mx-2 border-t border-dark-700" />
+
+          {/* Tags — toujours visible avec bouton "+" pour créer */}
+          <div className="px-2 pt-2 pb-2">
+            <div className="px-1 mb-1 flex items-center justify-between">
+              <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tags</span>
+              <button
+                type="button"
+                title="Nouveau tag"
+                onClick={e => { e.stopPropagation(); setShowNewTag(true); }}
+                className="text-gray-500 hover:text-yellow-400 transition-colors p-0.5 rounded"
+              >
+                <Plus size={11} />
+              </button>
+            </div>
+
+            {/* Champ de création inline + suggestions */}
+            {showNewTag && (
+              <div className="mb-1 relative">
+                <input
+                  aria-label="Nouveau tag"
+                  type="text"
+                  autoFocus
+                  placeholder="mon-tag"
+                  value={newTagInput}
+                  onChange={e => handleTagInputChange(e.target.value)}
+                  onKeyDown={handleTagInputKeyDown}
+                  onBlur={() => setTimeout(commitNewTag, 150)}
+                  onFocus={() => handleTagInputChange(newTagInput)}
+                  className="w-full px-2 py-1 text-xs bg-dark-700 border border-yellow-500/50 rounded text-white focus:outline-none placeholder-gray-600"
+                />
+                {tagInputSuggs.length > 0 && (
+                  <div className="absolute left-0 top-full z-50 w-full mt-0.5 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden">
+                    {tagInputSuggs.map((t, i) => (
+                      <button key={t} type="button"
+                        onMouseDown={e => { e.preventDefault(); applyTagInputSugg(t); }}
+                        className={`w-full px-2 py-1 text-xs text-left flex items-center gap-1.5 transition-colors ${
+                          i === tagInputSuggIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-300 hover:bg-dark-700'
+                        }`}
+                      ><Hash size={10} />#{t}</button>
+                    ))}
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="mx-2 border-t border-dark-700" />
-
-      {/* Tags — toujours visible avec bouton "+" pour créer */}
-      <div className="px-2 pt-2 pb-2">
-        <div className="px-1 mb-1 flex items-center justify-between">
-          <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">Tags</span>
-          <button
-            type="button"
-            title="Nouveau tag"
-            onClick={e => { e.stopPropagation(); setShowNewTag(true); }}
-            className="text-gray-500 hover:text-yellow-400 transition-colors p-0.5 rounded"
-          >
-            <Plus size={11} />
-          </button>
-        </div>
-
-        {/* Champ de création inline + suggestions */}
-        {showNewTag && (
-          <div className="mb-1 relative">
-            <input
-              aria-label="Nouveau tag"
-              type="text"
-              autoFocus
-              placeholder="mon-tag"
-              value={newTagInput}
-              onChange={e => handleTagInputChange(e.target.value)}
-              onKeyDown={handleTagInputKeyDown}
-              onBlur={() => setTimeout(commitNewTag, 150)}
-              onFocus={() => handleTagInputChange(newTagInput)}
-              className="w-full px-2 py-1 text-xs bg-dark-700 border border-yellow-500/50 rounded text-white focus:outline-none placeholder-gray-600"
-            />
-            {tagInputSuggs.length > 0 && (
-              <div className="absolute left-0 top-full z-50 w-full mt-0.5 bg-dark-800 border border-dark-600 rounded-lg shadow-2xl overflow-hidden">
-                {tagInputSuggs.map((t, i) => (
-                  <button key={t} type="button"
-                    onMouseDown={e => { e.preventDefault(); applyTagInputSugg(t); }}
-                    className={`w-full px-2 py-1 text-xs text-left flex items-center gap-1.5 transition-colors ${
-                      i === tagInputSuggIdx ? 'bg-yellow-500/20 text-yellow-300' : 'text-gray-300 hover:bg-dark-700'
-                    }`}
-                  ><Hash size={10} />#{t}</button>
-                ))}
-              </div>
             )}
-          </div>
-        )}
 
-        {allDisplayTags.length === 0 && !showNewTag && (
-          <p className="text-[11px] text-gray-600 px-1 py-1">
-            Aucun tag — utilise #tag dans tes notes ou crée-en un avec +
-          </p>
-        )}
+            {allDisplayTags.length === 0 && !showNewTag && (
+              <p className="text-[11px] text-gray-600 px-1 py-1">
+                Aucun tag — utilise #tag dans tes notes ou crée-en un avec +
+              </p>
+            )}
 
-        <div className="space-y-0.5">
-          {allDisplayTags.map(tag => (
-            <div key={tag} className="group relative">
-              <button
-                type="button"
-                className={row({ type: 'tag', tag })}
-                onClick={() => onSelectView({ type: 'tag', tag })}
-              >
-                <span className="flex items-center gap-2">
-                  <Hash size={12} /><span className="truncate">{tag}</span>
-                </span>
-                <span className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs opacity-50">{counts.byTag[tag] ?? 0}</span>
-                  {/* Bouton supprimer uniquement sur les tags manuels */}
-                  {manualTags.includes(tag) && (
-                    <button
-                      type="button"
-                      title="Supprimer le tag"
-                      onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-red-400 transition-opacity"
-                    >
-                      <X size={10} />
-                    </button>
-                  )}
-                </span>
-              </button>
+            <div className="space-y-0.5">
+              {allDisplayTags.map(tag => (
+                <div key={tag} className="group relative">
+                  {/* div role="button" — évite <button> imbriqué dans <button> (suppression tag) */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`${row({ type: 'tag', tag })} cursor-pointer`}
+                    onClick={() => onSelectView({ type: 'tag', tag })}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectView({ type: 'tag', tag }); } }}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Hash size={12} /><span className="truncate">{tag}</span>
+                    </span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      <span className="text-xs opacity-50">{counts.byTag[tag] ?? 0}</span>
+                      {/* Bouton supprimer uniquement sur les tags manuels */}
+                      {manualTags.includes(tag) && (
+                        <button
+                          type="button"
+                          title="Supprimer le tag"
+                          onClick={e => { e.stopPropagation(); onDeleteTag(tag); }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:text-red-400 transition-opacity"
+                        >
+                          <X size={10} />
+                        </button>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Corbeille — toujours visible */}
       <div className="mx-2 border-t border-dark-700 mt-auto" />
@@ -2637,7 +2871,9 @@ export default function NotesEditor() {
               </div>
 
               {/* Barre d'outils rich text + éditeur TipTap */}
-              <div className="relative flex-1 flex flex-col overflow-hidden">
+              {/* En focusMode : min-h-0 obligatoire pour que le scroll-wrapper enfant puisse scroller
+               *  (sans min-h-0, min-height:auto flex empêche overflow-y-auto de se déclencher) */}
+              <div className={`relative flex-1 min-h-0 flex flex-col ${focusMode ? '' : 'overflow-hidden'}`}>
                 {!isReadOnly && (
                   <EditorToolbar
                     editor={editor}
@@ -2655,6 +2891,18 @@ export default function NotesEditor() {
                     onImportPdfClick={() => pdfInputRef.current?.click()}
                   />
                 )}
+
+                {/* ══ SCROLL UNIQUE + PAGE CENTRÉE (focusMode) ══════════════════
+                 *  focusMode  : un seul scroll vertical (flex-1 min-h-0 overflow-y-auto).
+                 *               min-h-0 obligatoire — sans ça min-height:auto (flex défaut)
+                 *               empêche overflow-y-auto de se déclencher.
+                 *               Page centrée à 850px max, clic dans les marges → focus éditeur.
+                 *  hors focus : divs transparentes (flex-1 flex flex-col min-h-0). */}
+                <div
+                  className={focusMode ? 'flex-1 min-h-0 overflow-y-auto' : 'flex-1 flex flex-col min-h-0'}
+                  onClick={focusMode ? () => editor?.commands.focus('end') : undefined}
+                >
+                <div className={focusMode ? 'max-w-[1080px] mx-auto w-full py-8' : 'flex-1 flex flex-col min-h-0'}>
 
                 {/* Titre + autocomplete */}
                 <div className="relative">
@@ -2890,9 +3138,10 @@ export default function NotesEditor() {
                     </div>
                   </BubbleMenu>
                 )}
+                {/* En focusMode : le scroll est géré par le scroll-wrapper parent → pas d'overflow-y ici */}
                 <EditorContent
                   editor={editor}
-                  className="flex-1 px-6 py-2 overflow-y-auto min-h-0"
+                  className={focusMode ? 'px-6 py-2' : 'flex-1 px-6 py-2 overflow-y-auto min-h-0'}
                 />
                 {/* Slash command menu */}
                 {slashMenu && (() => {
@@ -2946,19 +3195,21 @@ export default function NotesEditor() {
                     </span>
                   </div>
                 )}
+                {/* Tags — dans la page centrée pour scroller avec le contenu en focusMode */}
+                {selectedNote.tags.length > 0 && (
+                  <div className="px-6 py-2.5 border-t border-dark-800 flex items-center gap-1.5 flex-wrap">
+                    <Hash size={11} className="text-gray-600" />
+                    {selectedNote.tags.map(t => (
+                      <span key={t}
+                        onClick={() => { if (!isTrash) setView({ type: 'tag', tag: t }); }}
+                        className={`text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full transition-colors ${!isTrash ? 'cursor-pointer hover:bg-yellow-500/20' : ''}`}
+                      >#{t}</span>
+                    ))}
+                  </div>
+                )}
+                </div>{/* fin page-centered (max-w-[1080px]) */}
+                </div>{/* fin scroll-wrapper */}
               </div>
-
-              {selectedNote.tags.length > 0 && (
-                <div className="px-6 py-2.5 border-t border-dark-800 flex items-center gap-1.5 flex-wrap">
-                  <Hash size={11} className="text-gray-600" />
-                  {selectedNote.tags.map(t => (
-                    <span key={t}
-                      onClick={() => { if (!isTrash) setView({ type: 'tag', tag: t }); }}
-                      className={`text-xs text-yellow-500 bg-yellow-500/10 px-2 py-0.5 rounded-full transition-colors ${!isTrash ? 'cursor-pointer hover:bg-yellow-500/20' : ''}`}
-                    >#{t}</span>
-                  ))}
-                </div>
-              )}
             </>
           )}
         </div>
@@ -3104,14 +3355,16 @@ export default function NotesEditor() {
 
 // ── NoteCard ─────────────────────────────────────────────────────────────────
 
-function NoteCard({ note, selected, onSelect, trashInfo }: {
+// forwardRef requis pour AnimatePresence mode="popLayout" (framer-motion passe une ref au composant)
+const NoteCard = forwardRef<HTMLDivElement, {
   note:       Note;
   selected:   boolean;
   onSelect:   (n: Note) => void;
   trashInfo?: number;
-}) {
+}>(function NoteCard({ note, selected, onSelect, trashInfo }, ref) {
   return (
     <motion.div
+      ref={ref}
       data-note-id={note.id}
       layout
       initial={{ opacity: 1 }}
@@ -3147,4 +3400,4 @@ function NoteCard({ note, selected, onSelect, trashInfo }: {
       </button>
     </motion.div>
   );
-}
+});

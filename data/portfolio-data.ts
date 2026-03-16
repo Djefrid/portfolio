@@ -1,7 +1,37 @@
+/**
+ * ============================================================================
+ * DONNÉES STATIQUES DU PORTFOLIO — portfolio-data.ts
+ * ============================================================================
+ *
+ * Ce fichier contient TOUTES les données affichées sur le portfolio,
+ * organisées en versions bilingues (français et anglais).
+ *
+ * Rôle dans l'architecture :
+ * - Sert de FALLBACK si Firebase est indisponible ou non configuré
+ * - Est automatiquement mis à jour par l'API /api/sync-data lorsque
+ *   l'admin sauvegarde une modification (en développement local uniquement)
+ * - En production (Vercel), Firebase est la source de vérité principale
+ *
+ * Structure :
+ * - personalInfoBilingual : profil personnel (nom, titre, stack, liens)
+ * - aboutInfoBilingual    : section "À propos" (paragraphes + points clés)
+ * - projectsBilingual     : liste des projets avec description complète
+ * - skillsBilingual       : catégories de compétences
+ *
+ * Les exports "legacy" en bas du fichier (personalInfo, aboutInfo, etc.)
+ * sont conservés pour la compatibilité avec d'anciens imports.
+ * ============================================================================
+ */
+
 import type { PersonalInfo, AboutInfo, Project, SkillCategory } from '@/types';
 
-// ===== BILINGUAL DATA =====
+// ===== DONNÉES BILINGUES =====
 
+/**
+ * Informations personnelles du développeur, en français et en anglais.
+ * Le champ `stack` liste toutes les technologies connues (utilisé dans la section Hero).
+ * `openToWork` contrôle l'affichage du badge "Disponible" sur le Hero.
+ */
 export const personalInfoBilingual = {
   fr: {
     name: "Djefrid Byli Fotue Kuate",
@@ -102,11 +132,16 @@ export const personalInfoBilingual = {
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
     cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
-    location: "Montréal, QC",
+    location: "Montreal, QC",
     openToWork: true
   }
 };
 
+/**
+ * Contenu de la section "À propos" en français et en anglais.
+ * - `paragraphs` : texte long présentant le parcours (affiché avec accordion)
+ * - `highlights` : points clés résumés (affichés sous forme de liste à cocher)
+ */
 export const aboutInfoBilingual = {
   fr: {
     paragraphs: [
@@ -118,53 +153,77 @@ export const aboutInfoBilingual = {
   },
   en: {
     paragraphs: [
-      "Full-stack developer with a dual background in web development and IT systems, built through a DEC in Computer Technology. I build complete applications — from UI to infrastructure — with a rigorous approach and a constant focus on quality.\n\nDuring my web development internship, I worked on real-world projects: database work, feature improvements, and setting up full local development environments. That experience reinforced my commitment to clean, reliable solutions.\n\nOn the systems side, I'm comfortable installing and maintaining Windows and Linux environments, working with virtualization tools (Proxmox, VMware), and handling network service fundamentals — giving me a full-stack perspective at every level of a project.\n\nI naturally integrate generative AI tools into my workflow to move faster without cutting corners: automation, code review, documentation — always grounded in solid engineering practices.\n\nSelf-driven and curious, I'm constantly looking to grow, whether in web development or IT infrastructure."
+      "Full-stack developer with dual skills in web development and computer systems, stemming from a DEC in computer science. I build complete applications - from the interface to the infrastructure - with a rigorous methodology and a constant concern for quality.\n\nMy web development internship gave me the opportunity to work on real-life projects: handling databases, upgrading existing functionalities and setting up development environments. An experience that confirmed my taste for robust solutions and a job well done.\n\nAs far as systems are concerned, I've mastered the installation and maintenance of Windows and Linux environments, virtualization (Proxmox, VMware) and the basics of network services - which means I can intervene at all levels of a project.\n\nI naturally integrate generative AI tools into my workflow to speed up development without sacrificing quality: automation, code review, documentation - always respecting good software engineering practices.\n\nCurious and autonomous, I'm always looking to progress, both in web development and infrastructure."
     ],
     highlights: [
-      "DEC in Computer Technology – programming & systems.\nWeb development internship with real database projects.\nFull-stack mindset, end-to-end project ownership.\nCode quality and software engineering best practices."
+      "DEC in computer science - programming & systems.\nInternship in web development with databases.\nFull-stack orientation, global project vision.\nCode quality and best practices."
     ]
   }
 };
 
+/**
+ * Liste des projets en français et en anglais.
+ * Chaque projet contient :
+ * - id         : identifiant Firestore (utilisé comme clé React)
+ * - title      : nom du projet
+ * - description: résumé court (affiché sur la carte)
+ * - longDescription : description détaillée (affichée dans la modale)
+ * - stack      : technologies utilisées (badges)
+ * - features   : fonctionnalités principales (liste modale)
+ * - challenges : défis techniques résolus (liste modale)
+ * - githubUrl  : lien vers le dépôt GitHub
+ * - demoUrl    : lien vers la démonstration en ligne (optionnel)
+ * - image      : chemin de l'image (vide = pas d'image)
+ * - featured   : true = mis en avant
+ */
 export const projectsBilingual = {
   fr: [
     {
       id: "rPXnbUjbyWR4pGtfteRW",
       title: "Portfolio — Next.js & Firebase",
-      description: "Site portfolio production-ready : CMS maison piloté par Firebase, contenu bilingue FR/EN, animations soignées et SEO complet — déployé en continu sur Vercel.",
-      longDescription: "Conçu pour refléter mes compétences autant que les présenter, ce portfolio est une application Next.js 14 full-stack déployée en production sur Vercel. Toutes les données (projets, compétences, profil) sont stockées dans Firebase Firestore et administrées via un panneau sécurisé — aucune modification de code requise pour mettre le contenu à jour.\n\nL'interface est entièrement bilingue FR/EN avec traduction automatique des nouveaux contenus via une API interne. Chaque décision d'architecture vise la performance : chargement Firebase en parallèle, fallback statique si Firebase est indisponible, et thème sombre/clair persistant sans flash d'hydratation (CLS ≈ 0).\n\nLe SEO est traité en profondeur : image Open Graph 1200×630 générée dynamiquement via Edge Runtime, balisage JSON-LD Schema.org, hreflang FR/EN, sitemap et robots.txt dynamiques. Le formulaire de contact intègre trois couches de protection anti-spam : honeypot invisible, vérification du timing et rate limiting par IP.",
+      description: "Portfolio production-ready : CMS maison piloté par Firebase, système de notes privées style Apple Notes, contenu bilingue FR/EN, sécurité 5 couches, animations soignées et SEO complet — déployé en continu sur Vercel.",
+      longDescription: "Conçu pour refléter mes compétences autant que les présenter, ce portfolio est une application Next.js 14 full-stack déployée sur Vercel. Il intègre un panneau d'administration complet piloté par Firebase, un éditeur de notes privées riche (style Word, TipTap 3), un système de traduction automatique FR/EN via DeepL, et une architecture de sécurité à 5 couches : CSP nonce-based, CSRF, Firebase App Check reCAPTCHA v3, Auth Firebase avec double garde admin (isAdmin), et règles Firestore/Storage strictes. Le tout avec SEO avancé, animations framer-motion et mode clair/sombre.",
       stack: [
         "Next.js 14 (App Router)",
         "TypeScript",
         "Tailwind CSS",
         "Firebase / Firestore",
-        "Firebase Authentication",
+        "Firebase Authentication (email + Google OAuth)",
+        "Firebase App Check (reCAPTCHA v3)",
         "Framer Motion",
-        "lucide-react",
-        "clsx",
-        "i18n (custom)",
-        "next-themes",
+        "TipTap 3 (éditeur riche style Word)",
+        "Resend (formulaire de contact)",
         "shadcn/ui",
-        "Resend",
-        "Vercel Analytics",
-        "Vercel"
+        "next-themes",
+        "DeepL API (traduction automatique FR↔EN)",
+        "Vercel (déploiement continu)"
       ],
       features: [
-        "Panneau d'administration sécurisé (Firebase Auth) — mise à jour du contenu sans toucher au code",
-        "Contenu bilingue FR/EN avec traduction automatique via API interne",
-        "Thème sombre/clair persistant sans flash d'hydratation (next-themes + SSR)",
-        "Formulaire de contact anti-spam 3 couches : honeypot, timing check, rate limiting par IP",
-        "Animations Framer Motion : entrées au scroll, hover spring sur les cartes, menu mobile animé",
-        "Image Open Graph 1200×630 générée dynamiquement (Next.js Edge Runtime)",
-        "SEO complet : JSON-LD Schema.org, hreflang FR/EN, sitemap et robots.txt dynamiques",
-        "Fallback statique automatique si Firebase est indisponible"
+        "Panneau d'administration sécurisé (Firebase Auth email + Google OAuth) — mise à jour sans toucher au code",
+        "Système de notes privées style Apple Notes : dossiers, dossiers intelligents, tags, corbeille 30 jours",
+        "Éditeur de notes riche TipTap 3 (style Word) : ribbon 4 onglets, polices, couleurs, tableaux, LaTeX, code highlight, Excalidraw",
+        "Autocomplétion des tags dans l'éditeur (#) avec navigation clavier",
+        "Recherche temps réel dans les notes (Ctrl+F) — filtre titre + contenu instantanément",
+        "Architecture sécurité 5 couches : CSP nonce, CSRF Origin==Host, App Check reCAPTCHA v3, Auth Firebase, Firestore Rules",
+        "Double garde admin côté client : utilisateur authentifié ET email dans la liste admin (isAdmin)",
+        "Content-Security-Policy nonce-based par requête — élimine unsafe-inline pour les scripts",
+        "Protection CSRF sur toutes les API Routes — rejet 403 si Origin ≠ Host",
+        "Règles Firestore/Storage strictes : liste d'emails admin hardcodée, catch-all deny",
+        "Contenu bilingue FR/EN avec traduction automatique DeepL à la sauvegarde",
+        "SEO complet : JSON-LD Schema.org, Open Graph, Twitter Card, sitemap.xml, robots.txt, hreflang",
+        "Formulaire de contact Resend avec protection anti-spam et validation côté serveur",
+        "Mode clair/sombre animé (next-themes), animations scroll bidirectionnelles (framer-motion)",
+        "Déploiement continu sur Vercel avec variables d'environnement sécurisées"
       ],
       challenges: [
         "Synchroniser Firebase Firestore avec le rendu SSR Next.js sans bloquer le LCP",
         "Éliminer le flash de thème à l'hydratation (suppressHydrationWarning + placeholder SSR)",
         "Architecturer un système bilingue acceptant deux formats de données Firebase (legacy et nouveau)",
-        "Sécuriser le formulaire contre les bots sans CAPTCHA intrusif",
-        "Générer une OG image dynamique performante via Edge Runtime avec inline styles uniquement"
+        "Intégrer Firebase App Check reCAPTCHA v3 avec une CSP stricte nonce-based (frame-src, script-src, connect-src)",
+        "Corriger le bug de copier-coller : Chrome ajoute image/png même pour du texte — détection hasText avant interception image",
+        "Synchronisation Firestore vers état React sans écraser le contenu lors du focus éditeur",
+        "Implémenter un éditeur riche TipTap 3 SSR-compatible avec immediatelyRender:false et setContent emitUpdate:false",
+        "Créer une toolbar Ribbon 4 onglets style Word avec barre de progression upload intégrée"
       ],
       githubUrl: "https://github.com/Djefrid/portfolio",
       demoUrl: "https://portfolio.djefrid.ca",
@@ -173,7 +232,7 @@ export const projectsBilingual = {
     },
     {
       id: "rgFqPLVlfOPgyzgsmqOb",
-      title: "Boutique Africaine – E-commerce Afro-Minimaliste",
+      title: "Boutique en ligne — Next.js & Supabase",
       description: "E-commerce afro-minimaliste clé en main : catalogue géré via Sanity CMS, paiement Stripe avec Apple/Google Pay, panier persistant et prise de rendez-vous intégrée via Cal.com.",
       longDescription: "Projet e-commerce complet au design \"Afro-Minimaliste\", conçu pour offrir une expérience d'achat rapide et premium. Le frontend est développé avec Next.js (App Router) et Tailwind CSS pour un rendu performant, responsive et optimisé SEO. Le contenu (produits, catégories, images, tags, stock, recommandations) est administré via Sanity (Headless CMS), permettant une gestion de contenu autonome, sans toucher au code.\n\nLe checkout utilise Stripe Checkout, activant Apple Pay et Google Pay sur appareils compatibles, avec un parcours optimisé incluant un choix Livraison / Retrait magasin. Un webhook Stripe sécurise la confirmation des paiements et enregistre les commandes. Une page \"Rendez-vous\" intègre Cal.com pour réserver des créneaux de conseils personnalisés.\n\nLe projet inclut les pages légales indispensables (CGV, Confidentialité, Retours, Mentions légales) et une configuration prête au déploiement sur VPS via Docker.",
       stack: [
@@ -215,7 +274,7 @@ export const projectsBilingual = {
     },
     {
       id: "u2Pg23yoHgUtKV9GFG6n",
-      title: "Facttrack — Application SaaS de facturation full-stack",
+      title: "Facttrack — SaaS de facturation Vue.js & Django",
       description: "Outil SaaS full-stack pour professionnaliser sa facturation : gestion clients, factures PDF détaillées et envoi email — pensé pour les indépendants.",
       longDescription: "Facttrack est une application SaaS full-stack conçue pour les freelances et petites équipes qui veulent professionnaliser leur facturation sans complexité. L'outil couvre tout le cycle : gestion des clients, création de factures détaillées avec lignes de service et calcul automatique des totaux, export PDF prêt à envoyer et envoi direct par email depuis l'application.\n\nL'architecture repose sur un backend Django REST Framework sécurisé par JWT et un frontend Vue 3 + Vite + TypeScript, garantissant fiabilité, rapidité et précision financière (montants gérés en Decimal pour éviter les erreurs d'arrondi).",
       stack: [
@@ -247,46 +306,98 @@ export const projectsBilingual = {
       demoUrl: "https://facttrack.ca",
       image: "",
       featured: true
+    },
+    {
+      id: "WZ6VfetH7uwUryGiNCnj",
+      title: "FastCuts",
+      description: "Transformez automatiquement vos vidéos longues en Shorts viraux grâce à l'IA.",
+      longDescription: "FastCuts.app est une plateforme SaaS révolutionnaire conçue pour les créateurs de contenu et les marketeurs. Elle utilise l'intelligence artificielle pour analyser automatiquement des vidéos YouTube longues, identifier les moments les plus captivants, les recadrer au format vertical (9:16) et ajouter des sous-titres dynamiques style \"Hormozi\" pour maximiser la rétention et la viralité sur TikTok, Instagram Reels et YouTube Shorts.",
+      stack: [
+        "Next.js (React)",
+        "TypeScript",
+        "Tailwind CSS",
+        "Shadcn/ui",
+        "Prisma ORM",
+        "PostgreSQL",
+        "Stripe API",
+        "Clerk Auth",
+        "Python",
+        "FFmpeg",
+        "MediaPipe",
+        "OpenAI API (GPT-4o)",
+        "WhisperX",
+        "Redis",
+        "BullMQ",
+        "Cloudflare R2"
+      ],
+      features: [
+        "Analyse automatique de vidéos via URL YouTube.",
+        "Détection IA des moments viraux (Hooks, contenu, conclusion).",
+        "Recadrage intelligent (Smart Crop) pour suivre le locuteur en format 9:16.",
+        "Sous-titres automatiques stylisés et synchronisés mot-par-mot.",
+        "Éditeur en ligne pour personnaliser la police, la couleur et le style.",
+        "Gestion des crédits et abonnements via Stripe."
+      ],
+      challenges: [
+        "Contourner le GIL (Global Interpreter Lock) de Python pour le rendu FFmpeg parallèle.",
+        "Implémenter le suivi de visage en temps réel avec MediaPipe pour le Smart Crop.",
+        "Optimiser le temps de rendu vidéo en utilisant l'encodage GPU (NVENC).",
+        "Gérer la file d'attente des tâches lourdes avec Redis et BullMQ.",
+        "Générer des sous-titres .ass complexes à partir du JSON de WhisperX."
+      ],
+      githubUrl: "https://github.com/Djefrid/fastcuts",
+      demoUrl: "https://fastcuts.ca",
+      image: "",
+      featured: true
     }
   ],
   en: [
     {
       id: "rPXnbUjbyWR4pGtfteRW",
-      title: "Portfolio — Next.js & Firebase",
-      description: "Production-ready portfolio site: in-house Firebase-powered CMS, bilingual FR/EN content, polished animations and complete SEO — continuously deployed on Vercel.",
-      longDescription: "Designed to reflect my skills as much as to present them, this portfolio is a full-stack Next.js 14 application deployed in production on Vercel. All data (projects, skills, profile) is stored in Firebase Firestore and managed via a secure admin panel — no code changes required to update content.\n\nThe interface is fully bilingual FR/EN with automatic translation of new content via an internal API. Every architectural decision targets performance: parallel Firebase loading, static fallback if Firebase is unavailable, and persistent dark/light theme without hydration flash (CLS ≈ 0).\n\nSEO is handled in depth: Open Graph 1200×630 image generated dynamically via Edge Runtime, JSON-LD Schema.org markup, hreflang FR/EN, sitemap and dynamic robots.txt. The contact form includes three layers of spam protection: invisible honeypot, timing check, and IP rate limiting.",
+      title: "Portfolio - Next.js & Firebase",
+      description: "Portfolio production-ready: in-house CMS driven by Firebase, Apple Notes-style private notes system, bilingual FR/EN content, 5-layer security, polished animations and full SEO - deployed continuously on Vercel.",
+      longDescription: "Designed to reflect my skills as much as present them, this portfolio is a full-stack Next.js 14 application deployed on Vercel. It features a full Firebase-driven administration panel, a rich private note editor (Word style, TipTap 3), automatic FR/EN translation via DeepL, and a 5-layer security architecture: nonce-based CSP, CSRF, Firebase App Check reCAPTCHA v3, Firebase Auth with double admin guard (isAdmin), and strict Firestore/Storage rules. All with advanced SEO, framer-motion animations and light/dark mode.",
       stack: [
         "Next.js 14 (App Router)",
         "TypeScript",
         "Tailwind CSS",
         "Firebase / Firestore",
-        "Firebase Authentication",
+        "Firebase Authentication (email + Google OAuth)",
+        "Firebase App Check (reCAPTCHA v3)",
         "Framer Motion",
-        "lucide-react",
-        "clsx",
-        "i18n (custom)",
-        "next-themes",
+        "TipTap 3 (éditeur riche style Word)",
+        "Resend (formulaire de contact)",
         "shadcn/ui",
-        "Resend",
-        "Vercel Analytics",
-        "Vercel"
+        "next-themes",
+        "DeepL API (traduction automatique FR↔EN)",
+        "Vercel (déploiement continu)"
       ],
       features: [
-        "Secure admin panel (Firebase Auth) — update content without touching code",
-        "Bilingual FR/EN content with automatic translation via internal API",
-        "Persistent dark/light theme without hydration flash (next-themes + SSR)",
-        "3-layer anti-spam contact form: honeypot, timing check, IP rate limiting",
-        "Framer Motion animations: scroll entries, hover spring on cards, animated mobile menu",
-        "Dynamically generated Open Graph 1200×630 image (Next.js Edge Runtime)",
-        "Full SEO: JSON-LD Schema.org, hreflang FR/EN, sitemap and dynamic robots.txt",
-        "Automatic static fallback if Firebase is unavailable"
+        "Secure administration panel (Firebase Auth email + Google OAuth) - update without touching the code",
+        "Apple Notes-style private note system: folders, smart folders, tags, 30-day recycle garbage can",
+        "TipTap 3 rich note editor (Word style): 4-tab ribbon, fonts, colors, tables, LaTeX, code highlight, Excalidraw",
+        "Autocomplete tags in editor (#) with keyboard navigation",
+        "Real-time search in notes (Ctrl+F) - filter title + content instantly",
+        "5-layer security architecture: CSP nonce, CSRF Origin==Host, App Check reCAPTCHA v3, Auth Firebase, Firestore Rules",
+        "Double admin guard on client side: authenticated user AND email in admin list (isAdmin)",
+        "Content-Security-Policy nonce-based per request - eliminates unsafe-inline for scripts",
+        "CSRF protection on all API Routes - reject 403 if Origin ≠ Host",
+        "Strict Firestore/Storage rules: hard-coded admin email list, catch-all deny",
+        "Bilingual FR/EN content with automatic translation DeepL to save",
+        "Full SEO: JSON-LD Schema.org, Open Graph, Twitter Card, sitemap.xml, robots.txt, hreflang",
+        "Resend contact form with spam protection and server-side validation",
+        "Animated light/dark mode (next-themes), bidirectional scroll animations (framer-motion)",
+        "Continuous deployment on Vercel with secure environment variables"
       ],
       challenges: [
         "Synchronize Firebase Firestore with Next.js SSR rendering without blocking LCP",
-        "Eliminate theme flash at hydration (suppressHydrationWarning + SSR placeholder)",
-        "Architect a bilingual system supporting two Firebase data formats (legacy and new)",
-        "Secure the form against bots without intrusive CAPTCHA",
-        "Generate a high-performance dynamic OG image via Edge Runtime with inline styles only"
+        "Eliminate hydration theme flash (suppressHydrationWarning + placeholder SSR)",
+        "Architect a bilingual system accepting two Firebase data formats (legacy and new)",
+        "Integrate Firebase App Check reCAPTCHA v3 with strict nonce-based CSP (frame-src, script-src, connect-src)",
+        "Fixed copy/paste bug: Chrome adds image/png even for text - hasText detection before image interception",
+        "Firestore synchronization to React state without overwriting content during editor focus",
+        "Implement a TipTap 3 SSR rich-editor compatible with immediatelyRender:false and setContent emitUpdate:false",
+        "Create a Word-style 4-tab Ribbon toolbar with integrated upload progress bar"
       ],
       githubUrl: "https://github.com/Djefrid/portfolio",
       demoUrl: "https://portfolio.djefrid.ca",
@@ -295,9 +406,9 @@ export const projectsBilingual = {
     },
     {
       id: "rgFqPLVlfOPgyzgsmqOb",
-      title: "African Shop – Afro-Minimalist E-commerce",
-      description: "Afro-minimalist e-commerce turnkey: catalogue managed via Sanity CMS, Stripe payment with Apple/Google Pay, persistent shopping cart and integrated appointment booking via Cal.com.",
-      longDescription: "Complete e-commerce project with an \"Afro-Minimalist\" design, built to offer a fast and premium shopping experience. The frontend is developed with Next.js (App Router) and Tailwind CSS for performant, responsive, and SEO-optimized rendering. Content (products, categories, images, tags, stock, recommendations) is managed via Sanity (Headless CMS), enabling autonomous content updates without touching code.\n\nThe checkout uses Stripe Checkout, enabling Apple Pay and Google Pay on compatible devices, with an optimized flow including a Delivery / In-store Pickup choice. A Stripe webhook secures payment confirmation and records orders. An \"Appointments\" page integrates Cal.com for booking personalized consultation slots.\n\nThe project includes all essential legal pages (T&Cs, Privacy, Returns, Legal Notice) and a configuration ready for VPS deployment via Docker.",
+      title: "Online store - Next.js & Supabase",
+      description: "Turnkey afro-minimalist e-commerce: catalog managed via Sanity CMS, Stripe payment with Apple/Google Pay, persistent shopping cart and integrated appointment booking via Cal.com.",
+      longDescription: "Complete e-commerce project with \"Afro-Minimalist\" design, designed to offer a fast, premium shopping experience. The frontend is developed with Next.js (App Router) and Tailwind CSS for high-performance, responsive, SEO-optimized rendering. Content (products, categories, images, tags, stock, recommendations) is managed via Sanity (Headless CMS), enabling autonomous content management without touching the code.\n\nCheckout uses Stripe Checkout, enabling Apple Pay and Google Pay on compatible devices, with an optimized checkout path including a Delivery / Store Pickup choice. A Stripe webhook secures payment confirmation and records orders. An \"Appointment\" page integrates Cal.com to book personalized advice slots.\n\nThe project includes the essential legal pages (GTC, Privacy, Returns, Legal) and a configuration ready for deployment on VPS via Docker.",
       stack: [
         "Next.js 14 (App Router)",
         "TypeScript",
@@ -309,25 +420,25 @@ export const projectsBilingual = {
         "Supabase"
       ],
       features: [
-        "Dynamic Product Catalog (Sanity CMS)",
-        "Search, filters and sorting (categories, tags, prices)",
+        "Dynamic product catalog (CMS Sanity)",
+        "Search, filter and sort (categories, tags, prices)",
         "Detailed product page (origin, badges, stock)",
-        "Recommendations “Often bought with” (cross-sell)",
+        "Often bought with\" (cross-sell) recommendations",
         "Persistent basket (quantity, deletion, total)",
-        "Optimized checkout with choice Delivery / Pickup store",
-        "Stripe Checkout Payment with Apple Pay and Google Pay",
-        "Stripe webhook for payment confirmation and order creation",
+        "Optimized checkout with choice of delivery / store pickup",
+        "Stripe Checkout payment with Apple Pay and Google Pay",
+        "Webhook Stripe for payment confirmation and order creation",
         "Integrated appointment booking via Cal.com",
-        "Complete legal pages (GTCs, Privacy, Returns, Mentions)",
-        "Basic SEO (metadata, OpenGraph, sitemap, bots)",
-        "VPS deployment ready via Docker"
+        "Complete legal pages (GTC, Privacy, Returns, Disclaimer)",
+        "Basic SEO (metadata, OpenGraph, sitemap, robots)",
+        "Docker-ready VPS deployment"
       ],
       challenges: [
         "Stripe Checkout integration and secure webhook management (signature)",
-        "Modeling of Sanity schemas (products, categories, orders) and relationships",
-        "Managing a reliable and persistent basket without undue complexity",
+        "Sanity schema modeling (products, categories, orders) and relationships",
+        "Reliable, persistent basket management without excessive complexity",
         "Performance/SEO optimization with App Router, Server Components and next/image",
-        "Delivery vs Withdrawal journey design (field validation and UX)",
+        "Design of delivery vs. pickup path (validation of fields and UX)",
         "Docker deployment on VPS (build, environment variables, reverse proxy/HTTPS)"
       ],
       githubUrl: "https://github.com/Djefrid/onlinestoretemplate.git",
@@ -337,9 +448,9 @@ export const projectsBilingual = {
     },
     {
       id: "u2Pg23yoHgUtKV9GFG6n",
-      title: "Facttrack — Full-stack billing SaaS application",
-      description: "Full-stack SaaS tool to professionalize your invoicing: customer management, detailed PDF invoices and email sending — designed for freelancers.",
-      longDescription: "Facttrack is a full-stack SaaS application designed for freelancers and small teams who want to professionalize their invoicing without complexity.\nThe tool covers the entire cycle: customer management, creation of detailed invoices with service lines and automatic calculation of totals, PDF export ready to send and direct sending by email from the application.\nThe architecture is based on a Django rest Framework backend secured by JWT and a Vue 3 + Vite + TypeScript frontend, guaranteeing reliability, speed and financial accuracy (amounts managed in Decimal to avoid rounding errors).",
+      title: "Facttrack - Billing SaaS Vue.js & Django",
+      description: "Full-stack SaaS tool for professional invoicing: customer management, detailed PDF invoices and email dispatch - designed for the self-employed.",
+      longDescription: "Facttrack is a full-stack SaaS application designed for freelancers and small teams who want to professionalize their invoicing without complexity. The tool covers the entire cycle: customer management, creation of detailed invoices with service lines and automatic calculation of totals, ready-to-send PDF export and direct emailing from within the application.\n\nThe architecture is based on a Django REST Framework backend secured by JWT and a Vue 3 + Vite + TypeScript frontend, guaranteeing reliability, speed and financial accuracy (amounts managed in Decimal to avoid rounding errors).",
       stack: [
         "Django",
         "Django REST Framework",
@@ -352,27 +463,76 @@ export const projectsBilingual = {
       ],
       features: [
         "Secure JWT authentication",
-        "Complete client management",
-        "Create detailed invoices with service lines and automatic totals",
-        "Professional PDF export ready to send",
-        "Sending the invoice by email from the application",
+        "Complete customer management (CRUD)",
+        "Create detailed invoices with automatic lines and totals",
+        "Ready-to-send professional PDF export",
+        "Send invoice by email from the application",
         "Responsive interface",
         "Bilingual support FR/EN"
       ],
       challenges: [
-        "Design of a clean and maintainable RESTful API with DRF",
-        "Financial accuracy: amounts in Decimal to avoid rounding errors",
-        "Real-time synchronization between Vue 3 UI state and the REST API",
-        "Full containerization with Docker for repeatable deployment"
+        "Design a clean, maintainable RESTful API with DRF",
+        "Financial precision: Decimal amounts to avoid rounding errors",
+        "Real-time synchronization between UI Vue 3 status and REST API",
+        "Full containerization with Docker for reproducible deployment"
       ],
       githubUrl: "https://github.com/Djefrid/facttrack",
       demoUrl: "https://facttrack.ca",
+      image: "",
+      featured: true
+    },
+    {
+      id: "WZ6VfetH7uwUryGiNCnj",
+      title: "FastCuts",
+      description: "Automatically transform your long videos into viral shorts thanks to AI.",
+      longDescription: "FastCuts.app is a revolutionary SaaS platform designed for content creators and marketers. It uses artificial intelligence to automatically analyze long YouTube videos, identify the most captivating moments, crop them to vertical format (9:16) and add dynamic \"Hormozi-style\" subtitles to maximize retention and virality on TikTok, Instagram Reels and YouTube Shorts.",
+      stack: [
+        "Next.js (React)",
+        "TypeScript",
+        "Tailwind CSS",
+        "Shadcn/ui",
+        "Prisma ORM",
+        "PostgreSQL",
+        "Stripe API",
+        "Clerk Auth",
+        "Python",
+        "FFmpeg",
+        "MediaPipe",
+        "OpenAI API (GPT-4o)",
+        "WhisperX",
+        "Redis",
+        "BullMQ",
+        "Cloudflare R2"
+      ],
+      features: [
+        "Automatic video analysis via YouTube URL.",
+        "AI detection of viral moments (hooks, content, conclusion).",
+        "Smart Crop to follow the speaker in 9:16 format.",
+        "Stylized, word-by-word synchronized automatic subtitles.",
+        "Online editor for customizing font, color and style.",
+        "Manage credits and subscriptions via Stripe."
+      ],
+      challenges: [
+        "Bypass Python's GIL (Global Interpreter Lock) for parallel FFmpeg rendering.",
+        "Implement real-time face tracking with MediaPipe for Smart Crop.",
+        "Optimize video rendering time using GPU encoding (NVENC).",
+        "Manage heavy task queues with Redis and BullMQ.",
+        "Generate complex .ass subtitles from WhisperX JSON."
+      ],
+      githubUrl: "https://github.com/Djefrid/fastcuts",
+      demoUrl: "https://fastcuts.ca",
       image: "",
       featured: true
     }
   ]
 };
 
+/**
+ * Catégories de compétences en français et en anglais.
+ * Chaque catégorie contient un tableau de compétences { name }.
+ * Les labels de catégorie sont traduits séparément car le nom de la compétence
+ * (ex: "Docker", "React") reste identique dans les deux langues.
+ */
 export const skillsBilingual = {
   fr: [
     {
@@ -494,7 +654,9 @@ export const skillsBilingual = {
   ]
 };
 
-// ===== LEGACY EXPORTS (for compatibility) =====
+// ===== EXPORTS LEGACY (rétrocompatibilité) =====
+// Ces exports pointent vers la version française par défaut.
+// Ils sont gardés pour ne pas casser d'éventuels imports directs.
 
 export const personalInfo: PersonalInfo = personalInfoBilingual.fr;
 export const aboutInfo: AboutInfo = aboutInfoBilingual.fr;

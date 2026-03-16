@@ -1,3 +1,35 @@
+/**
+ * ============================================================================
+ * SECTION HERO — components/sections/Hero.tsx
+ * ============================================================================
+ *
+ * Première section visible du portfolio — la "bannière" d'accueil.
+ * Occupe toute la hauteur de l'écran (min-h-screen).
+ *
+ * Contenu affiché :
+ *   - Badge "Open to Work" animé (affiché uniquement si profile.openToWork === true)
+ *   - Nom complet (h1)
+ *   - Titre professionnel (h2)
+ *   - Localisation + disponibilité (avec icônes Lucide)
+ *   - Boutons GitHub, LinkedIn, Télécharger CV
+ *   - Indicateur de scroll (flèche rebondissante vers #about)
+ *
+ * Animations Framer Motion :
+ *   - Entrée séquentielle : badge → nom → titre → localisation → boutons
+ *   - Délais croissants (0.1s, 0.2s, 0.3s, 0.4s) pour un effet cascade
+ *   - Toutes les animations partent de { opacity: 0, y: 20 }
+ *
+ * Accessibilité :
+ *   - aria-label sur tous les liens (pour les lecteurs d'écran)
+ *   - aria-hidden="true" sur tous les SVG décoratifs
+ *   - Le titre h1 est sémantiquement le titre principal de la page
+ *
+ * Données :
+ *   - profile : vient de usePortfolio() → PortfolioContext → usePortfolioData()
+ *   - t()     : traductions de l'interface via useLanguage()
+ * ============================================================================
+ */
+
 "use client";
 
 import Link from "next/link";
@@ -7,6 +39,9 @@ import { usePortfolio } from "@/context/PortfolioContext";
 import { useLanguage } from "@/context/LanguageContext";
 import { Badge } from "@/components/ui/badge";
 
+/**
+ * Composant Hero — section d'accueil du portfolio.
+ */
 export default function Hero() {
   const { profile } = usePortfolio();
   const { t } = useLanguage();
@@ -16,15 +51,17 @@ export default function Hero() {
       id="hero"
       className="min-h-screen flex items-center justify-center pt-16 relative overflow-hidden"
     >
-      {/* Glow background */}
+      {/* Effet de lumière/glow en arrière-plan — purement décoratif */}
       <div className="absolute inset-0 pointer-events-none">
+        {/* Glow principal centré */}
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary-600/20 rounded-full blur-[120px]" />
+        {/* Glow secondaire légèrement décalé */}
         <div className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-primary-800/10 rounded-full blur-[80px]" />
       </div>
 
       <div className="section-container text-center relative z-10">
 
-        {/* Badge Open to Work */}
+        {/* Badge "Open to Work" — visible uniquement si profile.openToWork est true */}
         {profile.openToWork && (
           <motion.div
             initial={{ opacity: 0, y: -10 }}
@@ -33,6 +70,7 @@ export default function Hero() {
             className="flex justify-center mb-6"
           >
             <Badge className="bg-green-500/20 text-green-400 border border-green-500/40 px-4 py-1.5 text-sm font-medium flex items-center gap-2 hover:bg-green-500/30 transition-colors">
+              {/* Point vert animé (ping) — indique la disponibilité en temps réel */}
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-400" />
@@ -42,7 +80,7 @@ export default function Hero() {
           </motion.div>
         )}
 
-        {/* Name */}
+        {/* Nom complet — titre h1 principal de la page */}
         <motion.h1
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -52,7 +90,7 @@ export default function Hero() {
           {profile.name}
         </motion.h1>
 
-        {/* Title */}
+        {/* Titre professionnel — h2 sémantique (sous-titre du h1) */}
         <motion.h2
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -62,7 +100,7 @@ export default function Hero() {
           {profile.title}
         </motion.h2>
 
-        {/* Location + availability */}
+        {/* Localisation + indicateur de disponibilité (affiché si l'un des deux est renseigné) */}
         {(profile.location || profile.openToWork) && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -70,12 +108,14 @@ export default function Hero() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="flex items-center justify-center gap-4 mb-8 text-gray-400 text-sm flex-wrap"
           >
+            {/* Localisation avec icône MapPin */}
             {profile.location && (
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-4 h-4 text-primary-400" />
                 {profile.location}
               </span>
             )}
+            {/* Disponibilité avec icône Briefcase */}
             {profile.openToWork && (
               <span className="flex items-center gap-1.5">
                 <Briefcase className="w-4 h-4 text-green-400" />
@@ -85,13 +125,14 @@ export default function Hero() {
           </motion.div>
         )}
 
-        {/* Buttons */}
+        {/* Boutons d'action : GitHub, LinkedIn, CV */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.4 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
+          {/* Bouton GitHub */}
           <Link
             href={profile.github}
             target="_blank"
@@ -99,6 +140,7 @@ export default function Hero() {
             className="btn-primary"
             aria-label="GitHub — ouvrir le profil dans un nouvel onglet"
           >
+            {/* Icône GitHub — SVG inline, aria-hidden car le texte "GitHub" est présent */}
             <svg
               className="w-5 h-5"
               fill="currentColor"
@@ -113,6 +155,8 @@ export default function Hero() {
             </svg>
             GitHub
           </Link>
+
+          {/* Bouton LinkedIn */}
           <Link
             href={profile.linkedin}
             target="_blank"
@@ -120,6 +164,7 @@ export default function Hero() {
             className="btn-primary"
             aria-label="LinkedIn — ouvrir le profil dans un nouvel onglet"
           >
+            {/* Icône LinkedIn — SVG inline, aria-hidden car le texte est présent */}
             <svg
               className="w-5 h-5"
               fill="currentColor"
@@ -130,6 +175,8 @@ export default function Hero() {
             </svg>
             LinkedIn
           </Link>
+
+          {/* Bouton Télécharger CV */}
           <Link
             href={profile.cvUrl}
             target="_blank"
@@ -137,6 +184,7 @@ export default function Hero() {
             className="btn-secondary"
             aria-label={`${t('hero.downloadCV')} — ouvrir dans un nouvel onglet`}
           >
+            {/* Icône téléchargement — aria-hidden car le texte t('hero.downloadCV') est présent */}
             <svg
               className="w-5 h-5"
               fill="none"
@@ -155,7 +203,7 @@ export default function Hero() {
           </Link>
         </motion.div>
 
-        {/* Scroll indicator */}
+        {/* Indicateur de scroll vers la section #about — masqué sur mobile */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce hidden md:block">
           <Link href="#about" aria-label={t('hero.scrollDown')}>
             <svg
