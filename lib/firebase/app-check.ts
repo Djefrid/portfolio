@@ -25,7 +25,7 @@
  * ============================================================================
  */
 
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { app, isFirebaseConfigured } from './config';
 
 /**
@@ -65,7 +65,7 @@ export function initAppCheck(): void {
   try {
     initializeAppCheck(app, {
       // ReCaptchaV3Provider utilise la clé publique du site pour générer les tokens
-      provider: new ReCaptchaEnterpriseProvider(siteKey),
+      provider: new ReCaptchaV3Provider(siteKey),
       // Renouvelle automatiquement le token en arrière-plan avant expiration
       isTokenAutoRefreshEnabled: true,
     });
