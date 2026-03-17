@@ -29,6 +29,16 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // ─── 0. Bypass total pour /__/auth/* ────────────────────────────────────────
+  // Le proxy Next.js retransmet /__/auth/* vers portfolio-8d07b.firebaseapp.com.
+  // La page handler de Firebase contient ses propres scripts inline et ressources
+  // depuis firebaseapp.com — ils ne portent pas notre nonce CSP et seraient bloqués.
+  // Résultat sans ce bypass : UNKNOWN_ERROR dans la popup Google OAuth.
+  // Solution : laisser passer ces requêtes sans modifier les headers.
+  if (request.nextUrl.pathname.startsWith('/__/auth/')) {
+    return NextResponse.next();
+  }
+
   // ─── 1. Protection CSRF sur les API Routes ──────────────────────────────────
   // Bloque les requêtes POST dont l'Origin ne correspond pas au Host.
   // Ne bloque PAS les requêtes sans Origin (appels serveur à serveur, curl, etc.)

@@ -864,7 +864,8 @@ COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
 | ✅ **Proxy Firebase Auth** | `next.config.js` | `/__/auth/*` proxifié vers `firebaseapp.com` — cookies first-party sur mobile (Safari/Chrome) |
 | ✅ **authDomain same-origin** | `lib/firebase/config.ts` | `authDomain = portfolio.djefrid.ca` en prod — évite les cookies tiers bloqués sur mobile |
 | ✅ **getRedirectResult** | `app/admin/login/page.tsx` | Traite le retour du redirect Google OAuth au montage de la page de login |
-| ✅ **SW exclut /__/auth/*** | `public/sw.js` v4 | Le Service Worker ne cacheait pas les navigations `/__/auth/handler` — laisse le proxy Next.js traiter ces URLs sans interférence |
+| ✅ **SW exclut /__/auth/*** | `public/sw.js` v4 | Le Service Worker ne cache pas les navigations `/__/auth/handler` — laisse le proxy Next.js traiter ces URLs sans interférence |
+| ✅ **Middleware bypass /__/auth/*** | `middleware.ts` | La CSP nonce-based est ignorée pour `/__/auth/*` — la page handler Firebase contient ses propres scripts sans nonce qui seraient bloqués (→ `UNKNOWN_ERROR` popup Google) |
 | ✅ **Vérification admin stricte** | `app/admin/layout.tsx` | Double garde : `isAdmin` (email dans liste `NEXT_PUBLIC_ADMIN_EMAIL` / `NEXT_PUBLIC_ADMIN_EMAIL_2`) ET utilisateur connecté |
 | ✅ **Variables d'environnement** | `.env.local` / `.gitignore` | Non commitées — `RESEND_API_KEY` côté serveur uniquement |
 | ✅ **XSS emails** | `app/api/contact/route.ts` | Données utilisateur échappées HTML avant insertion email Resend |
