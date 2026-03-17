@@ -306,8 +306,12 @@ export function usePortfolioData(): PortfolioData {
   const staticProjects = projectsBilingual[language];
   const staticSkills = skillsBilingual[language];
 
-  /** true pendant le premier chargement Firebase */
-  const [loading, setLoading] = useState(true);
+  /**
+   * Démarre à false pour afficher les données statiques immédiatement
+   * (sans skeleton). Firebase charge en arrière-plan et met à jour l'UI.
+   * Cela améliore le LCP : Projects/Skills affichent du contenu dès le rendu initial.
+   */
+  const [loading, setLoading] = useState(false);
   /** 'firebase' si les données ont été chargées depuis Firestore */
   const [source, setSource] = useState<'firebase' | 'static'>('static');
 

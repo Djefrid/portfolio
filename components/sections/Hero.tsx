@@ -87,20 +87,33 @@ export default function Hero() {
           </motion.div>
         )}
 
-        {/* Nom complet — titre h1 principal de la page */}
+        {/*
+         * Nom complet — h1 LCP (Largest Contentful Paint).
+         *
+         * FIX LCP : initial sans opacity:0 → le h1 est visible dans le HTML SSR dès le
+         * premier octet. Framer Motion render le state "initial" sur le serveur ; si
+         * opacity:0 était présent, Chrome ne pouvait pas mesurer le LCP avant l'hydratation
+         * JS (~9s sur mobile). En retirant opacity de l'initial, le texte est immédiatement
+         * lisible → LCP mesuré sur le HTML serveur (≈1-2s).
+         * L'animation y (glissement vertical) reste intacte pour l'effet d'entrée.
+         */}
         <motion.h1
-          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: shouldReduceMotion ? 0 : 20 }}
+          animate={{ y: 0 }}
           transition={{ duration: shouldReduceMotion ? 0.15 : 0.6, delay: shouldReduceMotion ? 0 : 0.1 }}
           className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white mb-4"
         >
           {profile.name}
         </motion.h1>
 
-        {/* Titre professionnel — h2 sémantique (sous-titre du h1) */}
+        {/*
+         * Titre professionnel — h2 (sous-titre du h1).
+         * Même logique LCP que le h1 : pas d'opacity dans l'initial
+         * → visible dans le HTML serveur, animation y uniquement.
+         */}
         <motion.h2
-          initial={{ opacity: 0, y: shouldReduceMotion ? 0 : 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ y: shouldReduceMotion ? 0 : 20 }}
+          animate={{ y: 0 }}
           transition={{ duration: shouldReduceMotion ? 0.15 : 0.6, delay: shouldReduceMotion ? 0 : 0.2 }}
           className="text-xl sm:text-2xl lg:text-3xl text-primary-400 font-medium mb-4"
         >
