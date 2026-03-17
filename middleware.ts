@@ -53,7 +53,9 @@ export function middleware(request: NextRequest) {
     //                    (obligatoire pour le lazy-loading et code-splitting Next.js)
     // 'unsafe-eval'    : requis par Excalidraw (moteur de rendu canvas + export PNG)
     // www.google.com + www.gstatic.com : scripts reCAPTCHA v3 (App Check)
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://www.google.com https://www.gstatic.com`,
+    // apis.google.com  : requis par Firebase signInWithPopup (Google OAuth)
+    //                    Firebase charge apis.google.com/js/api.js pour la communication popup ↔ main window
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://apis.google.com`,
 
     // 'unsafe-inline'         : requis par TipTap (styles inline : font-family, color, margin…)
     // fonts.googleapis.com    : fichier CSS de la police Inter
