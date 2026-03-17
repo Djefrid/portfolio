@@ -53,6 +53,17 @@ const nextConfig = {
 
           // Accélère la résolution DNS pour les ressources first-party
           { key: "X-DNS-Prefetch-Control", value: "on" },
+
+          // Permet aux popups ouvertes par cette page (Firebase OAuth) de communiquer
+          // avec l'opener via window.opener / window.closed.
+          // 'same-origin-allow-popups' : les popups cross-origin peuvent être ouvertes
+          // et communiquer — requis par Firebase signInWithPopup.
+          // (sans ce header ou avec 'same-origin', la popup ne peut pas communiquer
+          // et l'auth échoue silencieusement avec window.closed bloqué)
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin-allow-popups",
+          },
         ],
       },
     ];

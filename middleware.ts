@@ -76,9 +76,11 @@ export function middleware(request: NextRequest) {
     // blob: : Excalidraw utilise des web workers blob: pour la compression et l'export
     "worker-src 'self' blob:",
 
-    // accounts.google.com : Google OAuth (signInWithPopup)
+    // accounts.google.com    : Google OAuth (signInWithPopup)
     // www.google.com + recaptcha.google.com : iframes reCAPTCHA v3 (App Check)
-    "frame-src https://accounts.google.com https://www.google.com https://recaptcha.google.com",
+    // *.firebaseapp.com      : Firebase Auth popup handler (signInWithPopup ouvre
+    //                          portfolio-8d07b.firebaseapp.com/__/auth/handler)
+    "frame-src https://accounts.google.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
 
     // frame-ancestors 'none' : interdit l'intégration de ce site dans des iframes
     // (renforce X-Frame-Options: DENY)
