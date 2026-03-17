@@ -41,7 +41,10 @@ import { initAppCheck } from '@/lib/firebase/app-check';
  * @param children - Le contenu de l'application (pages, layouts)
  */
 export default function Providers({ children }: { children: ReactNode }) {
-  // Initialise Firebase App Check au montage (côté client uniquement)
+  // Initialise Firebase App Check au montage (côté client uniquement).
+  // Mode Monitor : ne bloque jamais les requêtes Firebase Auth — les erreurs
+  // reCAPTCHA sont loguées mais n'empêchent pas signInWithPopup de fonctionner.
+  // Source : https://firebase.google.com/docs/app-check/web/recaptcha-provider
   useEffect(() => { initAppCheck(); }, []);
 
   /**

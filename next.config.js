@@ -61,14 +61,14 @@ const nextConfig = {
           // Empêche le MIME-sniffing (XSS via fichiers mal typés)
           { key: "X-Content-Type-Options", value: "nosniff" },
 
-          // SAMEORIGIN (et non DENY) : Firebase Auth signInWithPopup crée un iframe
-          // /__/auth/iframe (proxié same-origin) dont le contenu (firebaseapp.com)
-          // frame portfolio.djefrid.ca/ pour la gestion de session OAuth.
-          // DENY bloquait ce framing → auth/popup-closed-by-user.
-          // SAMEORIGIN autorise le framing same-origin (Firebase proxy = même domaine).
-          // Protection clickjacking cross-origin maintenue par frame-ancestors 'self'
-          // dans le CSP de middleware.ts (priorité sur X-Frame-Options en Chrome/FF/Safari).
-          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // X-Frame-Options SUPPRIMÉ — la protection clickjacking est assurée par
+          // frame-ancestors 'self' dans le CSP de middleware.ts, qui est prioritaire
+          // sur X-Frame-Options dans tous les navigateurs modernes (Chrome, Firefox,
+          // Safari 15.4+). X-Frame-Options est un header legacy redondant ici.
+          // Supprimer ce header évite qu'il bloque l'iframe Firebase Auth same-origin
+          // (/__/auth/iframe proxié → frame portfolio.djefrid.ca/ pour session OAuth).
+          // Ref: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
+          // "If both [...] are present, frame-ancestors will be used."
 
           // Force HTTPS pendant 2 ans (protection MITM / downgrade attacks)
           {
