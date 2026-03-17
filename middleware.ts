@@ -100,9 +100,14 @@ export function middleware(request: NextRequest) {
     // vercel.live            : barre Vercel preview (preview deployments uniquement)
     "frame-src 'self' https://accounts.google.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com https://vercel.live",
 
-    // frame-ancestors 'none' : interdit l'intégration de ce site dans des iframes
-    // (renforce X-Frame-Options: DENY)
-    "frame-ancestors 'none'",
+    // frame-ancestors 'self' : autorise uniquement les iframes same-origin.
+    // Firebase Auth signInWithPopup crée un iframe /__/auth/iframe (proxié via
+    // notre domaine) qui encadre portfolio.djefrid.ca/ pour la gestion de session
+    // OAuth. Sans 'self', ce framing est bloqué → auth/popup-closed-by-user.
+    // 'self' bloque tout framing cross-origin (protection clickjacking maintenue
+    // contre les domaines externes). Complété par X-Frame-Options dans next.config.js
+    // (exclu pour /__/auth/* via lookahead négatif).
+    "frame-ancestors 'self'",
 
     // Bloque les plugins (Flash, Java, etc.) et l'injection de balise <base>
     "object-src 'none'",
