@@ -55,7 +55,9 @@ export function middleware(request: NextRequest) {
     // www.google.com + www.gstatic.com : scripts reCAPTCHA v3 (App Check)
     // apis.google.com  : requis par Firebase signInWithPopup (Google OAuth)
     //                    Firebase charge apis.google.com/js/api.js pour la communication popup ↔ main window
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://apis.google.com`,
+    // sha256-*         : hash du script inline Vercel/Firebase injecté sans nonce
+    //                    (hash stable — correspond toujours au même contenu de script)
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval' https://www.google.com https://www.gstatic.com https://apis.google.com 'sha256-C60NZeyTXbfVPsjv7XKTnY+z7BN0WtFgj/fRUcGgXPs='`,
 
     // 'unsafe-inline'         : requis par TipTap (styles inline : font-family, color, margin…)
     // fonts.googleapis.com    : fichier CSS de la police Inter

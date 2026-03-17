@@ -17,7 +17,7 @@
  */
 
 /** Nom et version du cache — incrémenter la version pour invalider l'ancien cache */
-const CACHE_NAME = 'portfolio-v2'; // v2 : exclusion google.com + gstatic.com (fix OAuth)
+const CACHE_NAME = 'portfolio-v3'; // v3 : exclusion chrome-extension:// (fix cache SW)
 
 /** Assets mis en cache lors de l'installation */
 const PRECACHE_URLS = [
@@ -69,12 +69,16 @@ self.addEventListener('fetch', (event) => {
   // CRITIQUE : apis.google.com (Firebase signInWithPopup) et gstatic.com (reCAPTCHA)
   // doivent être exclus — le SW retournerait undefined depuis le cache vide,
   // ce qui bloque Google OAuth et App Check avec une erreur auth/internal-error.
+  // chrome-extension:// et moz-extension:// : le Cache API n'accepte pas ces schémas
+  // → TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
   if (
+    url.protocol === 'chrome-extension:' ||  // Extensions Chrome — schéma non cacheable
+    url.protocol === 'moz-extension:' ||      // Extensions Firefox — schéma non cacheable
     url.hostname.includes('firebase') ||
     url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis') ||
-    url.hostname.includes('google.com') ||  // apis.google.com, accounts.google.com, recaptcha.google.com
-    url.hostname.includes('gstatic.com') || // www.gstatic.com (reCAPTCHA scripts, polices)
+    url.hostname.includes('google.com') ||    // apis.google.com, accounts.google.com, recaptcha.google.com
+    url.hostname.includes('gstatic.com') ||   // www.gstatic.com (reCAPTCHA scripts, polices)
     url.hostname.includes('vercel') ||
     event.request.method !== 'GET'
   ) {
