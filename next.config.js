@@ -56,21 +56,19 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Appliqué à toutes les routes SAUF /__/auth/* :
-        // Firebase Auth crée un iframe sur /__/auth/iframe (via notre proxy) pour
-        // la communication OAuth signInWithPopup. X-Frame-Options: DENY bloquerait
-        // cet iframe → auth/popup-closed-by-user. On exclut ces routes du DENY.
-        // /__/auth/* reçoit déjà des headers restrictifs de firebaseapp.com (proxié).
-        // Lookahead négatif path-to-regexp : "((?!__/auth).*)" = tout sauf __/auth*
-        source: "/((?!__\\/auth).*)",
+        source: "/(.*)",
         headers: [
           // Empêche le MIME-sniffing (XSS via fichiers mal typés)
           { key: "X-Content-Type-Options", value: "nosniff" },
 
-          // Bloque l'intégration dans des iframes (clickjacking)
-          // Complété par frame-ancestors 'none' dans la CSP de middleware.ts
-          // Exception : /__/auth/* exclus via le pattern source ci-dessus
-          { key: "X-Frame-Options", value: "DENY" },
+          // SAMEORIGIN (et non DENY) : Firebase Auth signInWithPopup crée un iframe
+          // /__/auth/iframe (proxié same-origin) dont le contenu (firebaseapp.com)
+          // frame portfolio.djefrid.ca/ pour la gestion de session OAuth.
+          // DENY bloquait ce framing → auth/popup-closed-by-user.
+          // SAMEORIGIN autorise le framing same-origin (Firebase proxy = même domaine).
+          // Protection clickjacking cross-origin maintenue par frame-ancestors 'self'
+          // dans le CSP de middleware.ts (priorité sur X-Frame-Options en Chrome/FF/Safari).
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
 
           // Force HTTPS pendant 2 ans (protection MITM / downgrade attacks)
           {
