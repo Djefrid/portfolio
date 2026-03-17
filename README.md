@@ -833,7 +833,7 @@ COUCHE 3 — Firebase App Check
 
 COUCHE 4 — Authentification Firebase
   Email/mot passe → signInWithEmailAndPassword (Firebase Auth)
-  Google OAuth    → signInWithPopup (popup Firebase)
+  Google OAuth    → signInWithPopup (desktop) / signInWithRedirect (mobile)
   Email Enum Prot → erreurs génériques (auth/invalid-credential)
   Password Policy → min 8 chars + majuscule + chiffre
   Quota API       → max 1 000 req/min (anti brute-force)
@@ -851,13 +851,20 @@ COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
 | ✅ **CSP nonce-based** | `middleware.ts` | Nonce UUID aléatoire par requête — élimine `unsafe-inline` pour scripts |
 | ✅ **CSRF protection** | `middleware.ts` | Vérifie `Origin == Host` sur tous les `POST /api/*` — retourne 403 si mismatch |
 | ✅ **worker-src 'self' blob:** | `middleware.ts` | Autorise le Service Worker (self) + les web workers Excalidraw (blob:) — interdit tout worker depuis un CDN externe |
+| ✅ **frame-src firebaseapp.com** | `middleware.ts` | `*.firebaseapp.com` ajouté — requis par Firebase Auth popup handler |
+| ✅ **apis.google.com script-src** | `middleware.ts` | Firebase `signInWithPopup` charge `apis.google.com/js/api.js` — bloqué sans cette entrée |
+| ✅ **Hash script inline** | `middleware.ts` | Hash `sha256-C60N...` — autorise le script inline Vercel/Firebase sans `unsafe-inline` |
 | ✅ **Headers HTTP** | `next.config.js` | HSTS 2 ans + preload, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
+| ✅ **COOP same-origin-allow-popups** | `next.config.js` | Autorise la communication popup ↔ opener — requis par `signInWithPopup` (Chrome 129+) |
 | ✅ **frame-ancestors none** | `middleware.ts` | Interdit toute intégration en iframe — renforce X-Frame-Options |
 | ✅ **upgrade-insecure-requests** | `middleware.ts` | Force HTTPS pour toutes les ressources |
 | ✅ **App Check reCAPTCHA v3** | `lib/firebase/app-check.ts` | Token d'attestation joint à chaque requête Firebase — bloque bots et scripts externes |
 | ✅ **CSP reCAPTCHA** | `middleware.ts` | `script-src`, `frame-src`, `connect-src` étendus pour `www.google.com` + `gstatic.com` |
-| ✅ **Authentification Firebase** | `lib/firebase/hooks.ts` | Email/password + Google OAuth — liste blanche d'emails admins dans les règles Firestore |
-| ✅ **Vérification admin stricte** | `app/admin/layout.tsx` | Double garde : `isAdmin` (email dans liste `NEXT_PUBLIC_ADMIN_EMAIL` / `NEXT_PUBLIC_ADMIN_EMAIL_2`) ET utilisateur connecté — toute méthode d'auth |
+| ✅ **Authentification Firebase** | `lib/firebase/hooks.ts` | Email/password + Google OAuth — `signInWithPopup` desktop, `signInWithRedirect` mobile |
+| ✅ **Proxy Firebase Auth** | `next.config.js` | `/__/auth/*` proxifié vers `firebaseapp.com` — cookies first-party sur mobile (Safari/Chrome) |
+| ✅ **authDomain same-origin** | `lib/firebase/config.ts` | `authDomain = portfolio.djefrid.ca` en prod — évite les cookies tiers bloqués sur mobile |
+| ✅ **getRedirectResult** | `app/admin/login/page.tsx` | Traite le retour du redirect Google OAuth au montage de la page de login |
+| ✅ **Vérification admin stricte** | `app/admin/layout.tsx` | Double garde : `isAdmin` (email dans liste `NEXT_PUBLIC_ADMIN_EMAIL` / `NEXT_PUBLIC_ADMIN_EMAIL_2`) ET utilisateur connecté |
 | ✅ **Variables d'environnement** | `.env.local` / `.gitignore` | Non commitées — `RESEND_API_KEY` côté serveur uniquement |
 | ✅ **XSS emails** | `app/api/contact/route.ts` | Données utilisateur échappées HTML avant insertion email Resend |
 
@@ -992,13 +999,24 @@ Domaine Vercel non autorisé dans Firebase Auth.
 
 ---
 
-### ❌ Connexion Google bloquée
+### ❌ Connexion Google bloquée (desktop)
 
 La popup Google est bloquée par le navigateur ou le domaine n'est pas autorisé dans Firebase.
 
 1. Vérifier que Google est activé dans Firebase → Authentication → Sign-in method
-2. Vérifier les domaines autorisés (localhost + votre domaine Vercel)
+2. Vérifier les domaines autorisés (localhost + votre domaine)
 3. Autoriser les popups dans le navigateur pour votre domaine
+
+---
+
+### ❌ Connexion Google échoue sur mobile (Safari iOS / Chrome Android)
+
+Sur mobile, `signInWithPopup` est bloqué par les navigateurs. Le projet utilise `signInWithRedirect` sur mobile. Pour que le redirect fonctionne, le proxy Firebase Auth doit être configuré :
+
+1. **Google Cloud Console** → APIs & Services → Credentials → OAuth 2.0 Client ID
+2. **Authorized redirect URIs** → ajouter : `https://votre-domaine.com/__/auth/handler`
+
+> Sans cette étape, `getRedirectResult()` retourne `null` même si le redirect s'est bien passé (cookies tiers bloqués par les navigateurs mobiles).
 
 ---
 
