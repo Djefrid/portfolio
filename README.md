@@ -318,10 +318,11 @@ RESEND_API_KEY=re_XXXXXXXXXXXXXXXXXXXX
 CONTACT_EMAIL=votre@email.com
 
 # ================================
-# Firebase App Check — reCAPTCHA v3
+# Firebase App Check — reCAPTCHA Enterprise
 # ================================
-# Clé PUBLIQUE du site reCAPTCHA v3 (obtenir sur google.com/recaptcha/admin)
-# Nécessaire pour que App Check génère des tokens d'attestation
+# Clé PUBLIQUE du site reCAPTCHA Enterprise (obtenir sur admin.google.com/recaptcha)
+# Important : admin.google.com crée des clés Enterprise depuis 2023 → utiliser
+# ReCaptchaEnterpriseProvider (et non ReCaptchaV3Provider) dans app-check.ts
 NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6Les...votre_cle_ici
 ```
 
@@ -337,7 +338,7 @@ NEXT_PUBLIC_RECAPTCHA_SITE_KEY=6Les...votre_cle_ici
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | ID de l'application | Client + Serveur |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | Email autorisé pour l'admin | Client + Serveur |
 | `NEXT_PUBLIC_SITE_URL` | URL du site en production | Client + Serveur |
-| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clé publique reCAPTCHA v3 (App Check) | Client + Serveur |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clé publique reCAPTCHA Enterprise (App Check) | Client + Serveur |
 | `RESEND_API_KEY` | Clé API Resend (emails) | **Serveur uniquement** |
 | `CONTACT_EMAIL` | Email destinataire des contacts | **Serveur uniquement** |
 
@@ -455,7 +456,7 @@ portfolio/
 │   └── firebase/
 │       ├── index.ts                  # Barrel exports
 │       ├── config.ts                 # Init Firebase, isFirebaseConfigured
-│       ├── app-check.ts              # Firebase App Check reCAPTCHA v3 (initAppCheck)
+│       ├── app-check.ts              # Firebase App Check reCAPTCHA Enterprise (initAppCheck)
 │       ├── hooks.ts                  # useAuth() — signIn, signOut, signInWithGoogle, isAdmin
 │       ├── context.tsx               # AuthProvider, useAuthContext()
 │       └── firestore.ts              # CRUD Firestore (profil, projets, compétences)
@@ -796,7 +797,7 @@ Dans **Settings → Environment Variables** :
 | `NEXT_PUBLIC_FIREBASE_APP_ID` | App ID Firebase |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | Email admin |
 | `NEXT_PUBLIC_SITE_URL` | URL du site (ex: `https://portfolio.djefrid.ca`) |
-| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clé publique reCAPTCHA v3 (App Check) |
+| `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` | Clé publique reCAPTCHA Enterprise (App Check) |
 | `RESEND_API_KEY` | Clé API Resend |
 | `CONTACT_EMAIL` | Email destinataire des contacts |
 
@@ -819,17 +820,19 @@ Le projet applique le principe de **défense en profondeur** : 5 couches indépe
 
 ```
 COUCHE 1 — Réseau / HTTP
-  CSP nonce       → bloque tout script non autorisé (XSS)
-  HSTS            → force HTTPS, empêche le downgrade
-  X-Frame-Options → interdit les iframes (clickjacking)
+  CSP nonce           → bloque tout script non autorisé (XSS)
+  HSTS                → force HTTPS, empêche le downgrade
+  frame-ancestors CSP → interdit les iframes cross-origin (clickjacking)
+                        'self' autorise uniquement le framing same-origin
+                        (requis par Firebase Auth /__/auth/iframe bridge)
 
 COUCHE 2 — Middleware Next.js
   CSRF check      → Origin == Host sur tous les POST /api/*
   CSP dynamique   → nonce UUID aléatoire par requête
 
 COUCHE 3 — Firebase App Check
-  reCAPTCHA v3    → vérifie que les requêtes viennent d'un vrai navigateur
-  Token Firebase  → joint à chaque appel Firestore/Auth/Storage
+  reCAPTCHA Enterprise → vérifie que les requêtes viennent d'un vrai navigateur
+  Token Firebase       → joint à chaque appel Firestore/Auth/Storage
 
 COUCHE 4 — Authentification Firebase
   Email/mot passe → signInWithEmailAndPassword (Firebase Auth)
@@ -854,11 +857,11 @@ COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
 | ✅ **frame-src firebaseapp.com** | `middleware.ts` | `*.firebaseapp.com` ajouté — requis par Firebase Auth popup handler |
 | ✅ **apis.google.com script-src** | `middleware.ts` | Firebase `signInWithPopup` charge `apis.google.com/js/api.js` — bloqué sans cette entrée |
 | ✅ **Hash script inline** | `middleware.ts` | Hash `sha256-C60N...` — autorise le script inline Vercel/Firebase sans `unsafe-inline` |
-| ✅ **Headers HTTP** | `next.config.js` | HSTS 2 ans + preload, X-Frame-Options DENY, X-Content-Type-Options, Referrer-Policy, Permissions-Policy |
+| ✅ **Headers HTTP** | `next.config.js` | HSTS 2 ans + preload, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, COOP |
 | ✅ **COOP same-origin-allow-popups** | `next.config.js` | Autorise la communication popup ↔ opener — requis par `signInWithPopup` (Chrome 129+) |
-| ✅ **frame-ancestors none** | `middleware.ts` | Interdit toute intégration en iframe — renforce X-Frame-Options |
+| ✅ **frame-ancestors 'self'** | `middleware.ts` | Bloque tout framing cross-origin (clickjacking). 'self' autorise le framing same-origin requis par Firebase Auth `/__/auth/iframe` (bridge de session OAuth — proxy same-origin via `/__/auth/*`). Prioritaire sur X-Frame-Options dans tous les navigateurs modernes. |
 | ✅ **upgrade-insecure-requests** | `middleware.ts` | Force HTTPS pour toutes les ressources |
-| ✅ **App Check reCAPTCHA v3** | `lib/firebase/app-check.ts` | Token d'attestation joint à chaque requête Firebase — bloque bots et scripts externes |
+| ✅ **App Check reCAPTCHA Enterprise** | `lib/firebase/app-check.ts` | Token d'attestation joint à chaque requête Firebase — bloque bots et scripts externes. `ReCaptchaEnterpriseProvider` requis car `admin.google.com/recaptcha` crée des clés Enterprise depuis 2023 (endpoint `/enterprise/` ≠ `/api2/` des clés v3 classiques). |
 | ✅ **CSP reCAPTCHA** | `middleware.ts` | `script-src`, `frame-src`, `connect-src` étendus pour `www.google.com` + `gstatic.com` |
 | ✅ **Authentification Firebase** | `lib/firebase/hooks.ts` | Email/password + Google OAuth — `signInWithPopup` desktop, `signInWithRedirect` mobile |
 | ✅ **Proxy Firebase Auth** | `next.config.js` | `/__/auth/*` proxifié vers `firebaseapp.com` — cookies first-party sur mobile (Safari/Chrome) |
@@ -1001,10 +1004,23 @@ Domaine Vercel non autorisé dans Firebase Auth.
 
 ---
 
-### ❌ Connexion Google bloquée (desktop)
+### ❌ Connexion Google bloquée (desktop) — `auth/popup-closed-by-user`
 
-La popup Google est bloquée par le navigateur ou le domaine n'est pas autorisé dans Firebase.
+**Causes fréquentes et solutions :**
 
+**1. X-Frame-Options bloque l'iframe Firebase Auth**
+Firebase crée un iframe caché `/__/auth/iframe` dans la page principale pour synchroniser le token OAuth. Si `X-Frame-Options: DENY` est envoyé sur la page principale, cet iframe est bloqué → popup échoue silencieusement.
+→ Vérifier que `X-Frame-Options: DENY` n'est PAS dans `next.config.js`. Ce projet utilise `frame-ancestors 'self'` (CSP) à la place, qui est prioritaire et plus flexible.
+
+**2. CSP manquant pour Firebase Auth**
+- `script-src` doit inclure `https://apis.google.com` (Firebase charge `api.js`)
+- `frame-src` doit inclure `'self'` + `https://*.firebaseapp.com` + `https://accounts.google.com`
+- Le handler `/__/auth/*` doit byasser le CSP nonce (déjà fait dans `middleware.ts`)
+
+**3. COOP bloque la communication popup**
+- `Cross-Origin-Opener-Policy` doit être `same-origin-allow-popups` (pas `same-origin`)
+
+**4. Domaine non autorisé dans Firebase**
 1. Vérifier que Google est activé dans Firebase → Authentication → Sign-in method
 2. Vérifier les domaines autorisés (localhost + votre domaine)
 3. Autoriser les popups dans le navigateur pour votre domaine
@@ -1144,4 +1160,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 17 mars 2026 — **fix LCP** : `useState(false)` dans usePortfolioData (données statiques immédiates sans skeleton), Hero h1/h2 `initial` sans `opacity:0` (texte visible dans HTML SSR → LCP mesuré dès le premier octet au lieu d'attendre l'hydratation JS ~9s mobile), next/font/google (Inter self-hosted, zéro render-blocking ~1850ms), KaTeX CSS admin-only, browserslist moderne, Tailwind content paths complets, éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore + VS Code HTML + Chrome image/png clipboard), layout Word centré en focusMode, toolbar Ribbon 4 onglets style Word, règles Firebase (2 admins), CSP nonce-based via middleware.ts, protection CSRF /api/*, Firebase App Check reCAPTCHA v3, CSP étendu (apis.google.com + *.firebaseapp.com + sha256 hash), COOP same-origin-allow-popups, proxy /__/auth/* Firebase Auth mobile, authDomain same-origin, signInWithRedirect mobile, Service Worker v4 (exclusion /__/auth/* pour fix Google OAuth mobile), Email Enumeration Protection, Password Policy, inscription publique désactivée, commentaires français sur tous les fichiers*
+*Documentation mise à jour le 17 mars 2026 — **fix auth Google OAuth desktop** : X-Frame-Options DENY supprimé (Firebase Auth crée un iframe `/__/auth/iframe` same-origin dans la page principale comme bridge de session OAuth — DENY bloquait cet iframe → `auth/popup-closed-by-user` ; protection clickjacking assurée par `frame-ancestors 'self'` dans le CSP, prioritaire sur X-Frame-Options), `frame-ancestors 'none'` → `'self'` dans `middleware.ts`, App Check passé à `ReCaptchaEnterpriseProvider` (admin.google.com crée des clés Enterprise depuis 2023 — `ReCaptchaV3Provider` appelait `/api2/clr` → 400 au lieu de `/enterprise/clr`). **fix LCP** : `useState(false)` dans usePortfolioData, Hero h1/h2 `initial` sans `opacity:0`, next/font/google, KaTeX CSS admin-only, browserslist moderne, Tailwind content paths complets, éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore + VS Code HTML + Chrome image/png clipboard), layout Word centré en focusMode, toolbar Ribbon 4 onglets style Word, règles Firebase (2 admins), CSP nonce-based via middleware.ts, protection CSRF /api/*, Firebase App Check reCAPTCHA Enterprise, CSP étendu (apis.google.com + *.firebaseapp.com + sha256 hash), COOP same-origin-allow-popups, proxy /__/auth/* Firebase Auth mobile, authDomain same-origin, signInWithRedirect mobile, Service Worker v4, Email Enumeration Protection, Password Policy, inscription publique désactivée, commentaires français sur tous les fichiers*
