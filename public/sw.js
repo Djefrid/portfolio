@@ -17,7 +17,7 @@
  */
 
 /** Nom et version du cache — incrémenter la version pour invalider l'ancien cache */
-const CACHE_NAME = 'portfolio-v3'; // v3 : exclusion chrome-extension:// (fix cache SW)
+const CACHE_NAME = 'portfolio-v4'; // v4 : exclusion /__/auth/* (fix Google OAuth redirect SW)
 
 /** Assets mis en cache lors de l'installation */
 const PRECACHE_URLS = [
@@ -71,9 +71,12 @@ self.addEventListener('fetch', (event) => {
   // ce qui bloque Google OAuth et App Check avec une erreur auth/internal-error.
   // chrome-extension:// et moz-extension:// : le Cache API n'accepte pas ces schémas
   // → TypeError: Failed to execute 'put' on 'Cache': Request scheme 'chrome-extension' is unsupported
+  // /__/auth/* : handler Firebase Auth redirect — le proxy Next.js doit traiter ces URLs
+  // directement sans interférence du SW, sinon getRedirectResult() retourne null (page blanche mobile)
   if (
     url.protocol === 'chrome-extension:' ||  // Extensions Chrome — schéma non cacheable
     url.protocol === 'moz-extension:' ||      // Extensions Firefox — schéma non cacheable
+    url.pathname.startsWith('/__/auth/') ||   // Firebase Auth redirect handler — CRITIQUE : doit passer au proxy Next.js sans interférence SW
     url.hostname.includes('firebase') ||
     url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis') ||
