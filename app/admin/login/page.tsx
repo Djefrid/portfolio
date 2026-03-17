@@ -32,7 +32,9 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getRedirectResult } from 'firebase/auth';
 import { useAuthContext } from '@/lib/firebase';
+import { auth } from '@/lib/firebase';
 
 /**
  * Composant de la page de connexion admin.
@@ -50,6 +52,29 @@ export default function LoginPage() {
   // useAuthContext fournit user, signIn et signInWithGoogle depuis Firebase
   const { signIn, signInWithGoogle, user } = useAuthContext();
   const router = useRouter();
+
+  /**
+   * Traite le résultat d'un signInWithRedirect (connexion Google sur mobile).
+   * Appelé une seule fois au montage — si l'utilisateur revient d'un redirect Google,
+   * getRedirectResult() retourne l'utilisateur connecté grâce au proxy /__/auth/
+   * (same-origin → cookies first-party → pas bloqués sur mobile).
+   * Si aucun redirect n'est en cours, retourne null silencieusement.
+   */
+  useEffect(() => {
+    if (!auth) return;
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          router.push('/admin');
+        }
+      })
+      .catch((err) => {
+        // Ignorer 'auth/no-auth-event' (pas de redirect en cours — cas normal)
+        if (err?.code !== 'auth/no-auth-event') {
+          setError('Connexion Google échouée : ' + err.message);
+        }
+      });
+  }, [router]);
 
   /**
    * Redirection automatique si l'utilisateur est déjà connecté.

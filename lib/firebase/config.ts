@@ -28,9 +28,29 @@ import { getStorage, FirebaseStorage } from 'firebase/storage';
  * Configuration Firebase lue depuis les variables d'environnement.
  * Le préfixe NEXT_PUBLIC_ rend ces variables accessibles côté client (navigateur).
  */
+/**
+ * authDomain : en production, utiliser le domaine réel du site (portfolio.djefrid.ca)
+ * pour que le proxy /__/auth/* fonctionne en same-origin.
+ * Sans ça, Firebase utilise portfolio-8d07b.firebaseapp.com (tiers) → cookies bloqués
+ * sur mobile → getRedirectResult() retourne null → connexion Google échoue sur mobile.
+ *
+ * En développement, on garde le domaine Firebase par défaut (pas de proxy local).
+ */
+const authDomain = (() => {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (process.env.NODE_ENV === 'production' && siteUrl) {
+    try {
+      return new URL(siteUrl).hostname; // 'portfolio.djefrid.ca'
+    } catch {
+      return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+    }
+  }
+  return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN; // 'portfolio-8d07b.firebaseapp.com' en dev
+})();
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  authDomain,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,

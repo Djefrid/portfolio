@@ -21,6 +21,38 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const nextConfig = {
   output: "standalone",
 
+  /**
+   * Proxy transparent pour Firebase Auth redirect flow.
+   *
+   * POURQUOI :
+   *   signInWithRedirect utilise /__/auth/handler pour communiquer le token
+   *   entre Google et l'application. Par défaut, ce handler est hébergé sur
+   *   portfolio-8d07b.firebaseapp.com (domaine tiers).
+   *   Les navigateurs mobiles (Safari iOS, Chrome Android) bloquent les cookies
+   *   tiers → getRedirectResult() retourne toujours null → auth échoue silencieusement.
+   *
+   * SOLUTION (Option 3 Firebase officielle) :
+   *   Proxifier /__/auth/* vers firebaseapp.com depuis notre propre domaine.
+   *   Firebase Auth SDK voit portfolio.djefrid.ca comme authDomain (same-origin)
+   *   → cookies first-party → getRedirectResult() fonctionne sur tous les mobiles.
+   *
+   * PRÉREQUIS MANUEL (à faire une seule fois dans Google Cloud Console) :
+   *   APIs & Services → Credentials → OAuth 2.0 Client ID Web application
+   *   → Authorized redirect URIs → ajouter :
+   *   https://portfolio.djefrid.ca/__/auth/handler
+   */
+  async rewrites() {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'portfolio-8d07b';
+    return {
+      beforeFiles: [
+        {
+          source: '/__/auth/:path*',
+          destination: `https://${projectId}.firebaseapp.com/__/auth/:path*`,
+        },
+      ],
+    };
+  },
+
   async headers() {
     return [
       {
