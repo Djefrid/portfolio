@@ -34,6 +34,13 @@
 
 "use client";
 
+/**
+ * Import KaTeX CSS uniquement dans le layout admin.
+ * Évite de charger ~100 KB de CSS sur le portfolio public (globals.css).
+ * KaTeX est utilisé exclusivement dans NotesEditor (extension TipTap mathematics).
+ */
+import 'katex/dist/katex.min.css';
+
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { AuthProvider, useAuthContext } from '@/lib/firebase';

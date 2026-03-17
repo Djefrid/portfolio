@@ -29,6 +29,22 @@ import "./globals.css";
 import Providers from "@/components/Providers";
 import { Analytics } from "@vercel/analytics/next";
 import { headers } from "next/headers";
+import { Inter } from "next/font/google";
+
+/**
+ * Police Inter chargée via next/font/google.
+ * Avantage vs <link> Google Fonts :
+ *   - Téléchargée au BUILD (self-hosted sur Vercel)
+ *   - Aucune requête externe bloquante au chargement de la page
+ *   - Élimine le "render-blocking" qui coûtait ~1850ms de LCP sur mobile
+ *   - display: 'swap' évite le FOIT (flash de texte invisible)
+ *   - variable: '--font-inter' expose la police via CSS variable (utilisée par Tailwind font-sans)
+ */
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 /** URL de base du site. Fallback vers l'URL de production si non définie. */
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://portfolio.djefrid.ca';
@@ -172,7 +188,7 @@ export default function RootLayout({
   const nonce = headers().get('x-nonce') ?? undefined;
 
   return (
-    <html lang="fr" className="scroll-smooth" suppressHydrationWarning>
+    <html lang="fr" className={`scroll-smooth ${inter.variable}`} suppressHydrationWarning>
       <head>
         {/* Balisage structuré JSON-LD pour Google — nonce requis par la CSP */}
         <script
@@ -180,14 +196,8 @@ export default function RootLayout({
           nonce={nonce}
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {/* Préconnexion aux serveurs Google Fonts pour accélérer le chargement */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* Police Inter : 4 graisses (400, 500, 600, 700), swap évite le FOIT */}
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* Note : plus de <link> Google Fonts ici — next/font/google
+         *  télécharge et self-host Inter au build → zéro requête externe bloquante */}
       </head>
       <body className="font-sans antialiased">
         {/* Skip link — premier élément focusable de la page (WCAG 2.4.1 — niveau A).

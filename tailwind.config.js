@@ -4,15 +4,21 @@ module.exports = {
     content: [
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
+    "./lib/**/*.{js,ts,jsx,tsx}",
+    "./hooks/**/*.{js,ts,jsx,tsx}",
+    "./context/**/*.{js,ts,jsx,tsx}",
+    "./data/**/*.{js,ts}",
   ],
   theme: {
   	extend: {
   		fontFamily: {
-  			sans: [
-  				'Inter',
-  				'system-ui',
-  				'sans-serif'
-  			]
+        // Utilise la CSS variable injectée par next/font/google (Inter self-hosted)
+        // 'var(--font-inter)' est défini dans app/layout.tsx via inter.variable
+        sans: [
+          'var(--font-inter)',
+          'system-ui',
+          'sans-serif',
+        ],
   		},
   		colors: {
   			primary: {

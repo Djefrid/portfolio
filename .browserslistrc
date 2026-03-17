@@ -1,0 +1,14 @@
+# Cible les navigateurs modernes uniquement (2 dernières versions majeures).
+# Réduit les polyfills ES5/legacy dans le bundle Next.js (~12 Ko économisés).
+# Couvre >95% des utilisateurs actifs en 2026.
+
+[production]
+chrome >= 90
+firefox >= 90
+safari >= 14
+edge >= 90
+
+[development]
+last 1 chrome version
+last 1 firefox version
+last 1 safari version

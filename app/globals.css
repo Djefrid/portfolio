@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* KaTeX — équations LaTeX dans l'éditeur TipTap */
-@import 'katex/dist/katex.min.css';
+/* KaTeX (équations LaTeX) — importé UNIQUEMENT dans app/admin/layout.tsx
+ * pour ne pas charger ~100KB de CSS sur le portfolio public.
+ * Voir : app/admin/layout.tsx → import 'katex/dist/katex.min.css' */
 
 @layer base {
   html {
