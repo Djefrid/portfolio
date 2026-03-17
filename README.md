@@ -864,6 +864,7 @@ COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
 | ✅ **Proxy Firebase Auth** | `next.config.js` | `/__/auth/*` proxifié vers `firebaseapp.com` — cookies first-party sur mobile (Safari/Chrome) |
 | ✅ **authDomain same-origin** | `lib/firebase/config.ts` | `authDomain = portfolio.djefrid.ca` en prod — évite les cookies tiers bloqués sur mobile |
 | ✅ **getRedirectResult** | `app/admin/login/page.tsx` | Traite le retour du redirect Google OAuth au montage de la page de login |
+| ✅ **SW exclut /__/auth/*** | `public/sw.js` v4 | Le Service Worker ne cacheait pas les navigations `/__/auth/handler` — laisse le proxy Next.js traiter ces URLs sans interférence |
 | ✅ **Vérification admin stricte** | `app/admin/layout.tsx` | Double garde : `isAdmin` (email dans liste `NEXT_PUBLIC_ADMIN_EMAIL` / `NEXT_PUBLIC_ADMIN_EMAIL_2`) ET utilisateur connecté |
 | ✅ **Variables d'environnement** | `.env.local` / `.gitignore` | Non commitées — `RESEND_API_KEY` côté serveur uniquement |
 | ✅ **XSS emails** | `app/api/contact/route.ts` | Données utilisateur échappées HTML avant insertion email Resend |
@@ -937,7 +938,7 @@ Le portfolio est installable comme application native sur desktop (Chrome/Edge) 
 
 - **Install** : pré-cache `'/'`, `'/favicon.svg'`, `'/icon-192.png'`, `'/icon-512.png'`
 - **Fetch** : réseau prioritaire → cache en fallback offline
-- **Exclusions** : Firebase, Firestore, googleapis, Vercel — jamais mis en cache
+- **Exclusions** : `/__/auth/*` (proxy Firebase Auth), Firebase, Firestore, googleapis, google.com, gstatic.com, chrome-extension://, Vercel — jamais mis en cache
 - **Activation** : `skipWaiting()` + `clients.claim()` — actif immédiatement sans fermer les onglets
 
 ### Vérifier le statut PWA (DevTools)
@@ -1011,12 +1012,17 @@ La popup Google est bloquée par le navigateur ou le domaine n'est pas autorisé
 
 ### ❌ Connexion Google échoue sur mobile (Safari iOS / Chrome Android)
 
-Sur mobile, `signInWithPopup` est bloqué par les navigateurs. Le projet utilise `signInWithRedirect` sur mobile. Pour que le redirect fonctionne, le proxy Firebase Auth doit être configuré :
+Sur mobile, `signInWithPopup` est bloqué par les navigateurs. Le projet utilise `signInWithRedirect` sur mobile. Pour que le redirect fonctionne, deux prérequis manuels :
 
-1. **Google Cloud Console** → APIs & Services → Credentials → OAuth 2.0 Client ID
-2. **Authorized redirect URIs** → ajouter : `https://votre-domaine.com/__/auth/handler`
+**1. Google Cloud Console** → APIs & Services → Credentials → OAuth 2.0 Client ID "Web client" :
+- **Origines JavaScript autorisées** → ajouter : `https://votre-domaine.com`
+- **URI de redirection autorisées** → ajouter : `https://votre-domaine.com/__/auth/handler`
 
-> Sans cette étape, `getRedirectResult()` retourne `null` même si le redirect s'est bien passé (cookies tiers bloqués par les navigateurs mobiles).
+**2. Firebase Console** → Authentication → Settings → Domaines autorisés → ajouter : `votre-domaine.com`
+
+> Sans ces étapes, `getRedirectResult()` retourne `null` et une page blanche s'affiche après le redirect Google.
+
+> **Note :** Le Service Worker (sw.js v4) exclut explicitement `/__/auth/*` pour ne pas interférer avec le proxy Firebase Auth — si le SW interceptait ces URLs, le redirect échouait silencieusement.
 
 ---
 
@@ -1137,4 +1143,4 @@ MIT — Libre d'utilisation, modification et distribution.
 
 ---
 
-*Documentation mise à jour le 16 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore + VS Code HTML + Chrome image/png clipboard), layout Word centré en focusMode, toolbar Ribbon 4 onglets style Word, règles Firebase (2 admins : VOTRE_EMAIL_ADMIN_2 + VOTRE_EMAIL_ADMIN_1), CSP nonce-based via middleware.ts, protection CSRF /api/*, Firebase App Check reCAPTCHA v3 intégré (lib/firebase/app-check.ts), CSP étendu pour reCAPTCHA (frame-src + script-src + connect-src), Email Enumeration Protection activé, Password Policy configurée, inscription publique désactivée, commentaires français sur tous les fichiers*
+*Documentation mise à jour le 16 mars 2026 — éditeur riche TipTap Word-style, dessin Excalidraw, drag & drop multi-fichiers, import/export DOCX, import PDF texte, correcteur natif navigateur, suggestions de tags (#), accessibilité ARIA complète, fix copier-coller (sync Firestore + VS Code HTML + Chrome image/png clipboard), layout Word centré en focusMode, toolbar Ribbon 4 onglets style Word, règles Firebase (2 admins), CSP nonce-based via middleware.ts, protection CSRF /api/*, Firebase App Check reCAPTCHA v3, CSP étendu (apis.google.com + *.firebaseapp.com + sha256 hash), COOP same-origin-allow-popups, proxy /__/auth/* Firebase Auth mobile, authDomain same-origin, signInWithRedirect mobile, Service Worker v4 (exclusion /__/auth/* pour fix Google OAuth mobile), Email Enumeration Protection, Password Policy, inscription publique désactivée, commentaires français sur tous les fichiers*
