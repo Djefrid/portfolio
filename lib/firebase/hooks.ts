@@ -23,6 +23,8 @@ import {
   signOut as firebaseSignOut,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   sendEmailVerification,
   User
 } from 'firebase/auth';
@@ -48,6 +50,14 @@ export function useAuth() {
       setLoading(false);
       return;
     }
+
+    // Traite le résultat d'un signInWithRedirect (mobile Google OAuth).
+    // Doit être appelé au montage — si un redirect Google vient de se terminer,
+    // onAuthStateChanged se déclenche automatiquement avec l'utilisateur.
+    // getRedirectResult() permet de capturer les erreurs éventuelles du redirect.
+    getRedirectResult(auth).catch(() => {
+      // Erreurs silencieuses — onAuthStateChanged gère l'état final
+    });
 
     // onAuthStateChanged écoute les changements d'état de connexion en temps réel
     // (connexion, déconnexion, expiration de session, etc.)
@@ -77,8 +87,15 @@ export function useAuth() {
   };
 
   /**
-   * Connecte l'utilisateur via son compte Google (popup).
-   * @returns { user, error } - L'utilisateur connecté ou un message d'erreur
+   * Connecte l'utilisateur via son compte Google.
+   * - Desktop : signInWithPopup (UX immédiate, pas de rechargement de page)
+   * - Mobile  : signInWithRedirect (les mobiles bloquent les popups — Safari iOS
+   *             et Chrome Android empêchent window.open() sans geste utilisateur direct)
+   *
+   * Après le redirect mobile, getRedirectResult() dans le useEffect récupère
+   * automatiquement le résultat et onAuthStateChanged déclenche la redirection vers /admin.
+   *
+   * @returns { user, error } - L'utilisateur connecté (desktop) ou null (mobile redirect)
    */
   const signInWithGoogle = async () => {
     if (!auth) {
@@ -86,6 +103,19 @@ export function useAuth() {
     }
     try {
       const provider = new GoogleAuthProvider();
+
+      // Détection mobile — userAgent couvre Android, iPhone, iPad et autres
+      const isMobile = typeof navigator !== 'undefined' &&
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      if (isMobile) {
+        // Sur mobile : redirige vers Google puis revient sur la page
+        // Le résultat est traité par getRedirectResult() dans le useEffect au retour
+        await signInWithRedirect(auth, provider);
+        return { user: null, error: null }; // La page sera redirigée — pas de retour ici
+      }
+
+      // Sur desktop : popup classique (résultat immédiat)
       const result = await signInWithPopup(auth, provider);
       return { user: result.user, error: null };
     } catch (error) {
