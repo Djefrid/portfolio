@@ -88,11 +88,17 @@ export function middleware(request: NextRequest) {
     // blob: : Excalidraw utilise des web workers blob: pour la compression et l'export
     "worker-src 'self' blob:",
 
+    // 'self'                 : REQUIS — Firebase Auth crée un iframe sur notre propre
+    //                          domaine (/__/auth/iframe proxié depuis firebaseapp.com).
+    //                          apis.google.com charge un script qui crée cet iframe ;
+    //                          sans 'self', notre CSP bloque portfolio.djefrid.ca/__/auth/iframe
+    //                          → UNKNOWN_ERROR / popup-closed-by-user sur Google OAuth.
     // accounts.google.com    : Google OAuth (signInWithPopup)
     // www.google.com + recaptcha.google.com : iframes reCAPTCHA v3 (App Check)
     // *.firebaseapp.com      : Firebase Auth popup handler (signInWithPopup ouvre
     //                          portfolio-8d07b.firebaseapp.com/__/auth/handler)
-    "frame-src https://accounts.google.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com",
+    // vercel.live            : barre Vercel preview (preview deployments uniquement)
+    "frame-src 'self' https://accounts.google.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com https://vercel.live",
 
     // frame-ancestors 'none' : interdit l'intégration de ce site dans des iframes
     // (renforce X-Frame-Options: DENY)
