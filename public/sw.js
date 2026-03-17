@@ -17,7 +17,7 @@
  */
 
 /** Nom et version du cache — incrémenter la version pour invalider l'ancien cache */
-const CACHE_NAME = 'portfolio-v1';
+const CACHE_NAME = 'portfolio-v2'; // v2 : exclusion google.com + gstatic.com (fix OAuth)
 
 /** Assets mis en cache lors de l'installation */
 const PRECACHE_URLS = [
@@ -65,11 +65,16 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Ne pas intercepter les requêtes Firebase, Firestore, APIs externes
+  // Ne pas intercepter les requêtes Firebase, Firestore, Google APIs ni ressources tierces.
+  // CRITIQUE : apis.google.com (Firebase signInWithPopup) et gstatic.com (reCAPTCHA)
+  // doivent être exclus — le SW retournerait undefined depuis le cache vide,
+  // ce qui bloque Google OAuth et App Check avec une erreur auth/internal-error.
   if (
     url.hostname.includes('firebase') ||
     url.hostname.includes('firestore') ||
     url.hostname.includes('googleapis') ||
+    url.hostname.includes('google.com') ||  // apis.google.com, accounts.google.com, recaptcha.google.com
+    url.hostname.includes('gstatic.com') || // www.gstatic.com (reCAPTCHA scripts, polices)
     url.hostname.includes('vercel') ||
     event.request.method !== 'GET'
   ) {
