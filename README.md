@@ -899,6 +899,56 @@ COUCHE 5 — Règles Firestore/Storage (côté Google, infalsifiable)
 > - `Custom Token Sign In per minute` → réduire à **50**
 > - `QueryUserInfo per minute` → réduire à **100**
 
+### Firebase App Check — reCAPTCHA Enterprise : fonctionnement
+
+> **Tu ne verras jamais reCAPTCHA Enterprise apparaître.** C'est son principe : il est entièrement invisible pour l'utilisateur.
+
+#### reCAPTCHA v2 vs reCAPTCHA Enterprise
+
+| | reCAPTCHA v2 | reCAPTCHA Enterprise (ce projet) |
+|---|---|---|
+| **Visible ?** | ✅ Case à cocher "Je ne suis pas un robot" + puzzles d'images | ❌ Rien — complètement invisible |
+| **Interaction** | L'utilisateur doit cliquer / résoudre un puzzle | Aucune action requise |
+| **Résultat** | Passe / Échoue | Score continu de `0.0` (bot) à `1.0` (humain) |
+
+#### Comment reCAPTCHA Enterprise fonctionne dans ce projet
+
+```
+1. Page se charge
+   └─ reCAPTCHA Enterprise se charge silencieusement en arrière-plan
+      (script www.google.com/recaptcha/enterprise.js — invisible)
+
+2. Analyse comportementale (Google, côté serveur)
+   ├─ Mouvements de souris et patterns de frappe
+   ├─ Historique de navigation et empreinte du navigateur
+   ├─ Adresse IP et réputation réseau
+   └─ Durée de la session, interactions naturelles vs robotiques
+
+3. Score attribué
+   ├─ 0.9 → humain très probable ✅
+   ├─ 0.5 → ambigu
+   └─ 0.1 → bot probable ❌
+
+4. Token généré → Firebase App Check l'envoie avec chaque requête
+   (Firestore, Auth, Storage)
+
+5. Côté serveur Firebase → valide le token
+   ├─ Mode Monitor : requête autorisée même si score bas (collecte métriques)
+   └─ Mode Enforcement : requête bloquée si score insuffisant
+```
+
+#### Ce que tu peux voir (uniquement dans DevTools)
+
+Dans Chrome → F12 → Onglet **Network**, filtre `recaptcha` : tu verras des requêtes silencieuses vers `www.google.com/recaptcha/enterprise/...` — c'est tout.
+
+Il peut aussi apparaître un petit badge discret en bas à droite de la page :
+```
+[🔒 reCAPTCHA - Confidentialité - Conditions]
+```
+Ce badge peut être masqué avec CSS si nécessaire.
+
+---
+
 ### Règles Firestore expliquées ligne par ligne
 
 ```javascript
