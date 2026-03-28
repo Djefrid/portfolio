@@ -36,6 +36,7 @@
 
 import { useState, useEffect } from 'react';
 import { getProfile, updateProfile } from '@/lib/firebase';
+import { deleteCvFileByUrl, isFirebaseStorageUrl, uploadCvFile } from '@/lib/upload-cv';
 import type { ProfileData, BilingualText, BilingualArray } from '@/types/firebase';
 
 /**
@@ -189,6 +190,14 @@ export default function ProfileEditor() {
   /** true pendant les 3 étapes de sauvegarde (translate → Firebase → sync) */
   const [saving, setSaving] = useState(false);
 
+  /** true pendant l'upload local du fichier CV */
+  const [uploadingCv, setUploadingCv] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [savedCvUrl, setSavedCvUrl] = useState('');
+  const [selectedCvFile, setSelectedCvFile] = useState<File | null>(null);
+  const [selectedCvPreviewUrl, setSelectedCvPreviewUrl] = useState('');
+  const [cvInputKey, setCvInputKey] = useState(0);
+
   /**
    * Message de retour affiché après une action (succès ou erreur).
    * Nullable : null = aucun message affiché.
@@ -211,6 +220,23 @@ export default function ProfileEditor() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (selectedCvPreviewUrl) {
+        URL.revokeObjectURL(selectedCvPreviewUrl);
+      }
+    };
+  }, [selectedCvPreviewUrl]);
+
+  const clearSelectedCvPreview = () => {
+    if (selectedCvPreviewUrl) {
+      URL.revokeObjectURL(selectedCvPreviewUrl);
+    }
+    setSelectedCvFile(null);
+    setSelectedCvPreviewUrl('');
+    setCvInputKey((current) => current + 1);
+  };
 
   /**
    * Charge le profil depuis Firestore et normalise les données legacy.
@@ -239,6 +265,7 @@ export default function ProfileEditor() {
         },
       };
       setProfile(convertedProfile);
+      setSavedCvUrl(data.cvUrl || '');
     }
     setLoading(false);
   };
@@ -324,6 +351,90 @@ export default function ProfileEditor() {
    *
    * @param value - Chaîne CSV des technologies (ex: "React, Next.js, TypeScript")
    */
+  const handleSaveProfile = async () => {
+    if (uploadingCv) {
+      setMessage({
+        type: 'error',
+        text: 'Attends la fin de l’upload du CV avant d’enregistrer le profil.',
+      });
+      return;
+    }
+
+    setSaving(true);
+    setMessage(null);
+
+    try {
+      setMessage({ type: 'success', text: 'Traduction automatique en cours...' });
+
+      const firebaseData = toFirebaseFormat(profile);
+
+      const translateResponse = await fetch('/api/translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'profile',
+          data: firebaseData,
+          sourceLang: activeLang,
+        }),
+      });
+
+      let dataToSave = firebaseData;
+      if (translateResponse.ok) {
+        const translateResult = await translateResponse.json();
+        if (translateResult.success && translateResult.data) {
+          dataToSave = translateResult.data;
+        }
+      }
+
+      setMessage({ type: 'success', text: 'Sauvegarde Firebase...' });
+      const firebaseSuccess = await updateProfile(dataToSave);
+
+      if (!firebaseSuccess) {
+        setMessage({ type: 'error', text: 'Erreur lors de la sauvegarde Firebase' });
+        return;
+      }
+
+      if (
+        savedCvUrl &&
+        savedCvUrl !== dataToSave.cvUrl &&
+        isFirebaseStorageUrl(savedCvUrl)
+      ) {
+        try {
+          await deleteCvFileByUrl(savedCvUrl);
+        } catch (cleanupError) {
+          console.warn('Old CV cleanup failed:', cleanupError);
+        }
+      }
+
+      setMessage({ type: 'success', text: 'Synchronisation fichier local...' });
+      const syncResponse = await fetch('/api/sync-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'profile', data: dataToSave }),
+      });
+
+      setSavedCvUrl(dataToSave.cvUrl);
+
+      if (syncResponse.ok) {
+        setMessage({ type: 'success', text: 'Profil traduit et synchronisé (Firebase + fichier local)!' });
+      } else {
+        const syncResult = await syncResponse.json().catch(() => null);
+        setMessage({
+          type: 'success',
+          text: syncResult?.details
+            ? `Firebase OK + traduit, mais erreur sync fichier local: ${syncResult.details}`
+            : 'Firebase OK + traduit, mais erreur sync fichier local',
+        });
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      setMessage({ type: 'error', text: 'Erreur lors de la sauvegarde' });
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(null), 8000);
+    }
+  };
+
   const updateStack = (value: string) => {
     setProfile({ ...profile, stack: value.split(',').map(s => s.trim()).filter(Boolean) });
   };
@@ -413,6 +524,130 @@ export default function ProfileEditor() {
   const removeHighlight = (index: number) => {
     const highlights = profile.about.highlights.filter((_, i) => i !== index);
     setProfile({ ...profile, about: { ...profile.about, highlights } });
+  };
+
+  /**
+   * Upload un fichier CV dans Firebase Storage puis remplit automatiquement cvUrl.
+   * Le lien doit encore être persisté via le bouton "Enregistrer".
+   */
+  const handleCvSelection = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setMessage({ type: 'error', text: 'Seuls les fichiers PDF sont acceptés pour le CV.' });
+      event.target.value = '';
+      return;
+    }
+
+    clearSelectedCvPreview();
+    setSelectedCvFile(file);
+    setSelectedCvPreviewUrl(URL.createObjectURL(file));
+    setMessage(null);
+  };
+
+  const handleCvUpload = async () => {
+    if (!selectedCvFile) {
+      setMessage({ type: 'error', text: 'Choisis d’abord un PDF à prévisualiser.' });
+      return;
+    }
+
+    setUploadingCv(true);
+    setUploadProgress(0);
+    setMessage(null);
+
+    try {
+      const previousUnsavedCvUrl =
+        profile.cvUrl &&
+        profile.cvUrl !== savedCvUrl &&
+        isFirebaseStorageUrl(profile.cvUrl)
+          ? profile.cvUrl
+          : '';
+
+      const result = await uploadCvFile(selectedCvFile, setUploadProgress);
+
+      if (previousUnsavedCvUrl && previousUnsavedCvUrl !== result.url) {
+        try {
+          await deleteCvFileByUrl(previousUnsavedCvUrl);
+        } catch (cleanupError) {
+          console.warn('Previous unsaved CV cleanup failed:', cleanupError);
+        }
+      }
+
+      setProfile((current) => ({
+        ...current,
+        cvUrl: result.url,
+      }));
+      setMessage({
+        type: 'success',
+        text: 'CV uploadé dans Firebase Storage. Clique sur "Enregistrer" pour publier ce nouveau lien.',
+      });
+    } catch (error) {
+      console.error('CV upload error:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Erreur pendant l’upload du CV.',
+      });
+    } finally {
+      setUploadingCv(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleSelectedCvPreview = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    if (!isPdf) {
+      setMessage({ type: 'error', text: 'Seuls les fichiers PDF sont acceptés pour le CV.' });
+      event.target.value = '';
+      return;
+    }
+
+    if (selectedCvPreviewUrl) {
+      URL.revokeObjectURL(selectedCvPreviewUrl);
+    }
+
+    setSelectedCvFile(file);
+    setSelectedCvPreviewUrl(URL.createObjectURL(file));
+    setMessage(null);
+  };
+
+  const handleSelectedCvUpload = async () => {
+    if (!selectedCvFile) {
+      setMessage({ type: 'error', text: 'Choisis d’abord un PDF à prévisualiser.' });
+      return;
+    }
+
+    setUploadingCv(true);
+    setUploadProgress(0);
+    setMessage(null);
+
+    try {
+      const result = await uploadCvFile(selectedCvFile, setUploadProgress);
+
+      setProfile((current) => ({
+        ...current,
+        cvUrl: result.url,
+      }));
+      setMessage({
+        type: 'success',
+        text: 'PDF uploadé dans Firebase Storage. Clique sur "Enregistrer" pour publier ce nouveau CV.',
+      });
+
+      clearSelectedCvPreview();
+    } catch (error) {
+      console.error('CV upload error:', error);
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : 'Erreur pendant l’upload du CV.',
+      });
+    } finally {
+      setUploadingCv(false);
+      setUploadProgress(0);
+    }
   };
 
   // ── Rendu conditionnel : spinner de chargement ─────────────────────────────
@@ -569,6 +804,73 @@ export default function ProfileEditor() {
               className="w-full px-4 py-2 bg-dark-800 border border-dark-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
+          <div className="sm:col-span-2 rounded-lg border border-dark-700 bg-dark-800/60 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-white">Prévisualiser puis uploader un nouveau CV</p>
+                <p className="text-sm text-gray-400">
+                  Formats acceptés : PDF, DOC, DOCX. Le fichier sera envoyé dans `Firebase Storage`.
+                </p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-700">
+                Choisir un PDF
+                <input
+                  key={cvInputKey}
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={handleSelectedCvPreview}
+                  disabled={uploadingCv}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            {selectedCvFile && selectedCvPreviewUrl && (
+              <div className="mt-4 rounded-lg border border-dark-700 bg-dark-900/70 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="text-sm text-gray-300">
+                    <p className="font-medium text-white">PDF sélectionné</p>
+                    <p>{selectedCvFile.name}</p>
+                    <p>{(selectedCvFile.size / 1024 / 1024).toFixed(2)} Mo</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSelectedCvUpload}
+                    disabled={uploadingCv}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {uploadingCv ? 'Upload en cours...' : 'Ajouter ce PDF'}
+                  </button>
+                </div>
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-medium text-white">Aperçu avant upload</p>
+                  <iframe
+                    src={selectedCvPreviewUrl}
+                    title="Aperçu du CV PDF"
+                    className="h-[520px] w-full rounded-lg border border-dark-700 bg-white"
+                  />
+                </div>
+              </div>
+            )}
+            {uploadingCv && (
+              <div className="mt-3">
+                <div className="h-2 overflow-hidden rounded-full bg-dark-700">
+                  <div
+                    className="h-full bg-primary-500 transition-all"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs text-gray-400">{uploadProgress}%</p>
+              </div>
+            )}
+            {profile.cvUrl && (
+              <p className="mt-3 break-all text-sm text-gray-300">
+                Fichier actuel : <span className="text-primary-400">{profile.cvUrl}</span>
+              </p>
+            )}
+            <p className="mt-2 text-xs text-gray-400">
+              Après l’upload, le bouton "Enregistrer" reste nécessaire pour mettre à jour `cvUrl` dans ton profil.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -649,7 +951,7 @@ export default function ProfileEditor() {
       <div className="flex justify-end pt-4 border-t border-dark-800">
         <button
           type="button"
-          onClick={handleSave}
+          onClick={handleSaveProfile}
           disabled={saving} // Désactivé pendant l'opération pour éviter les doubles sauvegardes
           className="px-6 py-3 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >

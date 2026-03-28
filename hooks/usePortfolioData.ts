@@ -31,7 +31,15 @@ import {
   projectsBilingual,
   skillsBilingual
 } from '@/data/portfolio-data';
-import { getProfile, getProjects, getSkills, isFirebaseConfigured } from '@/lib/firebase';
+import {
+  getProfile,
+  getProjects,
+  getSkills,
+  isFirebaseConfigured,
+  subscribeToProfile,
+  subscribeToProjects,
+  subscribeToSkills
+} from '@/lib/firebase';
 import type { Project, SkillCategory } from '@/types';
 import type { SkillsData, SkillsDataNew } from '@/types/firebase';
 import { isNewSkillsFormat } from '@/types/firebase';
@@ -301,7 +309,9 @@ export function usePortfolioData(): PortfolioData {
   const { language } = useLanguage();
 
   // Données statiques selon la langue — servent de fallback immédiat
-  const staticProfile = personalInfoBilingual[language];
+  const staticProfile = personalInfoBilingual[language] as typeof personalInfoBilingual.fr & {
+    location?: string;
+  };
   const staticAbout = aboutInfoBilingual[language];
   const staticProjects = projectsBilingual[language];
   const staticSkills = skillsBilingual[language];
@@ -323,6 +333,10 @@ export function usePortfolioData(): PortfolioData {
 
   // Chargement Firebase au montage du composant (une seule fois)
   useEffect(() => {
+    let unsubscribeProfile: (() => void) | undefined;
+    let unsubscribeProjects: (() => void) | undefined;
+    let unsubscribeSkills: (() => void) | undefined;
+
     const loadFirebaseData = async () => {
       // Si Firebase n'est pas configuré (pas de .env.local), on utilise les données statiques
       if (!isFirebaseConfigured) {
@@ -352,6 +366,19 @@ export function usePortfolioData(): PortfolioData {
           if (hasSkills) setFirebaseSkills(skillsData);
           setSource('firebase');
           console.log('Using Firebase data');
+
+          unsubscribeProfile = subscribeToProfile((data) => {
+            setFirebaseProfile(data as FirebaseProfileRaw | null);
+            setSource(data ? 'firebase' : 'static');
+          });
+
+          unsubscribeProjects = subscribeToProjects((data) => {
+            setFirebaseProjects(data as FirebaseProjectRaw[]);
+          });
+
+          unsubscribeSkills = subscribeToSkills((data) => {
+            setFirebaseSkills(data as SkillsData | SkillsDataNew | null);
+          });
         } else {
           // Firebase accessible mais collections vides → fallback statique
           console.log('No Firebase data found, using static data');
@@ -367,6 +394,12 @@ export function usePortfolioData(): PortfolioData {
     };
 
     loadFirebaseData();
+
+    return () => {
+      unsubscribeProfile?.();
+      unsubscribeProjects?.();
+      unsubscribeSkills?.();
+    };
   }, []); // Pas de dépendance : ne se relance pas quand la langue change
 
   /**

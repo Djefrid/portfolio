@@ -28,6 +28,58 @@
 
 'use client';
 
+declare global {
+  interface Window {
+    HTMLToDOCX?: (
+      html: string,
+      headerHtml?: string | null,
+      options?: {
+        table?: { row?: { cantSplit?: boolean } };
+        footer?: boolean;
+        font?: string;
+        fontSize?: number;
+      }
+    ) => Promise<Blob | ArrayBuffer>;
+  }
+}
+
+let htmlToDocxScriptPromise: Promise<void> | null = null;
+
+async function loadHtmlToDocxBrowserBundle(): Promise<void> {
+  if (typeof window === 'undefined') {
+    throw new Error('L’export DOCX nécessite un navigateur.');
+  }
+
+  if (window.HTMLToDOCX) return;
+  if (htmlToDocxScriptPromise) return htmlToDocxScriptPromise;
+
+  htmlToDocxScriptPromise = new Promise((resolve, reject) => {
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-html-to-docx-bundle="true"]'
+    );
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(), { once: true });
+      existingScript.addEventListener('error', () => reject(new Error('Impossible de charger html-to-docx.')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = '/vendor/html-to-docx.browser.js';
+    script.async = true;
+    script.dataset.htmlToDocxBundle = 'true';
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Impossible de charger html-to-docx.'));
+    document.head.appendChild(script);
+  });
+
+  await htmlToDocxScriptPromise;
+
+  if (!window.HTMLToDOCX) {
+    throw new Error('Le bundle navigateur html-to-docx n’a pas exposé HTMLToDOCX.');
+  }
+}
+
 /**
  * Importe un fichier .docx et retourne du HTML compatible TipTap.
  *
@@ -70,8 +122,12 @@ export async function importDocx(file: File): Promise<string> {
  *   - Lignes de tableau non scindées sur plusieurs pages
  */
 export async function exportDocx(html: string, filename = 'note'): Promise<void> {
-  // Import dynamique — le bundle est lourd (~1 MB)
-  const HTMLtoDOCX = (await import('@turbodocx/html-to-docx')).default;
+  await loadHtmlToDocxBrowserBundle();
+  const HTMLtoDOCX = window.HTMLToDOCX;
+
+  if (!HTMLtoDOCX) {
+    throw new Error('HTMLToDOCX indisponible dans le navigateur.');
+  }
 
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>${html}</body></html>`;
 

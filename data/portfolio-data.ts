@@ -35,7 +35,7 @@ import type { PersonalInfo, AboutInfo, Project, SkillCategory } from '@/types';
 export const personalInfoBilingual = {
   fr: {
     name: "Djefrid Byli Fotue Kuate",
-    title: "Développeur Full-Stack | Support IT",
+    title: "Développeur Full-Stack | Certifié AWS Cloud Practitioner | Support IT",
     stack: [
       "HTML",
       "CSS",
@@ -80,13 +80,12 @@ export const personalInfoBilingual = {
     email: "djeffkuate@gmail.com",
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
-    cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
-    location: "Montréal, QC",
+    cvUrl: "https://firebasestorage.googleapis.com/v0/b/portfolio-8d07b.firebasestorage.app/o/cv%2F1774675578028_CV_Developpeur_FullStack_Djefrid_Byli.pdf?alt=media&token=a8e62f01-2572-42a3-84d6-93fa36f1cab1",
     openToWork: true
   },
   en: {
     name: "Djefrid Byli Fotue Kuate",
-    title: "Full-Stack Developer | IT Support",
+    title: "Full-Stack Developer | AWS Cloud Practitioner | IT Support",
     stack: [
       "HTML",
       "CSS",
@@ -131,8 +130,7 @@ export const personalInfoBilingual = {
     email: "djeffkuate@gmail.com",
     github: "https://github.com/Djefrid",
     linkedin: "https://www.linkedin.com/in/djefrid-byli-fotue-kuate-a30633225/",
-    cvUrl: "/CV_Developpeur_FullStack_Djefrid_Byli_ATS.pdf",
-    location: "Montreal, QC",
+    cvUrl: "https://firebasestorage.googleapis.com/v0/b/portfolio-8d07b.firebasestorage.app/o/cv%2F1774675578028_CV_Developpeur_FullStack_Djefrid_Byli.pdf?alt=media&token=a8e62f01-2572-42a3-84d6-93fa36f1cab1",
     openToWork: true
   }
 };

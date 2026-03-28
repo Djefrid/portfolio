@@ -98,7 +98,7 @@ export function middleware(request: NextRequest) {
     // *.firebaseapp.com      : Firebase Auth popup handler (signInWithPopup ouvre
     //                          portfolio-8d07b.firebaseapp.com/__/auth/handler)
     // vercel.live            : barre Vercel preview (preview deployments uniquement)
-    "frame-src 'self' https://accounts.google.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com https://vercel.live",
+    "frame-src 'self' blob: https://accounts.google.com https://www.google.com https://recaptcha.google.com https://*.firebaseapp.com https://vercel.live",
 
     // frame-ancestors 'self' : autorise uniquement les iframes same-origin.
     // Firebase Auth signInWithPopup crée un iframe /__/auth/iframe (proxié via
